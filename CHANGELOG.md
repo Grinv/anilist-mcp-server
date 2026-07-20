@@ -6,6 +6,19 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-07-21
+
+### Added
+
+- Add a `sort` parameter to `search_media` (e.g. `SCORE_DESC`, `POPULARITY_DESC`,
+  `TRENDING_DESC`) — the underlying client already supported it, but the tool
+  never exposed it, so a term-less browse/ranking query always fell back to
+  relevance-only ordering.
+- Add `excludeInList` to `get_recommendations_for_media`: filters out
+  recommendations already on the caller's own list (requires login). Every
+  recommendation's `mediaRecommendation.mediaListEntry` is now also returned
+  regardless, so a caller can inspect list status without a separate lookup.
+
 ## [0.1.0] - 2026-07-21
 
 ### Added

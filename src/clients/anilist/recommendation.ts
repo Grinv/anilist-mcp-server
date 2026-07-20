@@ -7,19 +7,34 @@ export async function getRecommendation(ctx: AniListContext, id: number): Promis
   return data.Recommendation;
 }
 
+interface RecommendationsPage {
+  pageInfo: unknown;
+  nodes: { mediaRecommendation?: { mediaListEntry?: unknown } | null }[];
+}
+
 export async function getRecommendationsForMedia(
   ctx: AniListContext,
   mediaId: number,
   page = 1,
   perPage = 10,
+  excludeInList = false,
 ): Promise<unknown> {
+  // mediaListEntry is viewer-relative — only resolves when authHeader() carries
+  // a token; requesting it unauthenticated is harmless (always comes back
+  // null, so excludeInList silently filters nothing rather than erroring).
   const query = `query($id:Int,$page:Int,$perPage:Int){Media(id:$id){recommendations(page:$page,perPage:$perPage,sort:RATING_DESC){
-    nodes{id rating userRating mediaRecommendation{id title{romaji english} siteUrl}}
+    pageInfo{hasNextPage}
+    nodes{id rating userRating mediaRecommendation{id title{romaji english} siteUrl mediaListEntry{id status}}}
   }}}`;
-  const data = await ctx.gql.request<{ Media: { recommendations: unknown } }>(
+  const data = await ctx.gql.request<{ Media: { recommendations: RecommendationsPage } }>(
     query,
     { id: mediaId, page, perPage },
     ctx.authHeader(),
   );
-  return data.Media.recommendations;
+  const { recommendations } = data.Media;
+  if (!excludeInList) return recommendations;
+  return {
+    ...recommendations,
+    nodes: recommendations.nodes.filter((n) => !n.mediaRecommendation?.mediaListEntry),
+  };
 }

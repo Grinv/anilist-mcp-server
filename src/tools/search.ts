@@ -21,6 +21,45 @@ const FORMATS = [
 const STATUSES = ["FINISHED", "RELEASING", "NOT_YET_RELEASED", "CANCELLED", "HIATUS"] as const;
 const SEASONS = ["WINTER", "SPRING", "SUMMER", "FALL"] as const;
 const ACTIVITY_TYPES = ["TEXT", "ANIME_LIST", "MANGA_LIST", "MESSAGE", "MEDIA_LIST"] as const;
+const MEDIA_SORTS = [
+  "ID",
+  "ID_DESC",
+  "TITLE_ROMAJI",
+  "TITLE_ROMAJI_DESC",
+  "TITLE_ENGLISH",
+  "TITLE_ENGLISH_DESC",
+  "TITLE_NATIVE",
+  "TITLE_NATIVE_DESC",
+  "TYPE",
+  "TYPE_DESC",
+  "FORMAT",
+  "FORMAT_DESC",
+  "START_DATE",
+  "START_DATE_DESC",
+  "END_DATE",
+  "END_DATE_DESC",
+  "SCORE",
+  "SCORE_DESC",
+  "POPULARITY",
+  "POPULARITY_DESC",
+  "TRENDING",
+  "TRENDING_DESC",
+  "EPISODES",
+  "EPISODES_DESC",
+  "DURATION",
+  "DURATION_DESC",
+  "STATUS",
+  "STATUS_DESC",
+  "CHAPTERS",
+  "CHAPTERS_DESC",
+  "VOLUMES",
+  "VOLUMES_DESC",
+  "UPDATED_AT",
+  "UPDATED_AT_DESC",
+  "SEARCH_MATCH",
+  "FAVOURITES",
+  "FAVOURITES_DESC",
+] as const;
 
 const mediaSearchInput = z.object({
   type: z.enum(MEDIA_TYPES).describe("Whether to search anime or manga."),
@@ -56,6 +95,15 @@ const mediaSearchInput = z.object({
     .describe(
       "Set true to exclude adult (isAdult) entries. Adult results are NOT filtered by default.",
     ),
+  sort: z
+    .array(z.enum(MEDIA_SORTS))
+    .optional()
+    .describe(
+      'Sort order, most-significant key first (e.g. ["SCORE_DESC"] for highest-rated first, ' +
+        '["POPULARITY_DESC"] for most popular, ["TRENDING_DESC"] for what\'s hot right now). ' +
+        "Defaults to relevance-ranked SEARCH_MATCH, which only makes sense when `term` is also " +
+        "given — set an explicit sort for a term-less browse/ranking query.",
+    ),
   page: z.number().int().positive().default(1).describe("Page number for pagination."),
   perPage: z.number().int().min(1).max(25).default(10).describe("Results per page (max 25)."),
 });
@@ -90,6 +138,7 @@ export function registerSearchTools(server: McpServer, client: AniListClient): v
             term: args.term,
             page: args.page,
             perPage: args.perPage,
+            sort: args.sort,
             filter: {
               isAdult: args.sfw ? false : undefined,
               genre_in: args.genres,

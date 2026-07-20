@@ -32,6 +32,12 @@ const recommendationNode = z
         id: z.number().int(),
         title: z.object({ romaji: z.string().nullish(), english: z.string().nullish() }).nullish(),
         siteUrl: z.string().nullish(),
+        // Only resolves when the caller is logged in (viewer-relative) — null
+        // otherwise, or when this title isn't on the caller's own list.
+        mediaListEntry: z
+          .object({ id: z.number().int(), status: z.string().nullish() })
+          .passthrough()
+          .nullish(),
       })
       .passthrough()
       .nullish(),
@@ -63,7 +69,10 @@ export function registerRecommendationTools(server: McpServer, client: AniListCl
       title: "Get recommendations for a title",
       description:
         "List anime/manga AniList users recommend as similar to a given title, ranked by " +
-        "rating. Use search_media first to resolve the title to its AniList ID.",
+        "rating. Use search_media first to resolve the title to its AniList ID. Each " +
+        "recommendation's `mediaListEntry` (requires login) shows whether it's already on " +
+        "your own list — set `excludeInList: true` to filter those out server-side instead of " +
+        "checking each one yourself.",
       inputSchema: z.object({
         mediaId: z
           .number()
@@ -71,13 +80,22 @@ export function registerRecommendationTools(server: McpServer, client: AniListCl
           .describe("AniList ID of the anime/manga to get recommendations for."),
         page: z.number().int().positive().default(1).describe("Page number for pagination."),
         perPage: z.number().int().min(1).max(25).default(10).describe("Results per page (max 25)."),
+        excludeInList: z
+          .boolean()
+          .default(false)
+          .describe(
+            "[Requires login] Omit recommendations already on your own list. Filtered after " +
+              "fetching this page, so a page can come back with fewer than `perPage` results — " +
+              "not an error, just fewer new ones on that page. No-ops (nothing filtered) if not " +
+              "logged in, since there's no list to check against.",
+          ),
       }),
       outputSchema: z.object({
         recommendations: z.object({ nodes: z.array(recommendationNode).nullish() }).passthrough(),
       }),
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
-    ({ mediaId, page, perPage }) =>
+    ({ mediaId, page, perPage, excludeInList }) =>
       guard(async () =>
         jsonResult({
           recommendations: await recommendation.getRecommendationsForMedia(
@@ -85,6 +103,7 @@ export function registerRecommendationTools(server: McpServer, client: AniListCl
             mediaId,
             page,
             perPage,
+            excludeInList,
           ),
         }),
       ),

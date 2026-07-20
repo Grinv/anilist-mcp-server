@@ -13,6 +13,7 @@ import * as activity from "../clients/anilist/activity.js";
 import * as thread from "../clients/anilist/thread.js";
 import * as misc from "../clients/anilist/misc.js";
 import * as notification from "../clients/anilist/notification.js";
+import * as recommendation from "../clients/anilist/recommendation.js";
 import { ApiError } from "../lib/errors.js";
 import type { TokenState } from "../lib/tokenStore.js";
 import { silentLogger, jsonResponse, mockFetch, installFetch, testConfig } from "./helpers.js";
@@ -69,6 +70,71 @@ test("searchMedia passes isAdult through when set, and omits it when left undefi
   await search.searchMedia(client.ctx(), "ANIME", { term: "frieren", filter: { isAdult: false } });
   vars = JSON.parse(mock.calls[1]!.init?.body as string).variables as Record<string, unknown>;
   assert.equal(vars.isAdult, false);
+});
+
+test("searchMedia sends the caller's sort, or SEARCH_MATCH when omitted", async (t) => {
+  const mock = mockFetch(() => jsonResponse({ data: { Page: { media: [] } } }));
+  installFetch(t, mock);
+  const client = new AniListClient(testConfig({}), silentLogger());
+
+  await search.searchMedia(client.ctx(), "ANIME", { filter: {} });
+  let vars = JSON.parse(mock.calls[0]!.init?.body as string).variables as Record<string, unknown>;
+  assert.deepEqual(vars.sort, ["SEARCH_MATCH"], "default sort when none is given");
+
+  await search.searchMedia(client.ctx(), "ANIME", {
+    sort: ["SCORE_DESC", "POPULARITY_DESC"],
+    filter: {},
+  });
+  vars = JSON.parse(mock.calls[1]!.init?.body as string).variables as Record<string, unknown>;
+  assert.deepEqual(vars.sort, ["SCORE_DESC", "POPULARITY_DESC"]);
+});
+
+test("getRecommendationsForMedia requests mediaListEntry and, when excludeInList is set, filters out recommendations already on the caller's list", async (t) => {
+  const mock = mockFetch(() =>
+    jsonResponse({
+      data: {
+        Media: {
+          recommendations: {
+            pageInfo: { hasNextPage: false },
+            nodes: [
+              {
+                id: 1,
+                mediaRecommendation: { id: 10, mediaListEntry: { id: 99, status: "COMPLETED" } },
+              },
+              { id: 2, mediaRecommendation: { id: 20, mediaListEntry: null } },
+            ],
+          },
+        },
+      },
+    }),
+  );
+  installFetch(t, mock);
+  const client = new AniListClient(testConfig({}), silentLogger());
+
+  const withoutFilter = (await recommendation.getRecommendationsForMedia(
+    client.ctx(),
+    1,
+    1,
+    10,
+  )) as { nodes: unknown[] };
+  assert.equal(withoutFilter.nodes.length, 2, "no filtering by default");
+  assert.match(
+    JSON.parse(mock.calls[0]!.init?.body as string).query as string,
+    /mediaListEntry\{id status\}/,
+  );
+
+  const filtered = (await recommendation.getRecommendationsForMedia(
+    client.ctx(),
+    1,
+    1,
+    10,
+    true,
+  )) as { nodes: { id: number }[] };
+  assert.deepEqual(
+    filtered.nodes.map((n) => n.id),
+    [2],
+    "excludeInList must drop the node whose mediaRecommendation already has a mediaListEntry",
+  );
 });
 
 test("saveListEntry refuses without a configured access token", async () => {

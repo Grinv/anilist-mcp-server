@@ -1,0 +1,66 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.Grinv/anilist-mcp-server",
+  "title": "AniList MCP Server",
+  "description": "MCP server for the AniList GraphQL API — anime/manga search, details, and personal list management.",
+  "version": "0.1.0",
+  "repository": {
+    "url": "https://github.com/Grinv/anilist-mcp-server",
+    "source": "github"
+  },
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "anilist-mcp-server",
+      "version": "0.1.0",
+      "runtimeHint": "npx",
+      "transport": { "type": "stdio" },
+      "environmentVariables": [
+        {
+          "name": "ANILIST_CLIENT_ID",
+          "description": "Optional. From an app registered at anilist.co/settings/developer — needed to use login_anilist.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "ANILIST_CLIENT_SECRET",
+          "description": "Optional. Paired with the Client ID above — needed to use login_anilist.",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "ANILIST_ACCESS_TOKEN",
+          "description": "Optional. A pre-obtained AniList access token, as an alternative to running login_anilist.",
+          "isRequired": false,
+          "isSecret": true
+        }
+      ]
+    },
+    {
+      "registryType": "mcpb",
+      "identifier": "https://github.com/Grinv/anilist-mcp-server/releases/download/v0.1.0/anilist-mcp-server.mcpb",
+      "version": "0.1.0",
+      "transport": { "type": "stdio" },
+      "environmentVariables": [
+        {
+          "name": "ANILIST_CLIENT_ID",
+          "description": "Optional. From an app registered at anilist.co/settings/developer — needed to use login_anilist.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "ANILIST_CLIENT_SECRET",
+          "description": "Optional. Paired with the Client ID above — needed to use login_anilist.",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "ANILIST_ACCESS_TOKEN",
+          "description": "Optional. A pre-obtained AniList access token, as an alternative to running login_anilist.",
+          "isRequired": false,
+          "isSecret": true
+        }
+      ]
+    }
+  ]
+}

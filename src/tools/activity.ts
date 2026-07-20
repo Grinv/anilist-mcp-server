@@ -1,0 +1,194 @@
+import { z } from "zod";
+import type { McpServer } from "@modelcontextprotocol/server";
+import type { AniListClient } from "../clients/anilist.js";
+import * as activity from "../clients/anilist/activity.js";
+import { jsonResult } from "../lib/result.js";
+import { guard } from "./guard.js";
+import { pageInfoSchema, deleteResult } from "./outputSchemas.js";
+
+const userIdOrName = z
+  .union([z.number().int(), z.string().min(1)])
+  .describe("AniList user ID, or username.");
+
+/** Matches the ACTIVITY_FRAGMENT union (TextActivity/ListActivity/MessageActivity) —
+ *  `id` is the only field common to every branch; the rest are optional since
+ *  which ones are populated depends on which concrete activity type came back. */
+const activityItem = z
+  .object({
+    id: z.number().int(),
+    type: z.string().nullish(),
+    createdAt: z.number().nullish(),
+    siteUrl: z.string().nullish(),
+    text: z.string().nullish(),
+    status: z.string().nullish(),
+    progress: z.string().nullish(),
+    message: z.string().nullish(),
+    user: z.object({ id: z.number().int(), name: z.string().nullish() }).passthrough().nullish(),
+    media: z
+      .object({
+        id: z.number().int(),
+        title: z.object({ romaji: z.string().nullish(), english: z.string().nullish() }).nullish(),
+      })
+      .passthrough()
+      .nullish(),
+    recipient: z
+      .object({ id: z.number().int(), name: z.string().nullish() })
+      .passthrough()
+      .nullish(),
+    messenger: z
+      .object({ id: z.number().int(), name: z.string().nullish() })
+      .passthrough()
+      .nullish(),
+  })
+  .passthrough();
+
+const savedTextActivity = z
+  .object({ id: z.number().int(), text: z.string().nullish(), siteUrl: z.string().nullish() })
+  .passthrough();
+
+const savedMessageActivity = z
+  .object({ id: z.number().int(), message: z.string().nullish(), siteUrl: z.string().nullish() })
+  .passthrough();
+
+export function registerActivityTools(server: McpServer, client: AniListClient): void {
+  server.registerTool(
+    "get_activity",
+    {
+      title: "Get an activity post",
+      description:
+        "Get a single AniList activity post (list update, text post, or message) by its ID.",
+      inputSchema: z.object({
+        id: z
+          .number()
+          .int()
+          .describe(
+            "AniList activity ID — from get_user_activity, get_user_recent_activity, or the " +
+              "id returned by post_text_activity/post_message_activity.",
+          ),
+      }),
+      outputSchema: z.object({ activity: activityItem }),
+      annotations: { readOnlyHint: true, openWorldHint: true },
+    },
+    ({ id }) =>
+      guard(async () => jsonResult({ activity: await activity.getActivity(client.ctx(), id) })),
+  );
+
+  server.registerTool(
+    "get_user_activity",
+    {
+      title: "Get a user's activity feed",
+      description:
+        "List recent AniList activity posts from a specific user (list updates, text posts). " +
+        "Accepts an exact AniList username directly (it's resolved to an id with one extra " +
+        "internal lookup) — no need to call search_user first unless you only have a " +
+        "partial/fuzzy name.",
+      inputSchema: z.object({
+        user: userIdOrName,
+        page: z.number().int().positive().default(1).describe("Page number for pagination."),
+        perPage: z.number().int().min(1).max(25).default(10).describe("Results per page (max 25)."),
+      }),
+      outputSchema: z.object({
+        results: z
+          .object({
+            pageInfo: pageInfoSchema.optional(),
+            activities: z.array(activityItem).optional(),
+          })
+          .passthrough(),
+      }),
+      annotations: { readOnlyHint: true, openWorldHint: true },
+    },
+    ({ user, page, perPage }) =>
+      guard(async () =>
+        jsonResult({ results: await activity.getUserActivity(client.ctx(), user, page, perPage) }),
+      ),
+  );
+
+  server.registerTool(
+    "post_text_activity",
+    {
+      title: "Post a text activity",
+      description:
+        "[Requires login] Post a new text-status update to the authenticated user's own " +
+        "AniList profile, or update an existing one by passing its `id`.",
+      inputSchema: z.object({
+        text: z.string().min(1).describe("The text to post."),
+        id: z
+          .number()
+          .int()
+          .optional()
+          .describe("Activity ID to update instead of creating a new post."),
+      }),
+      outputSchema: z.object({ activity: savedTextActivity }),
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: false,
+        openWorldHint: true,
+      },
+    },
+    ({ text, id }) =>
+      guard(async () =>
+        jsonResult({ activity: await activity.postTextActivity(client.ctx(), text, id) }),
+      ),
+  );
+
+  server.registerTool(
+    "post_message_activity",
+    {
+      title: "Post a message activity",
+      description:
+        "[Requires login] Post a new direct message-style activity to another AniList user's " +
+        "profile, or update an existing one by passing its `id`.",
+      inputSchema: z.object({
+        recipientId: z
+          .number()
+          .int()
+          .describe(
+            "AniList numeric user ID of the message recipient (resolve a username via " +
+              "search_user first).",
+          ),
+        message: z.string().min(1).describe("The message text to post."),
+        id: z
+          .number()
+          .int()
+          .optional()
+          .describe("Activity ID to update instead of creating a new post."),
+      }),
+      outputSchema: z.object({ activity: savedMessageActivity }),
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: false,
+        openWorldHint: true,
+      },
+    },
+    ({ recipientId, message, id }) =>
+      guard(async () =>
+        jsonResult({
+          activity: await activity.postMessageActivity(client.ctx(), recipientId, message, id),
+        }),
+      ),
+  );
+
+  server.registerTool(
+    "delete_activity",
+    {
+      title: "Delete an activity post",
+      description:
+        "[Requires login] Delete an activity post the authenticated user owns. This cannot be undone.",
+      inputSchema: z.object({
+        id: z
+          .number()
+          .int()
+          .describe(
+            "AniList activity ID to delete — from get_user_activity or the id returned by a " +
+              "previous post_text_activity/post_message_activity call.",
+          ),
+      }),
+      outputSchema: z.object({ result: deleteResult }),
+      annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true },
+    },
+    ({ id }) =>
+      guard(async () => jsonResult({ result: await activity.deleteActivity(client.ctx(), id) })),
+  );
+}

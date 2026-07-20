@@ -1,0 +1,179 @@
+{
+  "manifest_version": "0.3",
+  "name": "anilist-mcp-server",
+  "display_name": "AniList MCP Server",
+  "version": "0.1.0",
+  "description": "MCP server for the AniList GraphQL API — search and browse anime/manga, characters, staff and studios, and manage your own AniList lists.",
+  "long_description": "MCP server for AniList. Reads (search/details/genres/tags/recommendations/threads/activity/public user data) call the public AniList GraphQL API and require no credentials. Personal-list and social tools (add/update/remove list entries, favourites, follow, posting/deleting activity or threads, update_user, notifications) act on the authenticated user's own AniList account and require a user token; without one they return an actionable error. Works with any MCP client.",
+  "author": {
+    "name": "Grinv",
+    "email": "4070730+Grinv@users.noreply.github.com",
+    "url": "https://github.com/Grinv"
+  },
+  "homepage": "https://github.com/Grinv/anilist-mcp-server",
+  "documentation": "https://github.com/Grinv/anilist-mcp-server#readme",
+  "support": "https://github.com/Grinv/anilist-mcp-server/issues",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Grinv/anilist-mcp-server"
+  },
+  "license": "MIT",
+  "keywords": ["mcp", "anilist", "anime", "manga"],
+  "privacy_policies": ["https://anilist.co/terms"],
+  "server": {
+    "type": "node",
+    "entry_point": "dist/index.js",
+    "mcp_config": {
+      "command": "node",
+      "args": ["${__dirname}/dist/index.js"],
+      "env": {
+        "ANILIST_CLIENT_ID": "${user_config.anilist_client_id}",
+        "ANILIST_CLIENT_SECRET": "${user_config.anilist_client_secret}",
+        "ANILIST_ACCESS_TOKEN": "${user_config.anilist_access_token}"
+      }
+    }
+  },
+  "tools_generated": false,
+  "tools": [
+    {
+      "name": "get_genres",
+      "description": "List every genre name AniList uses to tag anime/manga."
+    },
+    {
+      "name": "get_media_tags",
+      "description": "List every descriptive tag AniList uses on anime/manga."
+    },
+    {
+      "name": "get_site_statistics",
+      "description": "AniList's own site-wide statistics for the last several days."
+    },
+    { "name": "get_studio", "description": "A studio's profile and most popular produced titles." },
+    {
+      "name": "favourite",
+      "description": "Favourite/unfavourite an anime, manga, character, staff member or studio (requires token)."
+    },
+    { "name": "get_activity", "description": "A single activity post by its ID." },
+    {
+      "name": "get_user_activity",
+      "description": "A user's activity feed (list updates, text posts)."
+    },
+    {
+      "name": "post_text_activity",
+      "description": "Post/update a text-status update (requires token)."
+    },
+    {
+      "name": "post_message_activity",
+      "description": "Post/update a message to another user (requires token)."
+    },
+    {
+      "name": "delete_activity",
+      "description": "Delete an activity post you own (requires token)."
+    },
+    {
+      "name": "get_user_list",
+      "description": "A user's full anime or manga list, grouped by status."
+    },
+    {
+      "name": "add_list_entry",
+      "description": "Add an anime/manga to your list (requires token)."
+    },
+    {
+      "name": "update_list_entry",
+      "description": "Update an entry on your list (requires token)."
+    },
+    {
+      "name": "remove_list_entry",
+      "description": "Delete an entry from your list (requires token)."
+    },
+    { "name": "get_media", "description": "Detailed info for one or more anime or manga by ID." },
+    {
+      "name": "get_media_statistics",
+      "description": "Watch/read-status counts and score distribution for an anime or manga."
+    },
+    {
+      "name": "get_media_characters",
+      "description": "An anime or manga's characters, roles and (for anime) voice actors."
+    },
+    {
+      "name": "get_media_staff",
+      "description": "An anime or manga's production staff and their roles."
+    },
+    {
+      "name": "get_media_reviews",
+      "description": "User-written reviews for an anime or manga."
+    },
+    { "name": "get_media_relations", "description": "Prequels/sequels/side stories of a title." },
+    { "name": "get_anime_schedule", "description": "Upcoming episode air times." },
+    { "name": "get_character", "description": "A character's profile by ID." },
+    { "name": "get_staff", "description": "A staff member's profile by ID." },
+    {
+      "name": "get_todays_birthdays",
+      "description": "Characters or staff members whose birthday is today."
+    },
+    { "name": "get_recommendation", "description": "A single recommendation pairing by ID." },
+    {
+      "name": "get_recommendations_for_media",
+      "description": "Titles recommended alongside a given anime/manga."
+    },
+    { "name": "search_media", "description": "Search anime or manga by title and/or filters." },
+    { "name": "search_character", "description": "Search characters by name." },
+    { "name": "search_staff", "description": "Search staff members by name." },
+    { "name": "search_studio", "description": "Search animation/production studios by name." },
+    { "name": "search_user", "description": "Search users by username." },
+    { "name": "search_activity", "description": "Search/browse AniList's activity feed." },
+    { "name": "get_thread", "description": "A forum thread's title, body and metadata by ID." },
+    { "name": "get_thread_comments", "description": "Comments posted on a forum thread." },
+    { "name": "delete_thread", "description": "Delete a forum thread you own (requires token)." },
+    { "name": "get_user_profile", "description": "A user's public profile." },
+    { "name": "get_user_stats", "description": "A user's anime/manga statistics." },
+    { "name": "get_full_user_info", "description": "A user's profile and statistics in one call." },
+    {
+      "name": "get_user_recent_activity",
+      "description": "A user's few most recent activity posts."
+    },
+    {
+      "name": "get_authorized_user",
+      "description": "The logged-in user's own profile (requires token)."
+    },
+    { "name": "follow_user", "description": "Follow/unfollow a user (requires token)." },
+    {
+      "name": "update_user",
+      "description": "Update your AniList account settings (requires token)."
+    },
+    {
+      "name": "get_notifications",
+      "description": "Your AniList notifications: airing episodes, activity/thread likes and replies, new followers (requires token)."
+    },
+    {
+      "name": "login_anilist",
+      "description": "Authorize the personal-list tools with your AniList account (one-time)."
+    },
+    {
+      "name": "submit_anilist_redirect",
+      "description": "Finish a login_anilist authorization on a remote/headless host."
+    }
+  ],
+  "user_config": {
+    "anilist_client_id": {
+      "type": "string",
+      "title": "AniList Client ID",
+      "description": "Optional. From an app registered at anilist.co/settings/developer — needed to use login_anilist.",
+      "required": false,
+      "sensitive": false
+    },
+    "anilist_client_secret": {
+      "type": "string",
+      "title": "AniList Client Secret",
+      "description": "Optional. Paired with the Client ID above — needed to use login_anilist.",
+      "required": false,
+      "sensitive": true
+    },
+    "anilist_access_token": {
+      "type": "string",
+      "title": "AniList Access Token",
+      "description": "Optional. A pre-obtained AniList access token, as an alternative to running login_anilist.",
+      "required": false,
+      "sensitive": true
+    }
+  }
+}

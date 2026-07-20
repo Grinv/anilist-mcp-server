@@ -1,0 +1,144 @@
+import { z } from "zod";
+import type { McpServer } from "@modelcontextprotocol/server";
+import type { AniListClient } from "../clients/anilist.js";
+import * as misc from "../clients/anilist/misc.js";
+import { jsonResult, errorResult } from "../lib/result.js";
+import { guard } from "./guard.js";
+
+const mediaTagItem = z
+  .object({
+    id: z.number().int().optional(),
+    name: z.string().optional(),
+    description: z.string().nullish(),
+    category: z.string().nullish(),
+    isAdult: z.boolean().nullish(),
+  })
+  .passthrough();
+
+const statSeries = z
+  .object({
+    nodes: z
+      .array(
+        z
+          .object({
+            date: z.number().nullish(),
+            count: z.number().int().nullish(),
+            change: z.number().int().nullish(),
+          })
+          .passthrough(),
+      )
+      .nullish(),
+  })
+  .passthrough();
+
+const siteStatisticsObject = z
+  .object({
+    users: statSeries.nullish(),
+    anime: statSeries.nullish(),
+    manga: statSeries.nullish(),
+  })
+  .passthrough();
+
+/** STUDIO_FIELDS — only `id`/`name` are near-certain; everything else is
+ *  nullable/absent depending on what AniList actually has for the studio. */
+const studioObject = z
+  .object({
+    id: z.number().int().optional(),
+    name: z.string().optional(),
+    isAnimationStudio: z.boolean().nullish(),
+    isFavourite: z.boolean().nullish(),
+    siteUrl: z.string().nullish(),
+    media: z
+      .object({
+        nodes: z
+          .array(
+            z
+              .object({
+                id: z.number().int().optional(),
+                title: z
+                  .object({ romaji: z.string().nullish(), english: z.string().nullish() })
+                  .nullish(),
+              })
+              .passthrough(),
+          )
+          .nullish(),
+      })
+      .passthrough()
+      .nullish(),
+  })
+  .passthrough();
+
+export function registerMiscTools(server: McpServer, client: AniListClient): void {
+  server.registerTool(
+    "get_genres",
+    {
+      title: "Get genres",
+      description:
+        "List every genre name AniList uses to tag anime/manga (e.g. Action, Comedy, Slice of " +
+        "Life). Call this before filtering search_media by genre, so you pass a " +
+        "name AniList actually recognizes.",
+      inputSchema: z.object({}),
+      outputSchema: z.object({ genres: z.array(z.string()) }),
+      annotations: { readOnlyHint: true, openWorldHint: true },
+    },
+    () => guard(async () => jsonResult({ genres: await misc.getGenres(client.ctx()) })),
+  );
+
+  server.registerTool(
+    "get_media_tags",
+    {
+      title: "Get media tags",
+      description:
+        "List every descriptive tag AniList uses on anime/manga (finer-grained than genres, " +
+        "e.g. 'Time Skip', 'Tragedy', 'Reincarnation'), with category and adult-content flag. " +
+        "Use to discover valid tag names before filtering a search by tag.",
+      inputSchema: z.object({}),
+      outputSchema: z.object({ tags: z.array(mediaTagItem) }),
+      annotations: { readOnlyHint: true, openWorldHint: true },
+    },
+    () => guard(async () => jsonResult({ tags: await misc.getMediaTags(client.ctx()) })),
+  );
+
+  server.registerTool(
+    "get_site_statistics",
+    {
+      title: "Get AniList site statistics",
+      description:
+        "Get AniList's own site-wide statistics (new users/anime/manga counts) for the last " +
+        "several days. Useful for questions about AniList's growth/activity, not for anime data.",
+      inputSchema: z.object({}),
+      outputSchema: z.object({ statistics: siteStatisticsObject }),
+      annotations: { readOnlyHint: true, openWorldHint: true },
+    },
+    () => guard(async () => jsonResult({ statistics: await misc.getSiteStatistics(client.ctx()) })),
+  );
+
+  server.registerTool(
+    "get_studio",
+    {
+      title: "Get studio",
+      description:
+        "Get a studio's profile (name, whether it's an animation studio) and its most popular " +
+        "produced titles, by AniList studio ID or by name. Use search_studio first if you only " +
+        "have a partial name and need to resolve it to an ID. If both `id` and `name` are given, " +
+        "`id` takes precedence and `name` is ignored.",
+      inputSchema: z.object({
+        id: z.number().int().optional().describe("AniList studio ID. Provide this or `name`."),
+        name: z
+          .string()
+          .min(1)
+          .optional()
+          .describe("Studio name to look up. Provide this or `id`."),
+      }),
+      outputSchema: z.object({ studio: studioObject }),
+      annotations: { readOnlyHint: true, openWorldHint: true },
+    },
+    ({ id, name }) =>
+      guard(async () => {
+        if (id === undefined && name === undefined) {
+          return errorResult("Provide either `id` or `name`.");
+        }
+        return jsonResult({ studio: await misc.getStudio(client.ctx(), id ?? name!) });
+      }),
+  );
+}

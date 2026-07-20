@@ -1,0 +1,29 @@
+import type { AniListContext } from "./context.js";
+import { CHARACTER_FIELDS, STAFF_FIELDS } from "./fields.js";
+
+export async function getCharacter(ctx: AniListContext, id: number): Promise<unknown> {
+  const query = `query($id:Int){Character(id:$id){${CHARACTER_FIELDS}}}`;
+  const data = await ctx.gql.request<{ Character: unknown }>(query, { id }, ctx.authHeader());
+  return data.Character;
+}
+
+export async function getStaff(ctx: AniListContext, id: number): Promise<unknown> {
+  const query = `query($id:Int){Staff(id:$id){${STAFF_FIELDS}}}`;
+  const data = await ctx.gql.request<{ Staff: unknown }>(query, { id }, ctx.authHeader());
+  return data.Staff;
+}
+
+export async function getTodaysBirthdays(
+  ctx: AniListContext,
+  kind: "CHARACTER" | "STAFF",
+): Promise<unknown> {
+  const field = kind === "CHARACTER" ? "characters" : "staff";
+  const fields = kind === "CHARACTER" ? CHARACTER_FIELDS : STAFF_FIELDS;
+  const query = `query{Page(perPage:50){${field}(isBirthday:true){${fields}}}}`;
+  const data = await ctx.gql.request<{ Page: Record<string, unknown[]> }>(
+    query,
+    {},
+    ctx.authHeader(),
+  );
+  return data.Page[field];
+}

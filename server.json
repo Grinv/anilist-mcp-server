@@ -6,7 +6,8 @@
   "version": "0.1.0",
   "repository": {
     "url": "https://github.com/Grinv/anilist-mcp-server",
-    "source": "github"
+    "source": "github",
+    "id": "1306772146"
   },
   "packages": [
     {

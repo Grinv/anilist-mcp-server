@@ -10,6 +10,12 @@
     "email": "4070730+Grinv@users.noreply.github.com",
     "url": "https://github.com/Grinv"
   },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Grinv/anilist-mcp-server.git"
+  },
+  "homepage": "https://github.com/Grinv/anilist-mcp-server#readme",
+  "bugs": "https://github.com/Grinv/anilist-mcp-server/issues",
   "keywords": [
     "mcp",
     "model-context-protocol",

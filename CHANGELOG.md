@@ -6,6 +6,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-07-21
+
 ### Added
 
 - Initial release: an MCP server for AniList's GraphQL API, talking to

@@ -26,7 +26,12 @@ and glincker/changelog-generator.
   user-visible side effects (behavior change, perf, a fixed edge case) still
   gets an entry describing that effect, not the refactor itself.
 - **Link commits/PRs/issues**: reference the commit that made the change, and
-  the PR or issue too when one exists.
+  the PR or issue too when one exists. Exception: a version whose entire
+  content is one single commit (e.g. this project's own `[0.1.0]` — the whole
+  initial codebase landed in one commit) — don't repeat the identical link
+  after every bullet; put one link at the section level instead (e.g.
+  "Everything below is one commit: `[<sha>](...)`." right under the version
+  heading).
 - **No dangling link line**: keep an entry and its link(s) on one physical
   source line, even if long. GitHub renders a single soft-wrapped newline
   inside a list item as a real line break, so a wrapped entry shows its link

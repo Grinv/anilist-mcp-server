@@ -116,6 +116,19 @@ not be greater than 100."]}}`. Both `lib/http.ts`'s `parseErrorMessage()`
   search/list queries still request `total`/`lastPage` for callers who find
   them useful, but tool descriptions and callers should not treat them as
   exact.
+- **Every `PageInfo` field is nullable at the schema level** (`total`,
+  `perPage`, `currentPage`, `lastPage`, `hasNextPage` — confirmed via
+  introspection: none carry a `NON_NULL` wrapper), and there is only one
+  `PageInfo` type reused by every connection (`CharacterConnection`,
+  `StaffConnection`, `ReviewConnection`, `MediaConnection`, `Page` itself,
+  …) — no per-connection override tightens this. Confirmed live: a
+  `threadComments` page on a thread that had just had its only comment
+  deleted came back with `total`/`currentPage`/`lastPage` all `null` (not
+  `0`/`1`/`1`) — while genuinely-empty pages elsewhere (e.g. `search_character`
+  run past the real end of its matches) still returned real numbers. Since
+  nothing in the schema guarantees the latter behavior, `pageInfoSchema`
+  (`src/tools/outputSchemas.ts`) models every field `.nullish()`, not just
+  `.optional()` — don't narrow it back without re-verifying every consumer.
 - An unprovided GraphQL variable is simply ignored by the server (treated as
   not passed) rather than erroring — confirms `lib/graphql.ts`'s
   `stripUndefined()` approach (omit unset optional variables entirely) is
@@ -157,11 +170,20 @@ completedAt: FuzzyDateInput)` — note **`advancedScores`** is plural (a
     `Favourites { anime: MediaConnection, manga: MediaConnection, characters:
 CharacterConnection, staff: StaffConnection, studios: StudioConnection }`
     (each a `{nodes: [...]}` connection).
-  - `DeleteMediaListEntry(id)`, `DeleteActivity(id)`, `DeleteThread(id)` each
-    return `Deleted { deleted: Boolean }`.
+  - `DeleteMediaListEntry(id)`, `DeleteActivity(id)`, `DeleteThread(id)`,
+    `DeleteThreadComment(id)` each return `Deleted { deleted: Boolean }`.
   - `SaveTextActivity(id, text, locked)`, `SaveMessageActivity(id, message,
 recipientId, private, locked, asMod)`, `ToggleFollow(userId)`,
     `UpdateUser(about, titleLanguage, displayAdultContent, scoreFormat, …)`.
+  - `SaveThread(id, title, body, categories: [Int], mediaCategories: [Int],
+sticky, locked)` and `SaveThreadComment(id, threadId, parentCommentId,
+comment)` — same upsert convention as `SaveMediaListEntry`. There is no
+    query to list `ThreadCategory` values independently; the only way to
+    discover one is to already have a `Thread` (its `categories`/
+    `mediaCategories` fields) or a forum URL
+    (`anilist.co/forum/recent?category=<id>`) — `post_thread`/`search_thread`
+    document this limitation rather than pretending categories are
+    discoverable some other way.
 - **`Media` query/filter args** (also valid on `Page.media(...)`, same
   arg set): `search, type, sort: [MediaSort], isAdult, genre_in: [String],
 format_in: [MediaFormat], status_in: [MediaStatus], season: MediaSeason,

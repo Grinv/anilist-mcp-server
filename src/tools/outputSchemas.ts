@@ -14,27 +14,33 @@ import { z } from "zod";
  *  "not found"; this only guards the range GraphQL can carry at all. */
 export const anilistId = z.number().int().min(-2147483648).max(2147483647);
 
+// AniList sometimes returns explicit `null` (not just omitting the field) for
+// every one of these — confirmed live on a `threadComments` page that had
+// just been emptied out (total/currentPage/lastPage all came back `null`,
+// not `0`/`1`/`1`). `.nullish()` (not `.optional()`) throughout so that known
+// flakiness surfaces as a `null` value instead of a hard output-validation
+// failure that kills the whole tool call.
 export const pageInfoSchema = z
   .object({
     total: z
       .number()
       .int()
-      .optional()
+      .nullish()
       .describe(
         "Not currently accurate (a known AniList performance limitation) — don't rely on it " +
           "to decide whether to fetch more pages.",
       ),
-    perPage: z.number().int().optional(),
-    currentPage: z.number().int().optional(),
+    perPage: z.number().int().nullish(),
+    currentPage: z.number().int().nullish(),
     lastPage: z
       .number()
       .int()
-      .optional()
+      .nullish()
       .describe(
         "Not currently accurate (a known AniList performance limitation) — use `hasNextPage` " +
           "instead to decide whether to fetch another page.",
       ),
-    hasNextPage: z.boolean().optional(),
+    hasNextPage: z.boolean().nullish(),
   })
   .passthrough();
 

@@ -251,6 +251,59 @@ export function registerSearchTools(server: McpServer, client: AniListClient): v
   );
 
   server.registerTool(
+    "search_thread",
+    {
+      title: "Search forum threads",
+      description:
+        "Search/browse AniList's forum threads by title/body text and/or restrict to one " +
+        "category. Returns AniList thread IDs (with title/category for context) to use with " +
+        "get_thread, get_thread_comments, post_thread, or post_thread_comment.",
+      inputSchema: z.object({
+        term: z
+          .string()
+          .optional()
+          .describe(
+            "Free-text search term (matches thread title/body). Omit to just filter/browse.",
+          ),
+        categoryId: anilistId
+          .optional()
+          .describe(
+            "Restrict to this forum category ID. Not independently listable by any tool — " +
+              "resolve one from a thread you've already read (its `categories` field) or from " +
+              "a forum URL like anilist.co/forum/recent?category=<id>.",
+          ),
+        mediaCategoryId: anilistId
+          .optional()
+          .describe(
+            "Restrict to threads tagged with this AniList anime/manga ID (from " +
+              "search_media/get_media).",
+          ),
+        page: z.number().int().positive().default(1).describe("Page number for pagination."),
+        perPage: z.number().int().min(1).max(25).default(10).describe("Results per page (max 25)."),
+      }),
+      outputSchema: z.object({
+        results: z
+          .object({ pageInfo: pageInfoSchema.optional(), threads: z.array(idOnly).optional() })
+          .passthrough(),
+      }),
+      annotations: { readOnlyHint: true, openWorldHint: true },
+    },
+    ({ term, categoryId, mediaCategoryId, page, perPage }) =>
+      guard(async () =>
+        jsonResult({
+          results: await search.searchThread(
+            client.ctx(),
+            term,
+            categoryId,
+            mediaCategoryId,
+            page,
+            perPage,
+          ),
+        }),
+      ),
+  );
+
+  server.registerTool(
     "search_activity",
     {
       title: "Search activity feed",

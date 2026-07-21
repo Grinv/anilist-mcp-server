@@ -123,9 +123,19 @@
     { "name": "search_studio", "description": "Search animation/production studios by name." },
     { "name": "search_user", "description": "Search users by username." },
     { "name": "search_activity", "description": "Search/browse AniList's activity feed." },
+    { "name": "search_thread", "description": "Search/browse AniList's forum threads." },
     { "name": "get_thread", "description": "A forum thread's title, body and metadata by ID." },
     { "name": "get_thread_comments", "description": "Comments posted on a forum thread." },
+    { "name": "post_thread", "description": "Post or update a forum thread (requires token)." },
+    {
+      "name": "post_thread_comment",
+      "description": "Post or update a comment on a forum thread (requires token)."
+    },
     { "name": "delete_thread", "description": "Delete a forum thread you own (requires token)." },
+    {
+      "name": "delete_thread_comment",
+      "description": "Delete a thread comment you own (requires token)."
+    },
     { "name": "get_user_profile", "description": "A user's public profile." },
     { "name": "get_user_stats", "description": "A user's anime/manga statistics." },
     { "name": "get_full_user_info", "description": "A user's profile and statistics in one call." },

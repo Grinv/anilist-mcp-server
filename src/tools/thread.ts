@@ -6,6 +6,14 @@ import { jsonResult } from "../lib/result.js";
 import { guard } from "./guard.js";
 import { pageInfoSchema, deleteResult, anilistId } from "./outputSchemas.js";
 
+const savedThread = z
+  .object({ id: z.number().int(), title: z.string().nullish(), siteUrl: z.string().nullish() })
+  .passthrough();
+
+const savedThreadComment = z
+  .object({ id: z.number().int(), comment: z.string().nullish(), siteUrl: z.string().nullish() })
+  .passthrough();
+
 const threadObject = z
   .object({
     id: z.number().int(),
@@ -37,8 +45,8 @@ export function registerThreadTools(server: McpServer, client: AniListClient): v
       description: "Get an AniList forum thread's title, body and metadata by its ID.",
       inputSchema: z.object({
         id: anilistId.describe(
-          "AniList thread ID — there's no search_thread tool, so this typically comes from " +
-            "an AniList forum URL (anilist.co/forum/thread/<id>) the caller already has.",
+          "AniList thread ID — use search_thread to find one, or pass one already known " +
+            "(e.g. from an AniList forum URL, anilist.co/forum/thread/<id>).",
         ),
       }),
       outputSchema: z.object({ thread: threadObject }),
@@ -54,8 +62,8 @@ export function registerThreadTools(server: McpServer, client: AniListClient): v
       description: "List comments posted on an AniList forum thread, by the thread's ID.",
       inputSchema: z.object({
         threadId: anilistId.describe(
-          "AniList thread ID — there's no search_thread tool, so this typically comes from " +
-            "an AniList forum URL (anilist.co/forum/thread/<id>) or from get_thread.",
+          "AniList thread ID — use search_thread to find one, or pass one already known " +
+            "(e.g. from an AniList forum URL, or from get_thread).",
         ),
         page: z.number().int().positive().default(1).describe("Page number for pagination."),
         perPage: z.number().int().min(1).max(25).default(25).describe("Results per page (max 25)."),
@@ -79,6 +87,101 @@ export function registerThreadTools(server: McpServer, client: AniListClient): v
   );
 
   server.registerTool(
+    "post_thread",
+    {
+      title: "Post a forum thread",
+      description:
+        "[Requires login] Post a new forum thread to the authenticated user's own AniList " +
+        "account, or update an existing one by passing its `id`. Use search_thread first if " +
+        "you want to check whether a similar thread already exists before posting a new one.",
+      inputSchema: z.object({
+        title: z.string().min(1).describe("Thread title."),
+        body: z.string().min(1).describe("Thread body (markdown)."),
+        categories: z
+          .array(anilistId)
+          .optional()
+          .describe(
+            "Forum category IDs to post this thread under — needed when creating a new " +
+              "thread. Not independently listable by any tool; resolve one from a thread " +
+              "you've already read (get_thread's/search_thread's `categories` field) or from " +
+              "a forum URL like anilist.co/forum/recent?category=<id>.",
+          ),
+        mediaCategories: z
+          .array(anilistId)
+          .optional()
+          .describe(
+            "AniList anime/manga IDs to tag this thread with, for threads about a specific " +
+              "title (from search_media/get_media).",
+          ),
+        sticky: z
+          .boolean()
+          .optional()
+          .describe("Pin this thread (only takes effect if you have moderator permission)."),
+        locked: z.boolean().optional().describe("Lock this thread to prevent further replies."),
+        id: anilistId.optional().describe("Thread ID to update instead of creating a new one."),
+      }),
+      outputSchema: z.object({ thread: savedThread }),
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: false,
+        openWorldHint: true,
+      },
+    },
+    ({ title, body, categories, mediaCategories, sticky, locked, id }) =>
+      guard(async () =>
+        jsonResult({
+          thread: await thread.postThread(client.ctx(), title, body, {
+            id,
+            categories,
+            mediaCategories,
+            sticky,
+            locked,
+          }),
+        }),
+      ),
+  );
+
+  server.registerTool(
+    "post_thread_comment",
+    {
+      title: "Post a comment on a forum thread",
+      description:
+        "[Requires login] Post a new comment on an AniList forum thread from the authenticated " +
+        "user's account, or update an existing one by passing its `id`.",
+      inputSchema: z.object({
+        threadId: anilistId.describe(
+          "AniList thread ID to comment on (from get_thread/search_thread).",
+        ),
+        comment: z.string().min(1).describe("The comment text to post (markdown)."),
+        parentCommentId: anilistId
+          .optional()
+          .describe(
+            "Reply to this specific comment instead of posting top-level (from " +
+              "get_thread_comments).",
+          ),
+        id: anilistId.optional().describe("Comment ID to update instead of creating a new one."),
+      }),
+      outputSchema: z.object({ comment: savedThreadComment }),
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: false,
+        openWorldHint: true,
+      },
+    },
+    ({ threadId, comment, parentCommentId, id }) =>
+      guard(async () =>
+        jsonResult({
+          comment: await thread.postThreadComment(client.ctx(), threadId, comment, {
+            id,
+            parentCommentId,
+          }),
+        }),
+      ),
+  );
+
+  server.registerTool(
     "delete_thread",
     {
       title: "Delete a forum thread",
@@ -90,5 +193,20 @@ export function registerThreadTools(server: McpServer, client: AniListClient): v
     },
     ({ id }) =>
       guard(async () => jsonResult({ result: await thread.deleteThread(client.ctx(), id) })),
+  );
+
+  server.registerTool(
+    "delete_thread_comment",
+    {
+      title: "Delete a comment on a forum thread",
+      description:
+        "[Requires login] Delete a comment the authenticated user owns, by its ID (from " +
+        "get_thread_comments or the id returned by post_thread_comment). This cannot be undone.",
+      inputSchema: z.object({ id: anilistId.describe("AniList comment ID to delete.") }),
+      outputSchema: z.object({ result: deleteResult }),
+      annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true },
+    },
+    ({ id }) =>
+      guard(async () => jsonResult({ result: await thread.deleteThreadComment(client.ctx(), id) })),
   );
 }

@@ -26,6 +26,62 @@ export async function getThreadComments(
   return data.Page;
 }
 
+export interface SaveThreadOptions {
+  id?: number;
+  categories?: number[];
+  mediaCategories?: number[];
+  sticky?: boolean;
+  locked?: boolean;
+}
+
+export async function postThread(
+  ctx: AniListContext,
+  title: string,
+  body: string,
+  opts: SaveThreadOptions = {},
+): Promise<unknown> {
+  const header = ctx.requireAuth();
+  const query = `mutation($id:Int,$title:String,$body:String,$categories:[Int],$mediaCategories:[Int],$sticky:Boolean,$locked:Boolean){
+    SaveThread(id:$id,title:$title,body:$body,categories:$categories,mediaCategories:$mediaCategories,sticky:$sticky,locked:$locked){
+      id title siteUrl
+    }
+  }`;
+  const data = await ctx.gql.request<{ SaveThread: unknown }>(
+    query,
+    {
+      id: opts.id,
+      title,
+      body,
+      categories: opts.categories,
+      mediaCategories: opts.mediaCategories,
+      sticky: opts.sticky,
+      locked: opts.locked,
+    },
+    header,
+  );
+  return data.SaveThread;
+}
+
+export async function postThreadComment(
+  ctx: AniListContext,
+  threadId: number,
+  comment: string,
+  opts: { id?: number; parentCommentId?: number } = {},
+): Promise<unknown> {
+  const header = ctx.requireAuth();
+  const query = `mutation($id:Int,$threadId:Int,$parentCommentId:Int,$comment:String){
+    SaveThreadComment(id:$id,threadId:$threadId,parentCommentId:$parentCommentId,comment:$comment){
+      id comment(asHtml:false) siteUrl
+    }
+  }`;
+  const data = await ctx.gql.request<{ SaveThreadComment: unknown }>(
+    query,
+    { id: opts.id, threadId, parentCommentId: opts.parentCommentId, comment },
+    header,
+  );
+  return data.SaveThreadComment;
+}
+
 export async function deleteThread(ctx: AniListContext, id: number): Promise<unknown> {
   const header = ctx.requireAuth();
   const query = `mutation($id:Int){DeleteThread(id:$id){deleted}}`;
@@ -45,4 +101,24 @@ export async function deleteThread(ctx: AniListContext, id: number): Promise<unk
     });
   }
   return data.DeleteThread;
+}
+
+export async function deleteThreadComment(ctx: AniListContext, id: number): Promise<unknown> {
+  const header = ctx.requireAuth();
+  const query = `mutation($id:Int){DeleteThreadComment(id:$id){deleted}}`;
+  const data = await ctx.gql.request<{ DeleteThreadComment: { deleted?: boolean } | null }>(
+    query,
+    { id },
+    header,
+  );
+  // Same defensive check as deleteThread above — a 200 with `{deleted: false}`
+  // (not found / not owned) must surface as a failure, not a false success.
+  if (!data.DeleteThreadComment?.deleted) {
+    throw new ApiError({
+      code: "not_found",
+      message:
+        "AniList reported this comment as not deleted — it may not exist or you may not own it.",
+    });
+  }
+  return data.DeleteThreadComment;
 }

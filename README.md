@@ -71,14 +71,14 @@ Once it's connected, just ask your agent in natural language.
 | `get_character`, `get_staff`, `get_todays_birthdays`                                                  | none  |
 | `get_recommendation`, `get_recommendations_for_media`                                                 | none  |
 | `search_media`, `search_character`, `search_staff`, `search_studio`, `search_user`, `search_activity` | none  |
-| `get_thread`, `get_thread_comments`                                                                   | none  |
+| `search_thread`, `get_thread`, `get_thread_comments`                                                  | none  |
 | `get_user_profile`, `get_user_stats`, `get_full_user_info`, `get_user_recent_activity`                | none  |
 | `get_activity`, `get_user_activity`                                                                   | none  |
 | `get_user_list`                                                                                       | none  |
 | `favourite`                                                                                           | token |
 | `add_list_entry`, `update_list_entry`, `remove_list_entry`                                            | token |
 | `post_text_activity`, `post_message_activity`, `delete_activity`                                      | token |
-| `delete_thread`                                                                                       | token |
+| `post_thread`, `post_thread_comment`, `delete_thread`, `delete_thread_comment`                        | token |
 | `get_authorized_user`, `follow_user`, `update_user`                                                   | token |
 | `get_notifications`                                                                                   | token |
 | `login_anilist`, `submit_anilist_redirect`                                                            | login |

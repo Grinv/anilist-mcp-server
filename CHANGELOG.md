@@ -6,6 +6,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- Add `search_thread`, `post_thread`, `post_thread_comment`, and `delete_thread_comment` — forum threads were previously read/delete-only.
+
+### Fixed
+
+- Stop every `pageInfo` field (`total`, `perPage`, `currentPage`, `lastPage`, `hasNextPage`) from failing output validation when AniList returns `null` for it instead of omitting it — confirmed live on an emptied thread's comment page.
+
 ## [0.1.4] - 2026-07-21
 
 ### Added

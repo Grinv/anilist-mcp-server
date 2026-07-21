@@ -133,6 +133,7 @@ test("a representative read tool from each category is wired end-to-end", async 
           users: [],
           activities: [],
           threadComments: [],
+          threads: [],
         },
       },
     });
@@ -152,6 +153,7 @@ test("a representative read tool from each category is wired end-to-end", async 
     ["get_media", { type: "MANGA", ids: 1 }],
     ["get_thread", { id: 1 }],
     ["get_thread_comments", { threadId: 1 }],
+    ["search_thread", {}],
     ["get_user_profile", { user: 1 }],
     ["get_activity", { id: 1 }],
     ["search_character", { term: "frieren" }],
@@ -206,7 +208,10 @@ test("personal/mutation tools without a token return an actionable error instead
     ["post_text_activity", { text: "hi" }],
     ["post_message_activity", { recipientId: 1, message: "hi" }],
     ["delete_activity", { id: 1 }],
+    ["post_thread", { title: "t", body: "b" }],
+    ["post_thread_comment", { threadId: 1, comment: "hi" }],
     ["delete_thread", { id: 1 }],
+    ["delete_thread_comment", { id: 1 }],
   ];
   for (const [name, args] of mutationTools) {
     const res = await client.callTool({ name, arguments: args });
@@ -257,6 +262,14 @@ test("every gated mutation tool succeeds end-to-end with a token, not just add_l
     SaveTextActivity: { id: 1, text: "hi" },
     SaveMessageActivity: { id: 1, message: "hi" },
     DeleteActivity: { deleted: true },
+    // SaveThreadComment must be checked before SaveThread below — its own
+    // mutation name contains "SaveThread" as a substring, so a naive
+    // first-match search in the wrong order would misfire on it.
+    SaveThreadComment: { id: 1, comment: "hi" },
+    SaveThread: { id: 1, title: "t", siteUrl: "https://anilist.co/forum/thread/1" },
+    // DeleteThreadComment must be checked before DeleteThread for the same
+    // substring-prefix reason as SaveThreadComment/SaveThread above.
+    DeleteThreadComment: { deleted: true },
     DeleteThread: { deleted: true },
   };
   const mock = mockFetch((_url, init) => {
@@ -284,7 +297,10 @@ test("every gated mutation tool succeeds end-to-end with a token, not just add_l
     ["post_text_activity", { text: "hi" }],
     ["post_message_activity", { recipientId: 1, message: "hi" }],
     ["delete_activity", { id: 1 }],
+    ["post_thread", { title: "t", body: "b" }],
+    ["post_thread_comment", { threadId: 1, comment: "hi" }],
     ["delete_thread", { id: 1 }],
+    ["delete_thread_comment", { id: 1 }],
   ];
   for (const [name, args] of cases) {
     const res = await client.callTool({ name, arguments: args });

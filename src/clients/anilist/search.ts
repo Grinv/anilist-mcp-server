@@ -133,6 +133,28 @@ export async function searchUser(
   return data.Page;
 }
 
+export async function searchThread(
+  ctx: AniListContext,
+  term?: string,
+  categoryId?: number,
+  mediaCategoryId?: number,
+  page = 1,
+  perPage = 10,
+): Promise<unknown> {
+  const query = `query($search:String,$categoryId:Int,$mediaCategoryId:Int,$page:Int,$perPage:Int){Page(page:$page,perPage:$perPage){
+    pageInfo{total currentPage lastPage hasNextPage}
+    threads(search:$search,categoryId:$categoryId,mediaCategoryId:$mediaCategoryId,sort:[SEARCH_MATCH]){
+      id title siteUrl replyCount viewCount isSticky createdAt user{id name} categories{id name}
+    }
+  }}`;
+  const data = await ctx.gql.request<{ Page: unknown }>(
+    query,
+    { search: term, categoryId, mediaCategoryId, page, perPage },
+    ctx.authHeader(),
+  );
+  return data.Page;
+}
+
 export async function searchActivity(
   ctx: AniListContext,
   userId?: number,

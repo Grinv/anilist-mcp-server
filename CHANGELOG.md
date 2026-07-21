@@ -6,6 +6,18 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-07-21
+
+### Fixed
+
+- Reject a malformed `access_token` in AniList's OAuth token response with a clear error, instead of silently storing it. ([38c193c](https://github.com/Grinv/anilist-mcp-server/commit/38c193c))
+- Stop `get_media_tags`'s description from implying `search_media` can filter results by tag — it can't. ([ed171f7](https://github.com/Grinv/anilist-mcp-server/commit/ed171f7))
+
+### Changed
+
+- Expose `ANILIST_OAUTH_PORT` and `ANILIST_TOKEN_STORE` in the `.mcpb` install form and MCP Registry entry, not just as env vars. ([d75eaf1](https://github.com/Grinv/anilist-mcp-server/commit/d75eaf1))
+- Clarify several tool and prompt descriptions (activity/recommendation ID sources, `search_media`'s term-less sort/browse mode, `get_user_recent_activity`'s fixed 5-post count) to reduce cross-tool mix-ups. ([ed171f7](https://github.com/Grinv/anilist-mcp-server/commit/ed171f7))
+
 ## [0.1.1] - 2026-07-21
 
 ### Added

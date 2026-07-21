@@ -62,16 +62,18 @@ export async function start(): Promise<void> {
   const config = loadConfig();
   const logger = createLogger(config.logLevel);
 
-  // v2's serveStdio() takes a server *factory* (not an instance) and owns the
-  // transport + connect() lifecycle itself.
-  const handle = serveStdio(() => buildServer(config, logger), {
-    onerror: (err) => logger.error("stdio transport error", err),
-  });
-  logger.info(`anilist-mcp-server ${VERSION} ready`);
-
+  // Arm signal/error handlers before serveStdio()/the "ready" log below: under
+  // CPU contention the process can be descheduled between two synchronous
+  // statements, and a SIGINT/SIGTERM arriving in that gap would hit Node's
+  // default disposition (killed immediately, no graceful close) instead of
+  // this handler if it were registered any later.
+  // Must stay `let` (assigned once, but only after serveStdio() below) so
+  // shutdown()'s closure sees it.
+  // eslint-disable-next-line prefer-const
+  let handle: ReturnType<typeof serveStdio> | undefined;
   const shutdown = (signal: string): void => {
     logger.info(`received ${signal}, shutting down`);
-    void handle.close().finally(() => process.exit(0));
+    void (handle?.close() ?? Promise.resolve()).finally(() => process.exit(0));
   };
   process.on("SIGINT", () => shutdown("SIGINT"));
   process.on("SIGTERM", () => shutdown("SIGTERM"));
@@ -80,4 +82,11 @@ export async function start(): Promise<void> {
     logger.error("uncaught exception", err);
     process.exit(1);
   });
+
+  // v2's serveStdio() takes a server *factory* (not an instance) and owns the
+  // transport + connect() lifecycle itself.
+  handle = serveStdio(() => buildServer(config, logger), {
+    onerror: (err) => logger.error("stdio transport error", err),
+  });
+  logger.info(`anilist-mcp-server ${VERSION} ready`);
 }

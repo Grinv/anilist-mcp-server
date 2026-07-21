@@ -1,5 +1,11 @@
 # AniList MCP Server
 
+[![npm version](https://img.shields.io/npm/v/anilist-mcp-server.svg)](https://www.npmjs.com/package/anilist-mcp-server)
+[![CI](https://github.com/Grinv/anilist-mcp-server/actions/workflows/ci.yml/badge.svg)](https://github.com/Grinv/anilist-mcp-server/actions/workflows/ci.yml)
+[![license: MIT](https://img.shields.io/npm/l/anilist-mcp-server.svg)](LICENSE)
+[![MCP Registry](https://img.shields.io/badge/MCP%20Registry-io.github.Grinv%2Fanilist--mcp--server-blue)](https://registry.modelcontextprotocol.io/v0/servers?search=io.github.Grinv/anilist-mcp-server&version=latest)
+[![anilist-mcp-server MCP server](https://glama.ai/mcp/servers/Grinv/anilist-mcp-server/badges/score.svg)](https://glama.ai/mcp/servers/Grinv/anilist-mcp-server)
+
 An [MCP](https://modelcontextprotocol.io) server for **[AniList](https://anilist.co)**.
 It works with any MCP-compatible client or agent (Claude Desktop/Code, Cursor,
 VS Code, Cline, Continue, and others) — the server speaks the standard MCP

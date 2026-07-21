@@ -36,6 +36,7 @@ export const MEDIA_FIELDS = `
  *  on every row of a multi-item search/list result. */
 export const MEDIA_DETAIL_FIELDS = `
   tags { name rank isMediaSpoiler }
+  rankings { rank type format year season allTime context }
 `;
 
 export const CHARACTER_FIELDS = `

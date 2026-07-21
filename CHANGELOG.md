@@ -6,6 +6,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.1.4] - 2026-07-21
+
+### Added
+
+- Return `rankings` from `get_media` — AniList's own ranking badges (e.g. "#134 highest rated all time", "#11 highest rated 2024").
+
 ### Fixed
 
 - Stop `search_media` from treating an empty/whitespace `term` differently from an omitted one — it now falls back to the documented term-less browse/ranking mode instead of silently returning zero results.

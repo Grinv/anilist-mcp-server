@@ -224,6 +224,15 @@ CONTAINS`) lives on `MediaEdge.relationType`, again not on the node.
   lives in `MEDIA_DETAIL_FIELDS`, appended solely by `get_media`
   (single/few-item lookups). Keep this split if you add more variable-length
   fields (e.g. `externalLinks`, `streamingEpisodes`).
+- **`Media.rankings`** → `[MediaRank]`, also `MEDIA_DETAIL_FIELDS`-only (same
+  token-efficiency reasoning as `tags` above). Each entry is one ranking
+  window the title currently appears in — the site UI's "#N highest rated
+  all time" / "#N highest rated `<year>`" badges. `rank`/`type`
+  (`MediaRankType`: `RATED, POPULAR`)/`format`/`context` are non-null;
+  `year`/`season`/`allTime` are nullable and say which window `context`
+  describes (all-time vs a specific year, optionally narrowed to one
+  season) — verified via introspection against `graphql.anilist.co` directly
+  (AniList's hosted docs don't spell out per-field nullability here).
 - **`Character(isBirthday: Boolean)`/`Staff(isBirthday: Boolean)`** power
   `get_todays_birthdays`.
 - **`ThreadComment.comment(asHtml: Boolean)` / `Thread.body(asHtml: Boolean)`**

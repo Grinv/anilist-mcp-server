@@ -70,6 +70,24 @@ const mediaObject = z
           .passthrough(),
       )
       .nullish(),
+    // AniList's own ranking badges (e.g. site UI's "#134 highest rated all
+    // time" / "#11 highest rated 2024") — `context` is the human-readable
+    // label, `allTime`/`year`/`season` say which window it applies to.
+    rankings: z
+      .array(
+        z
+          .object({
+            rank: z.number().int().nullish(),
+            type: z.string().nullish(),
+            format: z.string().nullish(),
+            year: z.number().int().nullish(),
+            season: z.string().nullish(),
+            allTime: z.boolean().nullish(),
+            context: z.string().nullish(),
+          })
+          .passthrough(),
+      )
+      .nullish(),
   })
   .passthrough();
 
@@ -223,9 +241,12 @@ export function registerMediaTools(server: McpServer, client: AniListClient): vo
       title: "Get anime/manga details",
       description:
         "Get detailed information about one or more anime or manga by their AniList ID(s): " +
-        "title, format, status, episode/chapter/volume count, genres, score, synopsis, and " +
-        "dates. Use search_media first to resolve a title to its AniList ID. Returns a single " +
-        "object if `ids` is a single ID, or an array (same order as `ids`) if `ids` is an array.",
+        "title, format, status, episode/chapter/volume count, genres, score, synopsis, dates, " +
+        'and `rankings` — AniList\'s own ranking badges (e.g. "#134 highest rated all time", ' +
+        '"#11 highest rated 2024"), one entry per rated/popular ranking window the title ' +
+        "currently appears in. Use search_media first to resolve a title to its AniList ID. " +
+        "Returns a single object if `ids` is a single ID, or an array (same order as `ids`) if " +
+        "`ids` is an array.",
       inputSchema: z.object({ type: mediaType, ids: idsSchema }),
       outputSchema: z.object({ media: z.union([mediaObject, z.array(mediaObject)]) }),
       annotations: { readOnlyHint: true, openWorldHint: true },

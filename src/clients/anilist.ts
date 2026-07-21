@@ -9,7 +9,12 @@ import { GraphQLClient } from "../lib/graphql.js";
 import { RateLimiter } from "../lib/rateLimit.js";
 import { TtlCache } from "../lib/cache.js";
 import { ApiError } from "../lib/errors.js";
-import { TokenStore, defaultTokenStorePath, type TokenState } from "../lib/tokenStore.js";
+import {
+  TokenStore,
+  TokenStateSchema,
+  defaultTokenStorePath,
+  type TokenState,
+} from "../lib/tokenStore.js";
 import {
   buildAuthorizeUrl,
   extractCode,
@@ -246,7 +251,18 @@ export class AniListClient {
       });
     }
     const expiresAt = decodeJwtExpiry(json.access_token) ?? Date.now() + FALLBACK_TOKEN_LIFETIME_MS;
-    this.#token = { accessToken: json.access_token, expiresAt };
+    // safeParse, not parse: `json` is only type-asserted, not runtime-validated, so a
+    // truthy-but-non-string access_token (a misbehaving/future AniList response) must
+    // surface as the same actionable ApiError this function uses for every other
+    // malformed-response case above, not a raw ZodError.
+    const tokenResult = TokenStateSchema.safeParse({ accessToken: json.access_token, expiresAt });
+    if (!tokenResult.success) {
+      throw new ApiError({
+        code: "unknown",
+        message: "AniList's token response had a malformed access_token",
+      });
+    }
+    this.#token = tokenResult.data;
     this.#tokenStore?.save(this.#token);
   }
 }

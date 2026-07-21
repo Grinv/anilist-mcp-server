@@ -90,6 +90,20 @@ npm run check:api      # live upstream health-check (network)
 - Mocked-`fetch` test fixtures must mirror the real upstream response shape
   for that exact query, not just whatever fields make the current code
   pass — see [docs/testing.md](docs/testing.md).
+- **Schema-first for hand-built internal shapes** (config, persisted state —
+  not GraphQL passthrough objects, which stay loose per the `outputSchema`
+  rule above): when a type describes an object the code itself constructs
+  from external input (env vars, an on-disk file, an OAuth response), define
+  the Zod schema first and derive the type via `z.infer<typeof Schema>`, then
+  build the value through `schema.parse()`/`.safeParse()`/`.transform()`
+  rather than a hand-written `interface` kept in sync by convention with a
+  separately-built object literal — see `Config`/`AniListAuth`
+  (`config.ts`) and `TokenState` (`lib/tokenStore.ts`). This is a house style
+  going forward, not (yet) retrofitted onto every existing hand-written
+  interface over external input (e.g. `GraphQLResponse<T>` in
+  `lib/graphql.ts` still isn't converted) — migrate an existing one
+  opportunistically when you're already touching it, don't do a
+  drive-by rewrite.
 - Keep dependencies minimal. New deps need a clear justification (supply-chain).
 - **Plain-JS tooling files** (`scripts/*.mjs`, `eslint.config.mjs`) still get
   type-checked — add `// @ts-check` + JSDoc annotations rather than leaving

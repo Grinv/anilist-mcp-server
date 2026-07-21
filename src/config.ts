@@ -3,7 +3,6 @@
 // need no credentials at all, and personal/mutation tools report a clear
 // error at call time when unconfigured.
 import { z } from "zod";
-import type { LogLevel } from "./lib/logger.js";
 
 const EnvSchema = z.object({
   ANILIST_ACCESS_TOKEN: z.string().min(1).optional(),
@@ -31,36 +30,41 @@ const EnvSchema = z.object({
   LOG_LEVEL: z.enum(["debug", "info", "warn", "error", "silent"]).default("info"),
 });
 
-export interface AniListAuth {
-  accessToken: string | undefined;
-  clientId: string | undefined;
-  clientSecret: string | undefined;
-  tokenStorePath: string | undefined;
-  /** Has a client id + secret → login_anilist can start a login. AniList
-   *  issues both together for every app; there is no MAL-style "public vs
-   *  confidential app type" pitfall here. */
-  canLogin: boolean;
-  /** Has an env-provided access token → personal/mutation tools are usable.
-   *  This is a startup snapshot from env only — it does NOT see a token
-   *  obtained later via login_anilist (that lives in the on-disk token
-   *  store). Nothing in this codebase currently reads this field; use
-   *  `AniListClient.isConfigured()` for the live answer, which does account
-   *  for a token store loaded after startup. */
-  configured: boolean;
-}
-
-export interface Config {
-  graphqlUrl: string;
-  oauthBaseUrl: string;
-  httpTimeoutMs: number;
-  httpRetries: number;
-  minIntervalMs: number;
-  cacheTtlMs: number;
-  logLevel: LogLevel;
+// Shapes validated env vars into the nested/renamed Config the rest of the
+// codebase consumes, in the same Zod pipeline that validates them — so
+// `Config`/`AniListAuth` (below, `z.infer` of this) can't drift from what
+// loadConfig() actually builds; there's no separate hand-kept-in-sync interface.
+const ConfigSchema = EnvSchema.transform((env) => ({
+  graphqlUrl: env.ANILIST_GRAPHQL_URL,
+  oauthBaseUrl: env.ANILIST_OAUTH_BASE_URL,
+  httpTimeoutMs: env.HTTP_TIMEOUT_MS,
+  httpRetries: env.HTTP_RETRIES,
+  minIntervalMs: env.ANILIST_MIN_INTERVAL_MS,
+  cacheTtlMs: env.CACHE_TTL_MS,
+  logLevel: env.LOG_LEVEL,
   /** Localhost port for the login_anilist OAuth callback (matches the app's Redirect URI). */
-  oauthPort: number;
-  auth: AniListAuth;
-}
+  oauthPort: env.ANILIST_OAUTH_PORT,
+  auth: {
+    accessToken: env.ANILIST_ACCESS_TOKEN,
+    clientId: env.ANILIST_CLIENT_ID,
+    clientSecret: env.ANILIST_CLIENT_SECRET,
+    tokenStorePath: env.ANILIST_TOKEN_STORE,
+    /** Has a client id + secret → login_anilist can start a login. AniList
+     *  issues both together for every app; there is no MAL-style "public vs
+     *  confidential app type" pitfall here. */
+    canLogin: Boolean(env.ANILIST_CLIENT_ID && env.ANILIST_CLIENT_SECRET),
+    /** Has an env-provided access token → personal/mutation tools are usable.
+     *  This is a startup snapshot from env only — it does NOT see a token
+     *  obtained later via login_anilist (that lives in the on-disk token
+     *  store). Nothing in this codebase currently reads this field; use
+     *  `AniListClient.isConfigured()` for the live answer, which does account
+     *  for a token store loaded after startup. */
+    configured: Boolean(env.ANILIST_ACCESS_TOKEN),
+  },
+}));
+
+export type Config = z.infer<typeof ConfigSchema>;
+export type AniListAuth = Config["auth"];
 
 // An optional .mcpb user_config field left blank arrives not as "" but as the
 // literal, unsubstituted placeholder "${user_config.<name>}". Taken as a real
@@ -78,27 +82,5 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
       ([, v]) => v !== undefined && v !== "" && !UNSUBSTITUTED_PLACEHOLDER.test(v),
     ),
   );
-  const parsed = EnvSchema.parse(cleaned);
-
-  const canLogin = Boolean(parsed.ANILIST_CLIENT_ID && parsed.ANILIST_CLIENT_SECRET);
-  const configured = Boolean(parsed.ANILIST_ACCESS_TOKEN);
-
-  return {
-    graphqlUrl: parsed.ANILIST_GRAPHQL_URL,
-    oauthBaseUrl: parsed.ANILIST_OAUTH_BASE_URL,
-    httpTimeoutMs: parsed.HTTP_TIMEOUT_MS,
-    httpRetries: parsed.HTTP_RETRIES,
-    minIntervalMs: parsed.ANILIST_MIN_INTERVAL_MS,
-    cacheTtlMs: parsed.CACHE_TTL_MS,
-    logLevel: parsed.LOG_LEVEL,
-    oauthPort: parsed.ANILIST_OAUTH_PORT,
-    auth: {
-      accessToken: parsed.ANILIST_ACCESS_TOKEN,
-      clientId: parsed.ANILIST_CLIENT_ID,
-      clientSecret: parsed.ANILIST_CLIENT_SECRET,
-      tokenStorePath: parsed.ANILIST_TOKEN_STORE,
-      canLogin,
-      configured,
-    },
-  };
+  return ConfigSchema.parse(cleaned);
 }

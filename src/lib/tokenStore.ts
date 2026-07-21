@@ -6,13 +6,18 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir, platform } from "node:os";
 import { dirname, join } from "node:path";
+import { z } from "zod";
 import type { Logger } from "./logger.js";
 
-export interface TokenState {
-  accessToken: string;
-  /** Epoch milliseconds at which the access token expires. */
-  expiresAt: number;
-}
+export const TokenStateSchema = z
+  .object({
+    accessToken: z.string(),
+    /** Epoch milliseconds at which the access token expires. */
+    expiresAt: z.number(),
+  })
+  .passthrough();
+
+export type TokenState = z.infer<typeof TokenStateSchema>;
 
 export class TokenStore {
   readonly #path: string;
@@ -35,17 +40,19 @@ export class TokenStore {
     } catch {
       return undefined; // not created yet
     }
+    let json: unknown;
     try {
-      const parsed = JSON.parse(raw) as Partial<TokenState>;
-      if (typeof parsed.accessToken === "string" && typeof parsed.expiresAt === "number") {
-        return parsed as TokenState;
-      }
-      this.#logger.warn(`token store at ${this.#path} is malformed; ignoring it`);
-      return undefined;
+      json = JSON.parse(raw);
     } catch {
       this.#logger.warn(`token store at ${this.#path} is not valid JSON; ignoring it`);
       return undefined;
     }
+    const result = TokenStateSchema.safeParse(json);
+    if (!result.success) {
+      this.#logger.warn(`token store at ${this.#path} is malformed; ignoring it`);
+      return undefined;
+    }
+    return result.data;
   }
 
   save(state: TokenState): void {

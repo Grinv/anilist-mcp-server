@@ -1,8 +1,9 @@
-import { test } from "node:test";
+import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 import { existsSync, mkdirSync, copyFileSync, writeFileSync, rmSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
+import { spawn } from "node:child_process";
 import { Client } from "@modelcontextprotocol/client";
 import { StdioClientTransport } from "@modelcontextprotocol/client/stdio";
 
@@ -120,4 +121,78 @@ test("e2e: built bundle runs standalone, handshakes, and lists all tools", async
     await client.close();
     rmSync(sandbox, { recursive: true, force: true });
   }
+});
+
+// start()'s shutdown path (serveStdio's handle.close() on SIGINT/SIGTERM) has
+// no MCP-protocol surface to exercise through a Client — it's process
+// lifecycle, only observable by actually sending the signal to a real spawned
+// process and watching it exit. Spawned directly with child_process (no MCP
+// client/handshake needed — this only cares whether the process starts,
+// logs to stderr, and exits cleanly).
+function spawnServer(): {
+  child: ReturnType<typeof spawn>;
+  ready: Promise<void>;
+  stderr: () => string;
+} {
+  // stdin must stay open ("pipe", never ended) rather than "ignore": "ignore"
+  // connects it to /dev/null, which is immediately at EOF — serveStdio() then
+  // reads that as the client having disconnected and shuts the process down
+  // on its own within milliseconds, before this test ever gets to send a
+  // signal. A real MCP host keeps the child's stdin open for the connection's
+  // whole lifetime, so this only closes an artifact of the test's own spawn
+  // config, not a real one.
+  const child = spawn(process.execPath, [distPath], { stdio: ["pipe", "ignore", "pipe"] });
+  let stderr = "";
+  child.stderr!.on("data", (d: Buffer) => (stderr += d.toString()));
+  const ready = new Promise<void>((resolve, reject) => {
+    const timeout = setTimeout(() => reject(new Error("server never printed 'ready'")), 5000);
+    child.stderr!.on("data", () => {
+      if (stderr.includes("ready")) {
+        clearTimeout(timeout);
+        // A real MCP host never signals a server within microseconds of
+        // spawning it (there's at least a protocol handshake first). Under
+        // heavy CPU contention a signal sent that fast can occasionally hit
+        // Node's default disposition before its handler is actually
+        // scheduled, independent of the stdin fix above — reproduced with a
+        // signal-only repro under artificial load. A short, realistic grace
+        // period avoids that race without weakening what this test verifies.
+        setTimeout(resolve, 100);
+      }
+    });
+  });
+  return { child, ready, stderr: () => stderr };
+}
+
+describe("e2e: process lifecycle (SIGINT/SIGTERM)", () => {
+  test("shuts down cleanly on SIGTERM", async (t) => {
+    if (!existsSync(distPath)) {
+      t.skip("dist/index.js not built — run `npm run build` first (CI builds before tests)");
+      return;
+    }
+    const { child, ready, stderr } = spawnServer();
+    await ready;
+    child.kill("SIGTERM");
+    const [code, signal] = await new Promise<[number | null, NodeJS.Signals | null]>((resolve) =>
+      child.on("exit", (code, signal) => resolve([code, signal])),
+    );
+    assert.equal(code, 0);
+    assert.equal(signal, null); // exited via process.exit(0), not killed by the signal itself
+    assert.match(stderr(), /shutting down/);
+  });
+
+  test("shuts down cleanly on SIGINT", async (t) => {
+    if (!existsSync(distPath)) {
+      t.skip("dist/index.js not built — run `npm run build` first (CI builds before tests)");
+      return;
+    }
+    const { child, ready, stderr } = spawnServer();
+    await ready;
+    child.kill("SIGINT");
+    const [code, signal] = await new Promise<[number | null, NodeJS.Signals | null]>((resolve) =>
+      child.on("exit", (code, signal) => resolve([code, signal])),
+    );
+    assert.equal(code, 0);
+    assert.equal(signal, null);
+    assert.match(stderr(), /shutting down/);
+  });
 });

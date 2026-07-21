@@ -6,6 +6,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.1.3] - 2026-07-21
+
+### Fixed
+
+- Fix a startup race where a `SIGINT`/`SIGTERM` arriving between `serveStdio()` starting and the signal handlers being registered would kill the process immediately instead of shutting down gracefully — handlers are now armed first. ([40d16ba](https://github.com/Grinv/anilist-mcp-server/commit/40d16ba))
+
 ## [0.1.2] - 2026-07-21
 
 ### Fixed

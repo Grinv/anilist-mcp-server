@@ -4,6 +4,7 @@ import type { AniListClient } from "../clients/anilist.js";
 import * as recommendation from "../clients/anilist/recommendation.js";
 import { jsonResult } from "../lib/result.js";
 import { guard } from "./guard.js";
+import { anilistId } from "./outputSchemas.js";
 
 const mediaRefLite = z
   .object({
@@ -53,7 +54,7 @@ export function registerRecommendationTools(server: McpServer, client: AniListCl
         "Get a single AniList recommendation pairing (media + the media users recommend " +
         "alongside it) by its AniList recommendation ID. Use get_recommendations_for_media " +
         "first to discover recommendation IDs for a title.",
-      inputSchema: z.object({ id: z.number().int().describe("AniList recommendation ID.") }),
+      inputSchema: z.object({ id: anilistId.describe("AniList recommendation ID.") }),
       outputSchema: z.object({ recommendation: recommendationObject }),
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
@@ -74,10 +75,7 @@ export function registerRecommendationTools(server: McpServer, client: AniListCl
         "your own list — set `excludeInList: true` to filter those out server-side instead of " +
         "checking each one yourself.",
       inputSchema: z.object({
-        mediaId: z
-          .number()
-          .int()
-          .describe("AniList ID of the anime/manga to get recommendations for."),
+        mediaId: anilistId.describe("AniList ID of the anime/manga to get recommendations for."),
         page: z.number().int().positive().default(1).describe("Page number for pagination."),
         perPage: z.number().int().min(1).max(25).default(10).describe("Results per page (max 25)."),
         excludeInList: z

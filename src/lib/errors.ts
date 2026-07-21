@@ -20,12 +20,18 @@ export interface ApiErrorOptions {
   status?: number;
   retryable?: boolean;
   cause?: unknown;
+  /** Whether the request that produced this error carried an Authorization
+   *  header. Lets messageFor() (lib/result.ts) tell "no credentials were
+   *  sent at all" apart from "credentials were sent but still rejected" for
+   *  401/403 — those two cases need very different actionable advice. */
+  authenticated?: boolean;
 }
 
 export class ApiError extends Error {
   readonly code: ApiErrorCode;
   readonly status: number | undefined;
   readonly retryable: boolean;
+  readonly authenticated: boolean | undefined;
 
   constructor(opts: ApiErrorOptions) {
     super(opts.message, opts.cause === undefined ? undefined : { cause: opts.cause });
@@ -33,6 +39,7 @@ export class ApiError extends Error {
     this.code = opts.code;
     this.status = opts.status;
     this.retryable = opts.retryable ?? false;
+    this.authenticated = opts.authenticated;
   }
 }
 

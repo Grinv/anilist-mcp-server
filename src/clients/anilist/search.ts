@@ -36,10 +36,15 @@ export async function searchMedia(
     }
   }`;
   const f = opts.filter ?? {};
+  // An empty/whitespace-only term must behave like an omitted one (the
+  // documented term-less browse/ranking mode) rather than being sent to
+  // AniList as a literal `search: ""`, which matches nothing and silently
+  // returns zero results.
+  const search = opts.term?.trim() ? opts.term : undefined;
   const data = await ctx.gql.request<{ Page: unknown }>(
     query,
     {
-      search: opts.term,
+      search,
       type,
       page: opts.page ?? 1,
       perPage: opts.perPage ?? 10,

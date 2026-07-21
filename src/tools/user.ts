@@ -5,10 +5,10 @@ import * as user from "../clients/anilist/user.js";
 import * as activity from "../clients/anilist/activity.js";
 import { jsonResult } from "../lib/result.js";
 import { guard } from "./guard.js";
-import { pageInfoSchema, idOnly } from "./outputSchemas.js";
+import { pageInfoSchema, idOnly, anilistId } from "./outputSchemas.js";
 
 const userIdOrName = z
-  .union([z.number().int(), z.string().min(1)])
+  .union([anilistId, z.string().min(1)])
   .describe("AniList user ID, or username.");
 
 const TITLE_LANGUAGES = ["ROMAJI", "ENGLISH", "NATIVE"] as const;
@@ -188,13 +188,10 @@ export function registerUserTools(server: McpServer, client: AniListClient): voi
         "[Requires login] Toggle following another AniList user from the authenticated " +
         "user's account. Calling it again on the same user unfollows them.",
       inputSchema: z.object({
-        id: z
-          .number()
-          .int()
-          .describe(
-            "AniList numeric user ID to follow/unfollow — this mutation has no username form; " +
-              "resolve one via search_user or get_user_profile first.",
-          ),
+        id: anilistId.describe(
+          "AniList numeric user ID to follow/unfollow — this mutation has no username form; " +
+            "resolve one via search_user or get_user_profile first.",
+        ),
       }),
       outputSchema: z.object({ user: followResult }),
       annotations: {

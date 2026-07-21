@@ -4,7 +4,7 @@ import type { AniListClient } from "../clients/anilist.js";
 import * as list from "../clients/anilist/list.js";
 import { jsonResult } from "../lib/result.js";
 import { guard } from "./guard.js";
-import { deleteResult, MEDIA_TYPES, fuzzyDateOut } from "./outputSchemas.js";
+import { deleteResult, MEDIA_TYPES, fuzzyDateOut, anilistId } from "./outputSchemas.js";
 
 const STATUSES = ["CURRENT", "PLANNING", "COMPLETED", "DROPPED", "PAUSED", "REPEATING"] as const;
 
@@ -17,7 +17,7 @@ const fuzzyDate = z
   .describe("A partial date; omit fields you don't know (e.g. just {year: 2026}).");
 
 const userIdOrName = z
-  .union([z.number().int(), z.string().min(1)])
+  .union([anilistId, z.string().min(1)])
   .describe("AniList user ID, or username.");
 
 const listEntryMediaLite = z
@@ -78,19 +78,42 @@ export function registerListTools(server: McpServer, client: AniListClient): voi
     {
       title: "Get a user's anime or manga list",
       description:
-        "Get a user's full AniList anime or manga list, grouped by status/custom list, with " +
-        "each entry's status, score, progress and dates. Works for any public/unlisted user. " +
+        "Get a user's AniList anime or manga list, grouped by status/custom list, with each " +
+        "entry's status, score, progress and dates. Works for any public/unlisted user. " +
         "Accepts an exact AniList username directly — no need to call search_user first unless " +
-        "you only have a partial/fuzzy name.",
+        "you only have a partial/fuzzy name. Paginated by `chunk`/`perChunk` (AniList's own " +
+        "mechanism for this — counted across entries of ALL statuses combined, not per status), " +
+        "since a large list can otherwise return thousands of entries in one response; check " +
+        "`hasNextChunk` and increment `chunk` to keep paging.",
       inputSchema: z.object({
         type: z.enum(MEDIA_TYPES).describe("Whether to get the anime or manga list."),
         user: userIdOrName,
+        chunk: z
+          .number()
+          .int()
+          .positive()
+          .default(1)
+          .describe(
+            "Chunk number for pagination (AniList paginates this list by chunk, not page).",
+          ),
+        perChunk: z
+          .number()
+          .int()
+          .min(1)
+          .max(25)
+          .default(25)
+          .describe("Entries per chunk, counted across all statuses combined (max 25)."),
       }),
-      outputSchema: z.object({ lists: z.array(listGroup).nullish() }),
+      outputSchema: z.object({
+        lists: z.array(listGroup).nullish(),
+        hasNextChunk: z.boolean().nullish(),
+      }),
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
-    ({ type, user }) =>
-      guard(async () => jsonResult({ lists: await list.getUserList(client.ctx(), type, user) })),
+    ({ type, user, chunk, perChunk }) =>
+      guard(async () =>
+        jsonResult(await list.getUserList(client.ctx(), type, user, chunk, perChunk)),
+      ),
   );
 
   server.registerTool(
@@ -102,7 +125,7 @@ export function registerListTools(server: McpServer, client: AniListClient): voi
         "Use search_media first to resolve the title to its AniList media ID. " +
         "Only set the fields you care about — everything else is left at AniList's defaults.",
       inputSchema: z.object({
-        mediaId: z.number().int().describe("AniList anime/manga ID to add (from search_media)."),
+        mediaId: anilistId.describe("AniList anime/manga ID to add (from search_media)."),
         status: z
           .enum(STATUSES)
           .optional()
@@ -160,7 +183,7 @@ export function registerListTools(server: McpServer, client: AniListClient): voi
         "list by its list-entry ID (NOT the media ID — get it from get_user_list, or from " +
         "add_list_entry's response). Only set the fields you want to change.",
       inputSchema: z.object({
-        listEntryId: z.number().int().describe("The list ENTRY id to update (not the media id)."),
+        listEntryId: anilistId.describe("The list ENTRY id to update (not the media id)."),
         status: z.enum(STATUSES).optional().describe("New list status."),
         score: z
           .number()
@@ -220,7 +243,7 @@ export function registerListTools(server: McpServer, client: AniListClient): voi
         "[Requires login] Delete an entry from the authenticated user's own AniList list by " +
         "its list-entry ID (NOT the media id) — get it from get_user_list. This cannot be undone.",
       inputSchema: z.object({
-        listEntryId: z.number().int().describe("The list ENTRY id to delete (not the media id)."),
+        listEntryId: anilistId.describe("The list ENTRY id to delete (not the media id)."),
       }),
       outputSchema: z.object({ result: deleteResult }),
       annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true },

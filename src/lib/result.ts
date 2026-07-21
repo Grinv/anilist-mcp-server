@@ -35,17 +35,39 @@ export function apiErrorToResult(err: ApiError): ToolResult {
 function messageFor(err: ApiError): string {
   switch (err.code) {
     case "unauthorized":
-      // A real upstream 401 (err.status is set by toHttpError()) gets the
-      // generic templated text below. A client-side pre-flight auth check
-      // (no network round trip, so no status) instead carries its own
-      // specific, actionable message (e.g. "run login_anilist") — use that
-      // verbatim rather than discarding it for the generic template.
-      return err.status === undefined
-        ? err.message
-        : "The upstream service rejected the credentials (401). They may be missing or expired — " +
-            "check the configured API key / token.";
+      // A real upstream 401 (err.status is set by toHttpError()) gets one of
+      // the two templated messages below, chosen by whether the request
+      // actually carried a token — a 401 with no Authorization header sent
+      // means "you need to log in", while a 401 with one sent means the
+      // token itself may be bad OR the account simply isn't allowed to do
+      // this specific thing (e.g. AniList returns 401, not 403, for
+      // mutating a resource you don't own) — don't confidently blame the
+      // token for that second case. A client-side pre-flight auth check (no
+      // network round trip, so no status) instead carries its own specific,
+      // actionable message (e.g. "run login_anilist") — use that verbatim
+      // rather than discarding it for either template.
+      if (err.status === undefined) return err.message;
+      return err.authenticated
+        ? "The upstream service rejected this request (401) even though a token was sent. " +
+            "This can mean the token is invalid or expired, but it can also mean the " +
+            "authenticated account isn't allowed to perform this specific action (e.g. it " +
+            "doesn't own the resource being changed). Try login_anilist for a fresh token; if " +
+            "the same request still fails, the action itself is likely not permitted here."
+        : "The upstream service rejected this request (401): it requires an authenticated " +
+            "AniList account. Run login_anilist (or set ANILIST_ACCESS_TOKEN) first.";
     case "forbidden":
-      return "The upstream service denied access (403). The credentials may lack permission.";
+      // Same reasoning as above: a 403 with no token sent isn't a
+      // "credentials" problem at all (there were none) — it's more likely a
+      // security block (e.g. a WAF rejecting an unusual query string) or a
+      // transient upstream outage, so don't tell the caller to check an API
+      // key that was never in play.
+      return err.authenticated
+        ? "The upstream service denied access (403). The authenticated account may lack " +
+            "permission for this specific action."
+        : "The upstream service denied access (403) to this anonymous request. Since no " +
+            "credentials were involved, this isn't a permissions issue — it's more likely a " +
+            "security block or a temporary upstream outage. Try simplifying the request or " +
+            "retrying shortly.";
     case "not_found":
       return "No matching resource was found (404).";
     case "not_modified":

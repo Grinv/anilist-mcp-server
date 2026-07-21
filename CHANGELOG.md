@@ -6,6 +6,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- Stop `search_media` from treating an empty/whitespace `term` differently from an omitted one — it now falls back to the documented term-less browse/ranking mode instead of silently returning zero results.
+- Paginate `get_media_tags` (`page`/`perPage`) instead of always returning the full ~425-tag list in one response.
+- Paginate `get_user_list` by `chunk`/`perChunk` (AniList's own mechanism for this field) instead of returning a user's entire list in one response.
+- Stop blaming "credentials" for every 401/403: the error message now distinguishes a token that was actually sent (invalid/expired, or the account just isn't allowed to do this specific thing) from no token at all (log in for an anonymous 401; a likely WAF block or outage, not a permissions problem, for an anonymous 403).
+- Bound every AniList numeric-ID input to GraphQL's 32-bit `Int` range, so an out-of-range ID now fails local validation with a clear message instead of a raw upstream GraphQL type error.
+
 ## [0.1.3] - 2026-07-21
 
 ### Fixed

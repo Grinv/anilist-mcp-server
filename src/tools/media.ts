@@ -10,12 +10,13 @@ import {
   toggleFavouriteResult,
   MEDIA_TYPES,
   fuzzyDateOut,
+  anilistId,
 } from "./outputSchemas.js";
 
 const mediaType = z.enum(MEDIA_TYPES).describe("Whether `id`/`ids` refers to anime or manga.");
 
 const idsSchema = z
-  .union([z.number().int(), z.array(z.number().int()).min(1)])
+  .union([anilistId, z.array(anilistId).min(1)])
   .describe("A single AniList anime/manga ID, or an array of IDs to fetch in one call.");
 
 /** MEDIA_FIELDS(+MEDIA_DETAIL_FIELDS) — only `id` is guaranteed; every other
@@ -241,7 +242,7 @@ export function registerMediaTools(server: McpServer, client: AniListClient): vo
         "Get an anime/manga's watch/read-status counts (watching/completed/planning/etc.) and " +
         "score distribution histogram across all AniList users. Use search_media first to " +
         "resolve a title to its AniList ID.",
-      inputSchema: z.object({ type: mediaType, id: z.number().int().describe("AniList ID.") }),
+      inputSchema: z.object({ type: mediaType, id: anilistId.describe("AniList ID.") }),
       outputSchema: z.object({ statistics: statisticsObject }),
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
@@ -261,7 +262,7 @@ export function registerMediaTools(server: McpServer, client: AniListClient): vo
         "AniList ID.",
       inputSchema: z.object({
         type: mediaType,
-        id: z.number().int().describe("AniList ID."),
+        id: anilistId.describe("AniList ID."),
         page: z.number().int().positive().default(1).describe("Page number for pagination."),
         perPage: z.number().int().min(1).max(25).default(25).describe("Results per page (max 25)."),
       }),
@@ -286,7 +287,7 @@ export function registerMediaTools(server: McpServer, client: AniListClient): vo
         "AniList ID.",
       inputSchema: z.object({
         type: mediaType,
-        id: z.number().int().describe("AniList ID."),
+        id: anilistId.describe("AniList ID."),
         page: z.number().int().positive().default(1).describe("Page number for pagination."),
         perPage: z.number().int().min(1).max(25).default(25).describe("Results per page (max 25)."),
       }),
@@ -308,7 +309,7 @@ export function registerMediaTools(server: McpServer, client: AniListClient): vo
         "search_media first to resolve a title to its AniList ID.",
       inputSchema: z.object({
         type: mediaType,
-        id: z.number().int().describe("AniList ID."),
+        id: anilistId.describe("AniList ID."),
         page: z.number().int().positive().default(1).describe("Page number for pagination."),
         perPage: z.number().int().min(1).max(25).default(10).describe("Results per page (max 25)."),
       }),
@@ -330,7 +331,7 @@ export function registerMediaTools(server: McpServer, client: AniListClient): vo
         "adaptations, spin-offs) with the relation type. Use search_media first to resolve a " +
         "title to its AniList ID.",
       inputSchema: z.object({
-        id: z.number().int().describe("AniList anime/manga ID."),
+        id: anilistId.describe("AniList anime/manga ID."),
         type: z.enum(["ANIME", "MANGA"]).describe("Whether `id` refers to an anime or a manga."),
       }),
       outputSchema: z.object({ relations: relationsObject }),
@@ -351,7 +352,7 @@ export function registerMediaTools(server: McpServer, client: AniListClient): vo
         "site-wide upcoming schedule, or pass it (from search_media/get_media) to get one " +
         "title's next-episode air time. Anime only — manga has no airing schedule.",
       inputSchema: z.object({
-        mediaId: z.number().int().optional().describe("Restrict to this AniList anime ID."),
+        mediaId: anilistId.optional().describe("Restrict to this AniList anime ID."),
         notYetAired: z
           .boolean()
           .default(true)
@@ -382,7 +383,7 @@ export function registerMediaTools(server: McpServer, client: AniListClient): vo
         "matching `kind`.",
       inputSchema: z.object({
         kind: z.enum(FAVOURITE_KINDS).describe("Which kind of entity `id` refers to."),
-        id: z.number().int().describe("AniList ID of that anime/manga/character/staff/studio."),
+        id: anilistId.describe("AniList ID of that anime/manga/character/staff/studio."),
       }),
       outputSchema: z.object({ favourites: toggleFavouriteResult }),
       annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false },

@@ -27,9 +27,19 @@ export async function getUserList(
   ctx: AniListContext,
   type: "ANIME" | "MANGA",
   user: number | string,
-): Promise<unknown> {
+  chunk = 1,
+  perChunk = 25,
+): Promise<{ lists: unknown; hasNextChunk: boolean | null }> {
   const byId = typeof user === "number";
-  const query = `query($userId:Int,$userName:String,$type:MediaType){MediaListCollection(userId:$userId,userName:$userName,type:$type){
+  // AniList paginates MediaListCollection by `chunk`/`perChunk` (entry count
+  // across ALL statuses), not the `page`/`perPage`-over-a-Page convention
+  // used elsewhere in this API — a chunk boundary can therefore fall in the
+  // middle of a status group. Unpaginated, this field returns the account's
+  // entire list (up to AniList's own 11,000-entry cap) in one response,
+  // which for an active account is large enough to blow a calling agent's
+  // context budget.
+  const query = `query($userId:Int,$userName:String,$type:MediaType,$chunk:Int,$perChunk:Int){MediaListCollection(userId:$userId,userName:$userName,type:$type,chunk:$chunk,perChunk:$perChunk){
+    hasNextChunk
     lists{name isCustomList isSplitCompletedList status entries{
       id status score(format:POINT_10_DECIMAL) progress progressVolumes repeat priority private notes
       startedAt{year month day} completedAt{year month day} updatedAt createdAt
@@ -39,12 +49,14 @@ export async function getUserList(
   // Authenticated (when available) so the caller's own private entries and
   // viewer-relative fields resolve correctly, not just what an anonymous
   // request would see.
-  const data = await ctx.gql.request<{ MediaListCollection: { lists: unknown } }>(
+  const data = await ctx.gql.request<{
+    MediaListCollection: { lists: unknown; hasNextChunk: boolean | null };
+  }>(
     query,
-    byId ? { userId: user, type } : { userName: user, type },
+    byId ? { userId: user, type, chunk, perChunk } : { userName: user, type, chunk, perChunk },
     ctx.authHeader(),
   );
-  return data.MediaListCollection.lists;
+  return data.MediaListCollection;
 }
 
 /** Both anime- and manga-list advanced scoring categories, in the account's

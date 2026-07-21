@@ -69,16 +69,18 @@ export class HttpClient {
     const onAbort = () => controller.abort();
     options.signal?.addEventListener("abort", onAbort, { once: true });
 
+    const headers = {
+      "User-Agent": USER_AGENT,
+      Accept: "application/json",
+      ...this.#opts.defaultHeaders,
+      ...options.headers,
+    };
+
     let res: Response;
     try {
       res = await fetch(url, {
         method: options.method ?? "GET",
-        headers: {
-          "User-Agent": USER_AGENT,
-          Accept: "application/json",
-          ...this.#opts.defaultHeaders,
-          ...options.headers,
-        },
+        headers,
         ...(options.body === undefined ? {} : { body: options.body }),
         signal: controller.signal,
       });
@@ -101,7 +103,7 @@ export class HttpClient {
       options.signal?.removeEventListener("abort", onAbort);
     }
 
-    if (!res.ok) throw await toHttpError(res);
+    if (!res.ok) throw await toHttpError(res, "Authorization" in headers);
 
     if (res.status === 204) return undefined as T;
     const text = await res.text();
@@ -128,7 +130,7 @@ export class HttpClient {
   }
 }
 
-async function toHttpError(res: Response): Promise<ApiError> {
+async function toHttpError(res: Response, authenticated: boolean): Promise<ApiError> {
   const { code, retryable } = classifyStatus(res.status);
   let raw = "";
   try {
@@ -143,6 +145,7 @@ async function toHttpError(res: Response): Promise<ApiError> {
     code,
     status: res.status,
     retryable,
+    authenticated,
     message: `HTTP ${res.status} ${res.statusText}${detail ? `: ${detail}` : ""}`,
     ...(retryAfter === undefined ? {} : { cause: { retryAfterMs: retryAfter } }),
   });

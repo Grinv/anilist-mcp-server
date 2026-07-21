@@ -4,7 +4,7 @@ import type { AniListClient } from "../clients/anilist.js";
 import * as search from "../clients/anilist/search.js";
 import { jsonResult } from "../lib/result.js";
 import { guard } from "./guard.js";
-import { pageInfoSchema, MEDIA_TYPES, idOnly } from "./outputSchemas.js";
+import { pageInfoSchema, MEDIA_TYPES, idOnly, anilistId } from "./outputSchemas.js";
 
 const FORMATS = [
   "TV",
@@ -259,9 +259,7 @@ export function registerSearchTools(server: McpServer, client: AniListClient): v
         "filtered to one user and/or one activity type. Returns AniList activity IDs to use " +
         "with get_activity.",
       inputSchema: z.object({
-        userId: z
-          .number()
-          .int()
+        userId: anilistId
           .optional()
           .describe(
             "Restrict results to this AniList user ID — numeric only; resolve one via " +

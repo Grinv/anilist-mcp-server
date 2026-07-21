@@ -4,6 +4,7 @@ import type { AniListClient } from "../clients/anilist.js";
 import * as people from "../clients/anilist/people.js";
 import { jsonResult } from "../lib/result.js";
 import { guard } from "./guard.js";
+import { anilistId } from "./outputSchemas.js";
 
 const characterObject = z
   .object({
@@ -40,7 +41,7 @@ export function registerPeopleTools(server: McpServer, client: AniListClient): v
       description:
         "Get a character's profile by AniList character ID: name, image, description. Use " +
         "search_character first to resolve a name to its ID.",
-      inputSchema: z.object({ id: z.number().int().describe("AniList character ID.") }),
+      inputSchema: z.object({ id: anilistId.describe("AniList character ID.") }),
       outputSchema: z.object({ character: characterObject }),
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
@@ -55,7 +56,7 @@ export function registerPeopleTools(server: McpServer, client: AniListClient): v
       description:
         "Get a staff member's profile by AniList staff ID: name, image, occupations, " +
         "description. Use search_staff first to resolve a name to its ID.",
-      inputSchema: z.object({ id: z.number().int().describe("AniList staff ID.") }),
+      inputSchema: z.object({ id: anilistId.describe("AniList staff ID.") }),
       outputSchema: z.object({ staff: staffObject }),
       annotations: { readOnlyHint: true, openWorldHint: true },
     },

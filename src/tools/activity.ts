@@ -4,10 +4,10 @@ import type { AniListClient } from "../clients/anilist.js";
 import * as activity from "../clients/anilist/activity.js";
 import { jsonResult } from "../lib/result.js";
 import { guard } from "./guard.js";
-import { pageInfoSchema, deleteResult } from "./outputSchemas.js";
+import { pageInfoSchema, deleteResult, anilistId } from "./outputSchemas.js";
 
 const userIdOrName = z
-  .union([z.number().int(), z.string().min(1)])
+  .union([anilistId, z.string().min(1)])
   .describe("AniList user ID, or username.");
 
 /** Matches the ACTIVITY_FRAGMENT union (TextActivity/ListActivity/MessageActivity) —
@@ -58,13 +58,10 @@ export function registerActivityTools(server: McpServer, client: AniListClient):
       description:
         "Get a single AniList activity post (list update, text post, or message) by its ID.",
       inputSchema: z.object({
-        id: z
-          .number()
-          .int()
-          .describe(
-            "AniList activity ID — from get_user_activity, get_user_recent_activity, " +
-              "search_activity, or the id returned by post_text_activity/post_message_activity.",
-          ),
+        id: anilistId.describe(
+          "AniList activity ID — from get_user_activity, get_user_recent_activity, " +
+            "search_activity, or the id returned by post_text_activity/post_message_activity.",
+        ),
       }),
       outputSchema: z.object({ activity: activityItem }),
       annotations: { readOnlyHint: true, openWorldHint: true },
@@ -112,11 +109,7 @@ export function registerActivityTools(server: McpServer, client: AniListClient):
         "AniList profile, or update an existing one by passing its `id`.",
       inputSchema: z.object({
         text: z.string().min(1).describe("The text to post."),
-        id: z
-          .number()
-          .int()
-          .optional()
-          .describe("Activity ID to update instead of creating a new post."),
+        id: anilistId.optional().describe("Activity ID to update instead of creating a new post."),
       }),
       outputSchema: z.object({ activity: savedTextActivity }),
       annotations: {
@@ -140,19 +133,12 @@ export function registerActivityTools(server: McpServer, client: AniListClient):
         "[Requires login] Post a new direct message-style activity to another AniList user's " +
         "profile, or update an existing one by passing its `id`.",
       inputSchema: z.object({
-        recipientId: z
-          .number()
-          .int()
-          .describe(
-            "AniList numeric user ID of the message recipient (resolve a username via " +
-              "search_user first).",
-          ),
+        recipientId: anilistId.describe(
+          "AniList numeric user ID of the message recipient (resolve a username via " +
+            "search_user first).",
+        ),
         message: z.string().min(1).describe("The message text to post."),
-        id: z
-          .number()
-          .int()
-          .optional()
-          .describe("Activity ID to update instead of creating a new post."),
+        id: anilistId.optional().describe("Activity ID to update instead of creating a new post."),
       }),
       outputSchema: z.object({ activity: savedMessageActivity }),
       annotations: {
@@ -177,13 +163,10 @@ export function registerActivityTools(server: McpServer, client: AniListClient):
       description:
         "[Requires login] Delete an activity post the authenticated user owns. This cannot be undone.",
       inputSchema: z.object({
-        id: z
-          .number()
-          .int()
-          .describe(
-            "AniList activity ID to delete — from get_user_activity, search_activity, or the id " +
-              "returned by a previous post_text_activity/post_message_activity call.",
-          ),
+        id: anilistId.describe(
+          "AniList activity ID to delete — from get_user_activity, search_activity, or the id " +
+            "returned by a previous post_text_activity/post_message_activity call.",
+        ),
       }),
       outputSchema: z.object({ result: deleteResult }),
       annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true },

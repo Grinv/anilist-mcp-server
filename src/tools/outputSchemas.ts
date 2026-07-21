@@ -1,8 +1,18 @@
-// Output-schema fragments shared across multiple tools/*.ts files, since they
-// describe the same upstream AniList GraphQL types (PageInfo, Deleted) — kept
-// in one place so a schema fix/addition doesn't have to be hand-applied
-// identically across every file that happens to return that type.
+// Schema fragments shared across multiple tools/*.ts files: output shapes
+// that describe the same upstream AniList GraphQL types (PageInfo, Deleted),
+// plus a couple of small input-side helpers (anilistId) — kept in one place
+// so a schema fix/addition doesn't have to be hand-applied identically
+// across every file that happens to need it.
 import { z } from "zod";
+
+/** Bound for any caller-supplied AniList numeric ID (media, user, character,
+ *  staff, studio, thread, activity, recommendation, list-entry, …). AniList's
+ *  GraphQL `Int` scalar is 32-bit signed, so a value outside this range
+ *  always fails upstream with a raw GraphQL type-coercion error instead of a
+ *  clear local validation message. Doesn't reject 0/negative values — those
+ *  are still representable as `Int` and already fail cleanly upstream as
+ *  "not found"; this only guards the range GraphQL can carry at all. */
+export const anilistId = z.number().int().min(-2147483648).max(2147483647);
 
 export const pageInfoSchema = z
   .object({

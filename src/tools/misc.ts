@@ -4,6 +4,7 @@ import type { AniListClient } from "../clients/anilist.js";
 import * as misc from "../clients/anilist/misc.js";
 import { jsonResult, errorResult } from "../lib/result.js";
 import { guard } from "./guard.js";
+import { pageInfoSchema, anilistId } from "./outputSchemas.js";
 
 const mediaTagItem = z
   .object({
@@ -91,13 +92,19 @@ export function registerMiscTools(server: McpServer, client: AniListClient): voi
       description:
         "List every descriptive tag AniList uses on anime/manga (finer-grained than genres, " +
         "e.g. 'Time Skip', 'Tragedy', 'Reincarnation'), with category and adult-content flag. " +
-        "Informational only — search_media has no tag filter, so this can't narrow a search; " +
-        "use it to look up a tag's exact name/category or to label media you already have.",
-      inputSchema: z.object({}),
-      outputSchema: z.object({ tags: z.array(mediaTagItem) }),
+        "There are ~425 tags total, so results are paginated — use `page`/`perPage` rather than " +
+        "expecting them all in one response. Informational only — search_media has no tag " +
+        "filter, so this can't narrow a search; use it to look up a tag's exact name/category " +
+        "or to label media you already have.",
+      inputSchema: z.object({
+        page: z.number().int().positive().default(1).describe("Page number for pagination."),
+        perPage: z.number().int().min(1).max(25).default(25).describe("Results per page (max 25)."),
+      }),
+      outputSchema: z.object({ tags: z.array(mediaTagItem), pageInfo: pageInfoSchema.optional() }),
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
-    () => guard(async () => jsonResult({ tags: await misc.getMediaTags(client.ctx()) })),
+    ({ page, perPage }) =>
+      guard(async () => jsonResult(await misc.getMediaTags(client.ctx(), page, perPage))),
   );
 
   server.registerTool(
@@ -124,7 +131,7 @@ export function registerMiscTools(server: McpServer, client: AniListClient): voi
         "have a partial name and need to resolve it to an ID. If both `id` and `name` are given, " +
         "`id` takes precedence and `name` is ignored.",
       inputSchema: z.object({
-        id: z.number().int().optional().describe("AniList studio ID. Provide this or `name`."),
+        id: anilistId.optional().describe("AniList studio ID. Provide this or `name`."),
         name: z
           .string()
           .min(1)

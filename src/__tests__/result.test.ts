@@ -36,12 +36,34 @@ test("apiErrorToResult produces an actionable message per error code", () => {
   }
 });
 
-test("apiErrorToResult: a real upstream 401 (status set) gets the generic templated text", () => {
+test("apiErrorToResult: a real upstream 401 with a token sent may be invalid/expired or just not permitted", () => {
   const r = apiErrorToResult(
-    new ApiError({ code: "unauthorized", message: "detail", status: 401 }),
+    new ApiError({ code: "unauthorized", message: "detail", status: 401, authenticated: true }),
   );
   assert.equal(r.isError, true);
-  assert.match(r.content[0]!.text, /expired|credentials/i);
+  assert.match(r.content[0]!.text, /invalid or expired/i);
+});
+
+test("apiErrorToResult: a real upstream 401 with no token sent asks the caller to log in", () => {
+  const r = apiErrorToResult(
+    new ApiError({ code: "unauthorized", message: "detail", status: 401, authenticated: false }),
+  );
+  assert.equal(r.isError, true);
+  assert.match(r.content[0]!.text, /login_anilist/i);
+});
+
+test("apiErrorToResult: a 403 with a token sent blames account permission, not a WAF", () => {
+  const r = apiErrorToResult(
+    new ApiError({ code: "forbidden", message: "detail", status: 403, authenticated: true }),
+  );
+  assert.equal(r.isError, true);
+  assert.match(r.content[0]!.text, /account may lack permission/i);
+});
+
+test("apiErrorToResult: a 403 with no token sent doesn't blame credentials", () => {
+  const r = apiErrorToResult(new ApiError({ code: "forbidden", message: "detail", status: 403 }));
+  assert.equal(r.isError, true);
+  assert.match(r.content[0]!.text, /anonymous request/i);
 });
 
 test("apiErrorToResult: a client-side pre-flight unauthorized (no status) keeps its own specific message", () => {

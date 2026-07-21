@@ -119,10 +119,12 @@ typecheck:scripts`, folded into `npm run lint`) instead of the main
   re-authentication via `login_anilist` is the only way to renew one.
 - **MCP SDK**: this project intentionally runs on **`@modelcontextprotocol/server`
   v2 beta** (`2.0.0-beta.x`, pinned exact — not a `^range`) ahead of the sibling
-  servers (`mal-mcp`/`tmdb-mcp`/`steam-games-mcp`, all still on v1). Bump to the
-  first stable `2.0.0` once the 2026-07-28 MCP spec/SDK ships GA, re-running the
-  full test suite (including `e2e.test.ts`, which drives the real built bundle)
-  before merging that bump.
+  servers (`mal-mcp`/`tmdb-mcp`/`steam-games-mcp`, all still on v1). Bump to
+  each new `2.0.0-beta.N` promptly (re-running the full test suite, including
+  `e2e.test.ts`, before merging), since the SDK is still shipping breaking
+  wire-format changes between betas as the 2026-07-28 MCP spec finalizes. Bump
+  to the first stable `2.0.0` once that spec/SDK ships GA — no schedule for
+  that yet as of `2.0.0-beta.5`.
 - **No `logging` MCP capability.** `notifications/message`/`logging/setLevel`
   were deprecated in protocol version 2026-07-28 (SEP-2577) in favor of
   stderr/OpenTelemetry — which `lib/logger.ts` already does (stderr-only,

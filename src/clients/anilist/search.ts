@@ -1,11 +1,27 @@
 import type { AniListContext } from "./context.js";
 import {
   MEDIA_FIELDS,
+  MEDIA_DESCRIPTION_FIELD,
   CHARACTER_FIELDS,
   STAFF_FIELDS,
   USER_FIELDS,
   ACTIVITY_FRAGMENT,
 } from "./fields.js";
+
+/** AniList's `FuzzyDateInt` scalar is a single Int in `YyyyMmDd` form (e.g.
+ *  `20140204`), distinct from `FuzzyDateInput` (the `{year,month,day}` object
+ *  used elsewhere, e.g. list.ts's startedAt/completedAt) — used only for
+ *  these range-filter args. Missing month/day become `0`, matching AniList's
+ *  own convention for a partial date. Returns undefined for a wholly-empty
+ *  input (stripped by GraphQLClient rather than sent as a meaningless 0). */
+function encodeFuzzyDateInt(date?: {
+  year?: number;
+  month?: number;
+  day?: number;
+}): number | undefined {
+  if (!date || date.year === undefined) return undefined;
+  return date.year * 10000 + (date.month ?? 0) * 100 + (date.day ?? 0);
+}
 
 export async function searchMedia(
   ctx: AniListContext,
@@ -16,23 +32,38 @@ export async function searchMedia(
     page?: number;
     perPage?: number;
     sort?: string[];
+    includeDescription?: boolean;
   },
 ): Promise<unknown> {
   // AniList's Media field takes filter args flat (no nested input object),
   // so translate the caller's filter map into the individual arg names below.
   // Undefined variables are stripped by GraphQLClient, so unset filters are
   // simply omitted from the request rather than sent as null.
+  const fields = `${MEDIA_FIELDS}${opts.includeDescription ? MEDIA_DESCRIPTION_FIELD : ""}`;
   const query = `query(
     $search:String,$type:MediaType,$page:Int,$perPage:Int,$sort:[MediaSort],
     $isAdult:Boolean,$genre_in:[String],$format_in:[MediaFormat],$status_in:[MediaStatus],
-    $seasonYear:Int,$season:MediaSeason
+    $seasonYear:Int,$season:MediaSeason,$tag_in:[String],$onList:Boolean,
+    $averageScore_greater:Int,$averageScore_lesser:Int,
+    $popularity_greater:Int,$popularity_lesser:Int,
+    $episodes_greater:Int,$episodes_lesser:Int,
+    $startDate_greater:FuzzyDateInt,$startDate_lesser:FuzzyDateInt,
+    $endDate_greater:FuzzyDateInt,$endDate_lesser:FuzzyDateInt,
+    $source_in:[MediaSource]
   ){
     Page(page:$page,perPage:$perPage){
       pageInfo{total currentPage lastPage hasNextPage perPage}
       media(
         search:$search,type:$type,sort:$sort,isAdult:$isAdult,genre_in:$genre_in,
-        format_in:$format_in,status_in:$status_in,seasonYear:$seasonYear,season:$season
-      ){${MEDIA_FIELDS}}
+        format_in:$format_in,status_in:$status_in,seasonYear:$seasonYear,season:$season,
+        tag_in:$tag_in,onList:$onList,
+        averageScore_greater:$averageScore_greater,averageScore_lesser:$averageScore_lesser,
+        popularity_greater:$popularity_greater,popularity_lesser:$popularity_lesser,
+        episodes_greater:$episodes_greater,episodes_lesser:$episodes_lesser,
+        startDate_greater:$startDate_greater,startDate_lesser:$startDate_lesser,
+        endDate_greater:$endDate_greater,endDate_lesser:$endDate_lesser,
+        source_in:$source_in
+      ){${fields}}
     }
   }`;
   const f = opts.filter ?? {};
@@ -55,6 +86,19 @@ export async function searchMedia(
       status_in: f.status_in,
       seasonYear: f.seasonYear,
       season: f.season,
+      tag_in: f.tag_in,
+      onList: f.onList,
+      averageScore_greater: f.averageScore_greater,
+      averageScore_lesser: f.averageScore_lesser,
+      popularity_greater: f.popularity_greater,
+      popularity_lesser: f.popularity_lesser,
+      episodes_greater: f.episodes_greater,
+      episodes_lesser: f.episodes_lesser,
+      startDate_greater: encodeFuzzyDateInt(f.startDate_greater as { year?: number } | undefined),
+      startDate_lesser: encodeFuzzyDateInt(f.startDate_lesser as { year?: number } | undefined),
+      endDate_greater: encodeFuzzyDateInt(f.endDate_greater as { year?: number } | undefined),
+      endDate_lesser: encodeFuzzyDateInt(f.endDate_lesser as { year?: number } | undefined),
+      source_in: f.source_in,
     },
     ctx.authHeader(),
   );
@@ -147,9 +191,13 @@ export async function searchThread(
       id title siteUrl replyCount viewCount isSticky createdAt user{id name} categories{id name}
     }
   }}`;
+  // Same empty/whitespace-term fix as searchMedia above — an explicit
+  // `search: ""` matches nothing, silently returning zero results instead of
+  // the intended term-less browse/filter mode.
+  const search = term?.trim() ? term : undefined;
   const data = await ctx.gql.request<{ Page: unknown }>(
     query,
-    { search: term, categoryId, mediaCategoryId, page, perPage },
+    { search, categoryId, mediaCategoryId, page, perPage },
     ctx.authHeader(),
   );
   return data.Page;

@@ -34,6 +34,15 @@ export class TtlCache<T> {
     return this.#map.get(key)?.value;
   }
 
+  /** Drop every cached entry. A successful mutation can change the answer to
+   *  any previously-cached read (e.g. `isFavourite`/`isFollowing`, or the
+   *  mutated resource itself) — call this after one so the next read is
+   *  guaranteed fresh instead of serving up to `ttlMs` of pre-mutation data. */
+  clear(): void {
+    this.#map.clear();
+    this.#pending.clear();
+  }
+
   set(key: string, value: T): void {
     if (this.#ttlMs <= 0) return;
     if (!this.#map.has(key) && this.#map.size >= this.#max) {

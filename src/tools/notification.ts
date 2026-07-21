@@ -6,7 +6,7 @@ import { jsonResult } from "../lib/result.js";
 import { guard } from "./guard.js";
 import { pageInfoSchema, idOnly } from "./outputSchemas.js";
 
-const NOTIFICATION_TYPES = [
+export const NOTIFICATION_TYPES = [
   "ACTIVITY_MESSAGE",
   "ACTIVITY_REPLY",
   "FOLLOWING",
@@ -42,7 +42,9 @@ export function registerNotificationTools(server: McpServer, client: AniListClie
         "airing, activity likes/replies/mentions, new followers, thread replies/likes, and " +
         "media/staff/character data-submission updates. Every item has `id`, `type` and a " +
         "human-readable `context`/`contexts` string; the rest of the fields depend on `type` " +
-        "(e.g. an AIRING item includes `media`/`episode`, a FOLLOWING item includes `user`).",
+        "(e.g. an AIRING item includes `media`/`episode`, a FOLLOWING item includes `user`, an " +
+        "ACTIVITY_MESSAGE item includes `message.message` — the actual DM text is nested one " +
+        "level inside `message`).",
       inputSchema: z.object({
         type_in: z
           .array(z.enum(NOTIFICATION_TYPES))

@@ -14,6 +14,7 @@ import { createServer, type Server } from "node:http";
 import { randomBytes } from "node:crypto";
 import { spawn } from "node:child_process";
 import { platform } from "node:os";
+import { ApiError } from "./errors.js";
 
 /** A random CSRF `state` value for one login attempt. */
 export function generateState(): string {
@@ -37,7 +38,12 @@ export function buildAuthorizeUrl(opts: {
 }
 
 /** Extract the `code` from a redirected URL, a bare `?code=…` query, or a raw
- *  code string. Throws with the OAuth `error` when the redirect denied access. */
+ *  code string. Throws an `ApiError` (code: "bad_request") with the OAuth
+ *  `error` when the redirect denied access — these are anticipated user
+ *  outcomes (e.g. clicking "Deny"), not unexpected failures, so they get the
+ *  same clean "request was rejected as invalid" message as any other
+ *  validation error rather than guard()'s generic "Unexpected error" catch-all
+ *  (which is what a plain `Error` thrown here would fall into instead). */
 export function extractCode(redirect: string): string {
   const text = redirect.trim();
   let params: URLSearchParams | undefined;
@@ -49,12 +55,17 @@ export function extractCode(redirect: string): string {
   }
   if (params) {
     const err = params.get("error");
-    if (err) throw new Error(`authorization denied: ${err}`);
+    if (err) {
+      throw new ApiError({ code: "bad_request", message: `authorization denied: ${err}` });
+    }
     const code = params.get("code");
     if (code) return code;
-    throw new Error("no `code` found in the pasted redirect URL");
+    throw new ApiError({
+      code: "bad_request",
+      message: "no `code` found in the pasted redirect URL",
+    });
   }
-  if (!text) throw new Error("empty redirect/code");
+  if (!text) throw new ApiError({ code: "bad_request", message: "empty redirect/code" });
   return text; // treat the whole string as the bare code
 }
 

@@ -15,6 +15,7 @@ export interface MediaListEntryInput {
   priority?: number;
   private?: boolean;
   notes?: string;
+  hiddenFromStatusLists?: boolean;
   startedAt?: { year?: number; month?: number; day?: number };
   completedAt?: { year?: number; month?: number; day?: number };
   customLists?: string[];
@@ -42,7 +43,9 @@ export async function getUserList(
     hasNextChunk
     lists{name isCustomList isSplitCompletedList status entries{
       id status score(format:POINT_10_DECIMAL) progress progressVolumes repeat priority private notes
+      hiddenFromStatusLists
       startedAt{year month day} completedAt{year month day} updatedAt createdAt
+      customLists(asArray: true) advancedScores
       media{id idMal title{romaji english} episodes chapters siteUrl}
     }}
   }}`;
@@ -60,30 +63,37 @@ export async function getUserList(
 }
 
 /** Both anime- and manga-list advanced scoring categories, in the account's
- *  own configured order (empty array if advanced scoring isn't enabled for
- *  that list). Only fetched when the caller actually supplies advancedScores.
- *  Bypasses the read cache: a stale category order here would silently
- *  misfile a score into the wrong category with no error, which is exactly
- *  what this whole positional-ordering feature exists to prevent. */
+ *  own configured order, plus whether the feature is actually enabled for
+ *  each list. Confirmed live: `advancedScoring` can be a non-empty category
+ *  list even when `advancedScoringEnabled` is `false` (disabling the feature
+ *  on the site doesn't clear a previously-configured category list) — so
+ *  the enabled flag must be checked explicitly; a non-empty category array
+ *  is NOT itself proof the feature is on. Only fetched when the caller
+ *  actually supplies advancedScores. Bypasses the read cache: a stale
+ *  category order here would silently misfile a score into the wrong
+ *  category with no error, which is exactly what this whole
+ *  positional-ordering feature exists to prevent. */
 async function getAdvancedScoringCategories(
   ctx: AniListContext,
   header: Record<string, string>,
-): Promise<{ anime: string[]; manga: string[] }> {
+): Promise<{ anime: string[]; manga: string[]; animeEnabled: boolean; mangaEnabled: boolean }> {
   const query = `query{Viewer{mediaListOptions{
-    animeList{advancedScoring}
-    mangaList{advancedScoring}
+    animeList{advancedScoring advancedScoringEnabled}
+    mangaList{advancedScoring advancedScoringEnabled}
   }}}`;
   const data = await ctx.gql.request<{
     Viewer: {
       mediaListOptions: {
-        animeList: { advancedScoring: string[] | null };
-        mangaList: { advancedScoring: string[] | null };
+        animeList: { advancedScoring: string[] | null; advancedScoringEnabled: boolean | null };
+        mangaList: { advancedScoring: string[] | null; advancedScoringEnabled: boolean | null };
       };
     };
   }>(query, {}, header, { skipCache: true });
   return {
     anime: data.Viewer.mediaListOptions.animeList.advancedScoring ?? [],
     manga: data.Viewer.mediaListOptions.mangaList.advancedScoring ?? [],
+    animeEnabled: data.Viewer.mediaListOptions.animeList.advancedScoringEnabled ?? false,
+    mangaEnabled: data.Viewer.mediaListOptions.mangaList.advancedScoringEnabled ?? false,
   };
 }
 
@@ -123,9 +133,20 @@ async function resolveMediaType(
 function orderAdvancedScores(
   advancedScores: Record<string, number>,
   mediaType: "ANIME" | "MANGA",
-  categoryLists: { anime: string[]; manga: string[] },
+  categoryLists: { anime: string[]; manga: string[]; animeEnabled: boolean; mangaEnabled: boolean },
 ): number[] {
-  const categories = mediaType === "MANGA" ? categoryLists.manga : categoryLists.anime;
+  const isManga = mediaType === "MANGA";
+  const categories = isManga ? categoryLists.manga : categoryLists.anime;
+  const enabled = isManga ? categoryLists.mangaEnabled : categoryLists.animeEnabled;
+  // Checked separately from `categories.length` — confirmed live that a
+  // previously-configured category list survives turning the feature off,
+  // so a non-empty list is not itself proof advanced scoring is enabled.
+  if (!enabled) {
+    throw new ApiError({
+      code: "bad_request",
+      message: `Advanced scoring isn't enabled for ${isManga ? "manga" : "anime"} on this account.`,
+    });
+  }
   const keys = Object.keys(advancedScores);
   const unknown = keys.filter((k) => !categories.includes(k));
   if (unknown.length) {
@@ -133,8 +154,7 @@ function orderAdvancedScores(
       code: "bad_request",
       message:
         `advancedScores keys (${unknown.join(", ")}) don't match this account's configured ` +
-        `advanced scoring categories for ${mediaType === "MANGA" ? "manga" : "anime"}` +
-        `${categories.length ? `: ${categories.join(", ")}` : " (advanced scoring isn't enabled for this list)"}.`,
+        `advanced scoring categories for ${isManga ? "manga" : "anime"}: ${categories.join(", ")}.`,
     });
   }
   // AniList's advancedScores is also a raw 0-100-per-category scale.
@@ -164,14 +184,14 @@ export async function saveListEntry(
   }
   const query = `mutation(
     $id:Int,$mediaId:Int,$status:MediaListStatus,$scoreRaw:Int,$progress:Int,$progressVolumes:Int,
-    $repeat:Int,$priority:Int,$private:Boolean,$notes:String,
+    $repeat:Int,$priority:Int,$private:Boolean,$notes:String,$hiddenFromStatusLists:Boolean,
     $startedAt:FuzzyDateInput,$completedAt:FuzzyDateInput,
     $customLists:[String],$advancedScores:[Float]
   ){SaveMediaListEntry(
     id:$id,mediaId:$mediaId,status:$status,scoreRaw:$scoreRaw,progress:$progress,progressVolumes:$progressVolumes,
-    repeat:$repeat,priority:$priority,private:$private,notes:$notes,
+    repeat:$repeat,priority:$priority,private:$private,notes:$notes,hiddenFromStatusLists:$hiddenFromStatusLists,
     startedAt:$startedAt,completedAt:$completedAt,customLists:$customLists,advancedScores:$advancedScores
-  ){id status score(format:POINT_10_DECIMAL) progress mediaId}}`;
+  ){id status score(format:POINT_10_DECIMAL) progress mediaId hiddenFromStatusLists}}`;
   const data = await ctx.gql.request<{ SaveMediaListEntry: unknown }>(
     query,
     {
@@ -187,6 +207,7 @@ export async function saveListEntry(
       priority: input.priority,
       private: input.private,
       notes: input.notes,
+      hiddenFromStatusLists: input.hiddenFromStatusLists,
       startedAt: input.startedAt,
       completedAt: input.completedAt,
       customLists: input.customLists,

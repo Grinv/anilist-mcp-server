@@ -6,6 +6,7 @@ import {
   decodeJwtExpiry,
   listenForCode,
 } from "../lib/oauthLogin.js";
+import { ApiError } from "../lib/errors.js";
 
 test("buildAuthorizeUrl has no PKCE params (AniList's Authorization Code grant doesn't use it)", () => {
   const url = new URL(
@@ -34,6 +35,16 @@ test("extractCode handles a full redirect URL, a bare query, and a bare code", (
 test("extractCode throws on an error redirect or a missing code", () => {
   assert.throws(() => extractCode("http://localhost:8082/callback?error=access_denied"), /denied/i);
   assert.throws(() => extractCode("http://localhost:8082/callback?state=s"), /no `code`/i);
+});
+
+test("extractCode throws ApiError (bad_request), not a plain Error — so guard() gives a clean message instead of falling into its generic 'Unexpected error' catch-all", () => {
+  const isBadRequest = (err: unknown) => err instanceof ApiError && err.code === "bad_request";
+  assert.throws(
+    () => extractCode("http://localhost:8082/callback?error=access_denied"),
+    isBadRequest,
+  );
+  assert.throws(() => extractCode("http://localhost:8082/callback?state=s"), isBadRequest);
+  assert.throws(() => extractCode(""), isBadRequest);
 });
 
 function makeJwt(payload: Record<string, unknown>): string {

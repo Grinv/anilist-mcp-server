@@ -192,8 +192,8 @@ test("saveListEntry resolves advancedScores against the account's own configured
               // Deliberately overlapping: both lists contain Story/Characters,
               // so a subset-guess (the old, buggy behavior) would also pass
               // for manga — only resolving the real media type gets this right.
-              animeList: { advancedScoring: ["Story", "Characters"] },
-              mangaList: { advancedScoring: ["Characters", "Story"] },
+              animeList: { advancedScoring: ["Story", "Characters"], advancedScoringEnabled: true },
+              mangaList: { advancedScoring: ["Characters", "Story"], advancedScoringEnabled: true },
             },
           },
         },
@@ -225,6 +225,41 @@ test("saveListEntry resolves advancedScores against the account's own configured
   );
 });
 
+test("saveListEntry rejects advancedScores when advancedScoringEnabled is false, even if a category list is still configured", async (t) => {
+  // Confirmed live: disabling advanced scoring on the site does NOT clear a
+  // previously-configured category list, so a non-empty `advancedScoring`
+  // array is not itself proof the feature is enabled — the flag must be
+  // checked explicitly.
+  const mock = mockFetch((_url, init) => {
+    const body = JSON.parse(init?.body as string) as { query: string };
+    if (body.query.includes("Media(id"))
+      return jsonResponse({ data: { Media: { type: "ANIME" } } });
+    return jsonResponse({
+      data: {
+        Viewer: {
+          mediaListOptions: {
+            animeList: {
+              advancedScoring: ["Story", "Characters", "Visuals", "Audio", "Enjoyment"],
+              advancedScoringEnabled: false,
+            },
+            mangaList: { advancedScoring: [], advancedScoringEnabled: false },
+          },
+        },
+      },
+    });
+  });
+  installFetch(t, mock);
+  const client = new AniListClient(testConfig({ ANILIST_ACCESS_TOKEN: "tok" }), silentLogger());
+
+  await assert.rejects(
+    () => list.saveListEntry(client.ctx(), { mediaId: 42, advancedScores: { Story: 8 } }),
+    (err: unknown) =>
+      err instanceof ApiError &&
+      err.code === "bad_request" &&
+      /advanced scoring isn't enabled for anime/i.test(err.message),
+  );
+});
+
 test("saveListEntry rejects advancedScores keys that don't match the entry's actual media type's configured category", async (t) => {
   const mock = mockFetch((_url, init) => {
     const body = JSON.parse(init?.body as string) as { query: string };
@@ -234,8 +269,8 @@ test("saveListEntry rejects advancedScores keys that don't match the entry's act
       data: {
         Viewer: {
           mediaListOptions: {
-            animeList: { advancedScoring: ["Story"] },
-            mangaList: { advancedScoring: ["Typo"] },
+            animeList: { advancedScoring: ["Story"], advancedScoringEnabled: true },
+            mangaList: { advancedScoring: ["Typo"], advancedScoringEnabled: true },
           },
         },
       },
@@ -267,8 +302,8 @@ test("saveListEntry resolves media type from listEntryId (update path) when no m
         data: {
           Viewer: {
             mediaListOptions: {
-              animeList: { advancedScoring: [] },
-              mangaList: { advancedScoring: ["Art", "Story"] },
+              animeList: { advancedScoring: [], advancedScoringEnabled: false },
+              mangaList: { advancedScoring: ["Art", "Story"], advancedScoringEnabled: true },
             },
           },
         },

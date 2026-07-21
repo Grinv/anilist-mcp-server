@@ -42,10 +42,26 @@ const listEntry = z
     priority: z.number().int().nullish(),
     private: z.boolean().nullish(),
     notes: z.string().nullish(),
+    hiddenFromStatusLists: z.boolean().nullish(),
     startedAt: fuzzyDateOut.nullish(),
     completedAt: fuzzyDateOut.nullish(),
     updatedAt: z.number().nullish(),
     createdAt: z.number().nullish(),
+    // Requested with `asArray: true` — AniList's default shape here is an
+    // untyped `Json` object keyed by every one of the account's configured
+    // custom list names (`{listName: boolean}`), which isn't representable
+    // as a stable schema; `asArray` gives a predictable list instead.
+    // Confirmed live: setting `customLists` on an entry to a name that isn't
+    // already in the account's own `animeListOptions`/`mangaListOptions`
+    // `customLists` (see update_user) is silently a no-op — the list must
+    // already exist before an entry can be filed under it.
+    customLists: z
+      .array(z.object({ name: z.string().nullish(), enabled: z.boolean().nullish() }).passthrough())
+      .nullish(),
+    // Same untyped `Json` situation as customLists above — the input side
+    // takes a plain {category: score} map, but AniList echoes this back in
+    // whatever shape it actually stores it in.
+    advancedScores: z.unknown().nullish(),
     media: listEntryMediaLite.nullish(),
   })
   .passthrough();
@@ -69,6 +85,7 @@ const savedListEntry = z
     score: z.number().nullish(),
     progress: z.number().int().nullish(),
     mediaId: z.number().int().nullish(),
+    hiddenFromStatusLists: z.boolean().nullish(),
   })
   .passthrough();
 
@@ -129,7 +146,11 @@ export function registerListTools(server: McpServer, client: AniListClient): voi
         status: z
           .enum(STATUSES)
           .optional()
-          .describe("List status. Defaults to PLANNING if omitted."),
+          .describe(
+            "List status. If omitted, AniList defaults to CURRENT (with `startedAt` " +
+              "auto-set to today) — confirmed live; despite AniList's own site UI defaulting " +
+              "new entries to Planning, the API itself does not.",
+          ),
         score: z
           .number()
           .min(0)
@@ -150,12 +171,24 @@ export function registerListTools(server: McpServer, client: AniListClient): voi
           .describe("List priority (higher = more important)."),
         private: z.boolean().optional().describe("Hide this entry from your public list."),
         notes: z.string().optional().describe("Free-text notes for this entry."),
+        hiddenFromStatusLists: z
+          .boolean()
+          .optional()
+          .describe(
+            "Hide this entry from the public status-grouped list views (e.g. 'Watching') " +
+              "while still counting it in statistics — distinct from `private`, which hides " +
+              "the entry entirely.",
+          ),
         startedAt: fuzzyDate.optional().describe("Date you started."),
         completedAt: fuzzyDate.optional().describe("Date you completed."),
         customLists: z
           .array(z.string())
           .optional()
-          .describe("Names of custom lists to file this entry under."),
+          .describe(
+            "Names of custom lists to file this entry under. The list must already exist on " +
+              "the account (update_user's `animeListOptions`/`mangaListOptions` `customLists`) " +
+              "— naming one that doesn't exist yet is silently a no-op, not an error.",
+          ),
         advancedScores: z
           .record(z.string(), z.number())
           .optional()
@@ -210,12 +243,23 @@ export function registerListTools(server: McpServer, client: AniListClient): voi
         priority: z.number().int().min(0).optional().describe("New list priority."),
         private: z.boolean().optional().describe("Hide/unhide this entry from your public list."),
         notes: z.string().optional().describe("New free-text notes."),
+        hiddenFromStatusLists: z
+          .boolean()
+          .optional()
+          .describe(
+            "Hide/unhide this entry from the public status-grouped list views — distinct from " +
+              "`private`, which hides the entry entirely.",
+          ),
         startedAt: fuzzyDate.optional().describe("New start date."),
         completedAt: fuzzyDate.optional().describe("New completion date."),
         customLists: z
           .array(z.string())
           .optional()
-          .describe("New set of custom lists for this entry."),
+          .describe(
+            "New set of custom lists for this entry. The list must already exist on the " +
+              "account (update_user's `animeListOptions`/`mangaListOptions` `customLists`) — " +
+              "naming one that doesn't exist yet is silently a no-op, not an error.",
+          ),
         advancedScores: z
           .record(z.string(), z.number())
           .optional()

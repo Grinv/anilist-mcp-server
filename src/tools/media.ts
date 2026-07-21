@@ -88,6 +88,70 @@ const mediaObject = z
           .passthrough(),
       )
       .nullish(),
+    nextAiringEpisode: z
+      .object({
+        id: z.number().int(),
+        airingAt: z.number().nullish(),
+        timeUntilAiring: z.number().nullish(),
+        episode: z.number().int().nullish(),
+      })
+      .passthrough()
+      .nullish(),
+    externalLinks: z
+      .array(
+        z
+          .object({
+            id: z.number().int(),
+            url: z.string().nullish(),
+            site: z.string().nullish(),
+            type: z.string().nullish(),
+            language: z.string().nullish(),
+            icon: z.string().nullish(),
+            notes: z.string().nullish(),
+            isDisabled: z.boolean().nullish(),
+          })
+          .passthrough(),
+      )
+      .nullish(),
+    streamingEpisodes: z
+      .array(
+        z
+          .object({
+            title: z.string().nullish(),
+            thumbnail: z.string().nullish(),
+            url: z.string().nullish(),
+            site: z.string().nullish(),
+          })
+          .passthrough(),
+      )
+      .nullish(),
+    // [Requires login] Resolves to null when no token is sent — the
+    // authenticated caller's own list entry for this media, if any.
+    mediaListEntry: z
+      .object({
+        id: z.number().int(),
+        status: z.string().nullish(),
+        score: z.number().nullish(),
+        progress: z.number().int().nullish(),
+        progressVolumes: z.number().int().nullish(),
+        repeat: z.number().int().nullish(),
+        priority: z.number().int().nullish(),
+        private: z.boolean().nullish(),
+        notes: z.string().nullish(),
+        hiddenFromStatusLists: z.boolean().nullish(),
+        customLists: z
+          .array(
+            z.object({ name: z.string().nullish(), enabled: z.boolean().nullish() }).passthrough(),
+          )
+          .nullish(),
+        advancedScores: z.unknown().nullish(),
+        startedAt: fuzzyDateOut.nullish(),
+        completedAt: fuzzyDateOut.nullish(),
+        updatedAt: z.number().nullish(),
+        createdAt: z.number().nullish(),
+      })
+      .passthrough()
+      .nullish(),
   })
   .passthrough();
 
@@ -175,6 +239,7 @@ const reviewsConnection = z
           .object({
             id: z.number().int(),
             summary: z.string().nullish(),
+            body: z.string().nullish(),
             rating: z.number().nullish(),
             ratingAmount: z.number().nullish(),
             score: z.number().nullish(),
@@ -244,15 +309,33 @@ export function registerMediaTools(server: McpServer, client: AniListClient): vo
         "title, format, status, episode/chapter/volume count, genres, score, synopsis, dates, " +
         'and `rankings` — AniList\'s own ranking badges (e.g. "#134 highest rated all time", ' +
         '"#11 highest rated 2024"), one entry per rated/popular ranking window the title ' +
-        "currently appears in. Use search_media first to resolve a title to its AniList ID. " +
+        "currently appears in. Also returns `nextAiringEpisode` (for currently-releasing anime), " +
+        "`externalLinks` (official sites, streaming platforms), and — [requires login] — " +
+        "`mediaListEntry`, the authenticated user's own list entry for this title, or null if " +
+        "it isn't on their list. Use search_media first to resolve a title to its AniList ID. " +
         "Returns a single object if `ids` is a single ID, or an array (same order as `ids`) if " +
         "`ids` is an array.",
-      inputSchema: z.object({ type: mediaType, ids: idsSchema }),
+      inputSchema: z.object({
+        type: mediaType,
+        ids: idsSchema,
+        includeStreamingEpisodes: z
+          .boolean()
+          .default(false)
+          .describe(
+            "Also fetch `streamingEpisodes` (per-episode streaming links). Kept off by " +
+              "default — AniList doesn't paginate this field, so a long-running title can " +
+              "return hundreds of entries.",
+          ),
+      }),
       outputSchema: z.object({ media: z.union([mediaObject, z.array(mediaObject)]) }),
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
-    ({ type, ids }) =>
-      guard(async () => jsonResult({ media: await media.getMedia(client.ctx(), type, ids) })),
+    ({ type, ids, includeStreamingEpisodes }) =>
+      guard(async () =>
+        jsonResult({
+          media: await media.getMedia(client.ctx(), type, ids, includeStreamingEpisodes),
+        }),
+      ),
   );
 
   server.registerTool(
@@ -326,20 +409,28 @@ export function registerMediaTools(server: McpServer, client: AniListClient): vo
     {
       title: "Get an anime/manga's reviews",
       description:
-        "List user-written reviews for an anime or manga, highest-rated first. Use " +
-        "search_media first to resolve a title to its AniList ID.",
+        "List user-written reviews for an anime or manga, highest-rated first. Always includes " +
+        "`summary` (a short excerpt); set `includeBody` to also fetch each review's full text " +
+        "(can be long — leave it off unless you actually need the full text). Use search_media " +
+        "first to resolve a title to its AniList ID.",
       inputSchema: z.object({
         type: mediaType,
         id: anilistId.describe("AniList ID."),
         page: z.number().int().positive().default(1).describe("Page number for pagination."),
         perPage: z.number().int().min(1).max(25).default(10).describe("Results per page (max 25)."),
+        includeBody: z
+          .boolean()
+          .default(false)
+          .describe("Also fetch each review's full text (`body`), not just its short `summary`."),
       }),
       outputSchema: z.object({ reviews: reviewsConnection }),
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
-    ({ type, id, page, perPage }) =>
+    ({ type, id, page, perPage, includeBody }) =>
       guard(async () =>
-        jsonResult({ reviews: await media.getMediaReviews(client.ctx(), type, id, page, perPage) }),
+        jsonResult({
+          reviews: await media.getMediaReviews(client.ctx(), type, id, page, perPage, includeBody),
+        }),
       ),
   );
 

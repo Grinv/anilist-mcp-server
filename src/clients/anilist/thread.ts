@@ -3,7 +3,8 @@ import { ApiError } from "../../lib/errors.js";
 
 export async function getThread(ctx: AniListContext, id: number): Promise<unknown> {
   const query = `query($id:Int){Thread(id:$id){id title body(asHtml:false) siteUrl replyCommentId
-    user{id name} categories{id name}}}`;
+    isSticky isLocked replyCount viewCount likeCount isLiked user{id name} categories{id name}
+    mediaCategories{id title{romaji english}}}}`;
   const data = await ctx.gql.request<{ Thread: unknown }>(query, { id }, ctx.authHeader());
   return data.Thread;
 }
@@ -14,9 +15,13 @@ export async function getThreadComments(
   page = 1,
   perPage = 25,
 ): Promise<unknown> {
+  // threadComments only returns TOP-LEVEL comments — a reply posted via
+  // post_thread_comment's parentCommentId doesn't appear in this array at
+  // all; it's nested under its parent's own childComments (an untyped
+  // AniList `Json` blob, not a further-queryable ThreadComment list).
   const query = `query($threadId:Int,$page:Int,$perPage:Int){Page(page:$page,perPage:$perPage){
     pageInfo{total currentPage lastPage hasNextPage}
-    threadComments(threadId:$threadId){id comment(asHtml:false) siteUrl user{id name}}
+    threadComments(threadId:$threadId){id comment(asHtml:false) siteUrl likeCount isLiked user{id name} childComments}
   }}`;
   const data = await ctx.gql.request<{ Page: unknown }>(
     query,
@@ -43,7 +48,7 @@ export async function postThread(
   const header = ctx.requireAuth();
   const query = `mutation($id:Int,$title:String,$body:String,$categories:[Int],$mediaCategories:[Int],$sticky:Boolean,$locked:Boolean){
     SaveThread(id:$id,title:$title,body:$body,categories:$categories,mediaCategories:$mediaCategories,sticky:$sticky,locked:$locked){
-      id title siteUrl
+      id title siteUrl replyCount viewCount likeCount isLiked
     }
   }`;
   const data = await ctx.gql.request<{ SaveThread: unknown }>(
@@ -71,7 +76,7 @@ export async function postThreadComment(
   const header = ctx.requireAuth();
   const query = `mutation($id:Int,$threadId:Int,$parentCommentId:Int,$comment:String){
     SaveThreadComment(id:$id,threadId:$threadId,parentCommentId:$parentCommentId,comment:$comment){
-      id comment(asHtml:false) siteUrl
+      id comment(asHtml:false) siteUrl likeCount isLiked
     }
   }`;
   const data = await ctx.gql.request<{ SaveThreadComment: unknown }>(

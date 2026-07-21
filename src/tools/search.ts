@@ -21,6 +21,31 @@ const FORMATS = [
 const STATUSES = ["FINISHED", "RELEASING", "NOT_YET_RELEASED", "CANCELLED", "HIATUS"] as const;
 const SEASONS = ["WINTER", "SPRING", "SUMMER", "FALL"] as const;
 const ACTIVITY_TYPES = ["TEXT", "ANIME_LIST", "MANGA_LIST", "MESSAGE", "MEDIA_LIST"] as const;
+const SOURCES = [
+  "ORIGINAL",
+  "MANGA",
+  "LIGHT_NOVEL",
+  "VISUAL_NOVEL",
+  "VIDEO_GAME",
+  "OTHER",
+  "NOVEL",
+  "DOUJINSHI",
+  "ANIME",
+  "WEB_NOVEL",
+  "LIVE_ACTION",
+  "GAME",
+  "COMIC",
+  "MULTIMEDIA_PROJECT",
+  "PICTURE_BOOK",
+] as const;
+
+const fuzzyDateFilter = z
+  .object({
+    year: z.number().int().describe("Required — a date filter needs at least a year."),
+    month: z.number().int().min(1).max(12).optional(),
+    day: z.number().int().min(1).max(31).optional(),
+  })
+  .describe("A partial date; omit `month`/`day` you don't want to narrow by.");
 const MEDIA_SORTS = [
   "ID",
   "ID_DESC",
@@ -83,12 +108,89 @@ const mediaSearchInput = z.object({
   season: z
     .enum(SEASONS)
     .optional()
-    .describe("Restrict to this airing season (pair with seasonYear)."),
+    .describe(
+      "Restrict to this airing season. Works alone — matches every year's occurrence of that " +
+        "season, NOT just the current year (unlike anilist.co's own season filter UI, which " +
+        "implicitly assumes the current year when you don't also pick one). Combine with " +
+        "`seasonYear` for one specific season+year.",
+    ),
   seasonYear: z
     .number()
     .int()
     .optional()
-    .describe("Restrict to this airing/release year (pair with season)."),
+    .describe(
+      "Restrict to this airing/release year (matches any season within it). Works alone or " +
+        "combined with `season` for one specific season+year — neither requires the other.",
+    ),
+  tag_in: z
+    .array(z.string())
+    .optional()
+    .describe(
+      "Restrict to entries matching ALL of these exact tag names (see get_media_tags for valid " +
+        "names — unlike `genres`, tag names are case-sensitive and more specific, e.g. " +
+        '"Time Loop" or "Tragedy").',
+    ),
+  onList: z
+    .boolean()
+    .optional()
+    .describe(
+      "[Requires login] Restrict to (true) or exclude (false) entries already on the " +
+        "authenticated user's own list. Omit to ignore list status entirely.",
+    ),
+  averageScore_greater: z
+    .number()
+    .int()
+    .min(0)
+    .max(100)
+    .optional()
+    .describe("Restrict to entries with an average score strictly greater than this (0-100)."),
+  averageScore_lesser: z
+    .number()
+    .int()
+    .min(0)
+    .max(100)
+    .optional()
+    .describe("Restrict to entries with an average score strictly less than this (0-100)."),
+  popularity_greater: z
+    .number()
+    .int()
+    .min(0)
+    .optional()
+    .describe("Restrict to entries with more list-adds than this."),
+  popularity_lesser: z
+    .number()
+    .int()
+    .min(0)
+    .optional()
+    .describe("Restrict to entries with fewer list-adds than this."),
+  episodes_greater: z
+    .number()
+    .int()
+    .min(0)
+    .optional()
+    .describe("Restrict to entries with more episodes/chapters than this."),
+  episodes_lesser: z
+    .number()
+    .int()
+    .min(0)
+    .optional()
+    .describe("Restrict to entries with fewer episodes/chapters than this."),
+  startDate_greater: fuzzyDateFilter
+    .optional()
+    .describe("Restrict to entries whose start date is on or after this date."),
+  startDate_lesser: fuzzyDateFilter
+    .optional()
+    .describe("Restrict to entries whose start date is on or before this date."),
+  endDate_greater: fuzzyDateFilter
+    .optional()
+    .describe("Restrict to entries whose end date is on or after this date."),
+  endDate_lesser: fuzzyDateFilter
+    .optional()
+    .describe("Restrict to entries whose end date is on or before this date."),
+  source_in: z
+    .array(z.enum(SOURCES))
+    .optional()
+    .describe("Restrict to entries adapted from these source material types."),
   sfw: z
     .boolean()
     .default(false)
@@ -103,6 +205,14 @@ const mediaSearchInput = z.object({
         '["POPULARITY_DESC"] for most popular, ["TRENDING_DESC"] for what\'s hot right now). ' +
         "Defaults to relevance-ranked SEARCH_MATCH, which only makes sense when `term` is also " +
         "given — set an explicit sort for a term-less browse/ranking query.",
+    ),
+  includeDescription: z
+    .boolean()
+    .default(false)
+    .describe(
+      "Also fetch each result's full synopsis (`description`). Kept off by default — with " +
+        "up to 25 results per call, always including it would burn tokens on text you may not " +
+        "need; use get_media for a single title's full synopsis instead.",
     ),
   page: z.number().int().positive().default(1).describe("Page number for pagination."),
   perPage: z.number().int().min(1).max(25).default(10).describe("Results per page (max 25)."),
@@ -141,6 +251,7 @@ export function registerSearchTools(server: McpServer, client: AniListClient): v
             page: args.page,
             perPage: args.perPage,
             sort: args.sort,
+            includeDescription: args.includeDescription,
             filter: {
               isAdult: args.sfw ? false : undefined,
               genre_in: args.genres,
@@ -148,6 +259,19 @@ export function registerSearchTools(server: McpServer, client: AniListClient): v
               status_in: args.status_in,
               season: args.season,
               seasonYear: args.seasonYear,
+              tag_in: args.tag_in,
+              onList: args.onList,
+              averageScore_greater: args.averageScore_greater,
+              averageScore_lesser: args.averageScore_lesser,
+              popularity_greater: args.popularity_greater,
+              popularity_lesser: args.popularity_lesser,
+              episodes_greater: args.episodes_greater,
+              episodes_lesser: args.episodes_lesser,
+              startDate_greater: args.startDate_greater,
+              startDate_lesser: args.startDate_lesser,
+              endDate_greater: args.endDate_greater,
+              endDate_lesser: args.endDate_lesser,
+              source_in: args.source_in,
             },
           }),
         }),

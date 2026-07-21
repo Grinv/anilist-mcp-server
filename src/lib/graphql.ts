@@ -79,7 +79,17 @@ export class GraphQLClient {
       const key = JSON.stringify({ query, variables, auth: authHeader?.Authorization ?? null });
       return this.#cache.wrap(key, () => this.#send<T>(query, variables, authHeader)) as Promise<T>;
     }
-    return this.#send<T>(query, variables, authHeader);
+    const result = await this.#send<T>(query, variables, authHeader);
+    // A successful mutation can change the answer to any previously-cached
+    // read — not just of the resource it touched (e.g. toggling a favourite
+    // also changes that entity's `isFavourite` on every query that embeds
+    // it), so a targeted per-key invalidation can't be relied on to catch
+    // every affected entry. Confirmed live: get_character right after
+    // favourite still showed the pre-toggle `isFavourite` for the rest of
+    // the TTL window. Clearing everything trades a little cache-warmth for
+    // guaranteed-fresh reads after a write, which matters far more here.
+    if (this.#cache) this.#cache.clear();
+    return result;
   }
 
   async #send<T>(

@@ -136,6 +136,30 @@ test("the read cache is keyed by the actual auth header value, not just whether 
   assert.deepEqual(asAAgain, asA);
 });
 
+test("a successful mutation clears the read cache, so a repeated query re-hits the network", async (t) => {
+  let calls = 0;
+  const mock = mockFetch(() => {
+    calls += 1;
+    return jsonResponse({ data: { Viewer: { id: calls }, ok: true } });
+  });
+  installFetch(t, mock);
+  const c = cachedClient();
+
+  await c.request("query{Viewer{id}}", {}, { Authorization: "Bearer tok" });
+  await c.request("query{Viewer{id}}", {}, { Authorization: "Bearer tok" });
+  assert.equal(calls, 1, "second identical query should still be a cache hit before any mutation");
+
+  await c.request("mutation{ok}", {}, { Authorization: "Bearer tok" });
+  assert.equal(calls, 2, "the mutation itself is never cached");
+
+  await c.request("query{Viewer{id}}", {}, { Authorization: "Bearer tok" });
+  assert.equal(
+    calls,
+    3,
+    "a query repeated after a mutation must re-hit the network, not serve the pre-mutation cache",
+  );
+});
+
 test("skipCache bypasses the read cache even for a query", async (t) => {
   let calls = 0;
   const mock = mockFetch(() => {

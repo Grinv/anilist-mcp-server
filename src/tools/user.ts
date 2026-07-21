@@ -6,16 +6,115 @@ import * as activity from "../clients/anilist/activity.js";
 import { jsonResult } from "../lib/result.js";
 import { guard } from "./guard.js";
 import { pageInfoSchema, idOnly, anilistId } from "./outputSchemas.js";
+import { NOTIFICATION_TYPES } from "./notification.js";
 
 const userIdOrName = z
   .union([anilistId, z.string().min(1)])
   .describe("AniList user ID, or username.");
 
-const TITLE_LANGUAGES = ["ROMAJI", "ENGLISH", "NATIVE"] as const;
+const TITLE_LANGUAGES = [
+  "ROMAJI",
+  "ENGLISH",
+  "NATIVE",
+  "ROMAJI_STYLISED",
+  "ENGLISH_STYLISED",
+  "NATIVE_STYLISED",
+] as const;
 const SCORE_FORMATS = ["POINT_100", "POINT_10_DECIMAL", "POINT_10", "POINT_5", "POINT_3"] as const;
+const STAFF_NAME_LANGUAGES = ["ROMAJI_WESTERN", "ROMAJI", "NATIVE"] as const;
+const MEDIA_LIST_STATUSES = [
+  "CURRENT",
+  "PLANNING",
+  "COMPLETED",
+  "DROPPED",
+  "PAUSED",
+  "REPEATING",
+] as const;
 
 // idOnly matches the ACTIVITY_FRAGMENT union (TextActivity/ListActivity/
 // MessageActivity); only `id` is common to every branch.
+
+const mediaListOptionsInput = z
+  .object({
+    sectionOrder: z.array(z.string()).optional().describe("Custom list-status section order."),
+    splitCompletedSectionByFormat: z
+      .boolean()
+      .optional()
+      .describe("Split the Completed section by format (TV/Movie/etc.)."),
+    customLists: z.array(z.string()).optional().describe("Names of this account's custom lists."),
+    advancedScoring: z
+      .array(z.string())
+      .optional()
+      .describe("Advanced-scoring category names (e.g. Story, Characters, Visuals)."),
+    advancedScoringEnabled: z
+      .boolean()
+      .optional()
+      .describe("Whether advanced (per-category) scoring is enabled for this list type."),
+    theme: z
+      .string()
+      .optional()
+      .describe(
+        "List-page color theme name. AniList itself marks this field experimental " +
+          "('not yet fully implemented, may change without warning') — its read-back shape " +
+          "(see get_user_profile/get_full_user_info/get_authorized_user/update_user's own " +
+          "response) is an untyped value, not guaranteed to be the string you set.",
+      ),
+  })
+  .optional();
+
+const mediaListTypeOptions = z
+  .object({
+    sectionOrder: z.array(z.string()).nullish(),
+    splitCompletedSectionByFormat: z.boolean().nullish(),
+    customLists: z.array(z.string()).nullish(),
+    advancedScoring: z.array(z.string()).nullish(),
+    advancedScoringEnabled: z.boolean().nullish(),
+    // Read side (`MediaListTypeOptions.theme`) is a deprecated, untyped
+    // `Json` scalar (confirmed via introspection) — NOT the plain `String`
+    // the write side takes, so it can't be modeled as `z.string()`.
+    theme: z.unknown().nullish(),
+  })
+  .passthrough();
+
+const notificationOptionOut = z
+  .object({ type: z.string().nullish(), enabled: z.boolean().nullish() })
+  .passthrough();
+
+const listActivityOptionOut = z
+  .object({ type: z.string().nullish(), disabled: z.boolean().nullish() })
+  .passthrough();
+
+/** What update_user actually changes — without echoing these back, there's
+ *  no way to verify one of its calls actually took effect. `rowOrder` reads
+ *  back from `mediaListOptions.rowOrder` (a sibling of `scoreFormat`, NOT
+ *  nested under `animeList`/`mangaList`) — confirmed live after an earlier,
+ *  wrong assumption that it wasn't exposed anywhere. */
+const userOptionsFields = {
+  options: z
+    .object({
+      titleLanguage: z.string().nullish(),
+      displayAdultContent: z.boolean().nullish(),
+      airingNotifications: z.boolean().nullish(),
+      profileColor: z.string().nullish(),
+      timezone: z.string().nullish(),
+      activityMergeTime: z.number().int().nullish(),
+      staffNameLanguage: z.string().nullish(),
+      restrictMessagesToFollowing: z.boolean().nullish(),
+      notificationOptions: z.array(notificationOptionOut).nullish(),
+      disabledListActivity: z.array(listActivityOptionOut).nullish(),
+    })
+    .passthrough()
+    .nullish(),
+  mediaListOptions: z
+    .object({
+      scoreFormat: z.string().nullish(),
+      rowOrder: z.string().nullish(),
+      animeList: mediaListTypeOptions.nullish(),
+      mangaList: mediaListTypeOptions.nullish(),
+    })
+    .passthrough()
+    .nullish(),
+};
 
 /** USER_FIELDS — only `id` is guaranteed; the rest is nullable/absent
  *  depending on what the account has actually set. */
@@ -31,6 +130,7 @@ const userProfileObject = z
     donatorBadge: z.string().nullish(),
     isFollowing: z.boolean().nullish(),
     isFollower: z.boolean().nullish(),
+    ...userOptionsFields,
   })
   .passthrough();
 
@@ -73,6 +173,7 @@ const fullUserObject = z
     donatorBadge: z.string().nullish(),
     isFollowing: z.boolean().nullish(),
     isFollower: z.boolean().nullish(),
+    ...userOptionsFields,
     statistics: z
       .object({ anime: animeStats.nullish(), manga: mangaStats.nullish() })
       .passthrough()
@@ -85,7 +186,12 @@ const followResult = z
   .passthrough();
 
 const updateUserResult = z
-  .object({ id: z.number().int(), name: z.string().nullish() })
+  .object({
+    id: z.number().int(),
+    name: z.string().nullish(),
+    donatorBadge: z.string().nullish(),
+    ...userOptionsFields,
+  })
   .passthrough();
 
 export function registerUserTools(server: McpServer, client: AniListClient): void {
@@ -210,8 +316,14 @@ export function registerUserTools(server: McpServer, client: AniListClient): voi
       title: "Update your AniList account settings",
       description:
         "[Requires login] Update settings on the authenticated user's own AniList account " +
-        "(about text, preferred title language, adult-content visibility, score format). Only " +
-        "set the fields you want to change.",
+        "(about text, preferred title language, adult-content visibility, score format, " +
+        "notification/messaging preferences, anime/manga list options). Only set the fields " +
+        "you want to change — most fields are a true partial update (see " +
+        "`notificationOptions`/`disabledListActivity` below for the two confirmed exceptions). " +
+        "Note: this mutation isn't atomic — confirmed live that rejecting one invalid field " +
+        "(e.g. an incomplete `disabledListActivity`) can still leave OTHER fields from that " +
+        "same call applied. If a call errors, re-check with get_authorized_user rather than " +
+        "assuming nothing changed.",
       inputSchema: z.object({
         about: z.string().optional().describe("New profile 'about' text."),
         titleLanguage: z
@@ -222,6 +334,10 @@ export function registerUserTools(server: McpServer, client: AniListClient): voi
           .boolean()
           .optional()
           .describe("Whether to show adult content in search/browse."),
+        airingNotifications: z
+          .boolean()
+          .optional()
+          .describe("Whether to notify about new episode airings for anime on your list."),
         scoreFormat: z
           .enum(SCORE_FORMATS)
           .optional()
@@ -230,6 +346,81 @@ export function registerUserTools(server: McpServer, client: AniListClient): voi
               "add_list_entry/update_list_entry's `score` parameter always stays on a 0-10 " +
               "scale regardless of this setting, so no conversion is needed on your end).",
           ),
+        rowOrder: z
+          .string()
+          .optional()
+          .describe(
+            "Internal list-table row ordering key — reads back from " +
+              "`mediaListOptions.rowOrder` in the profile tools/this tool's own response.",
+          ),
+        profileColor: z.string().optional().describe("Profile accent color (name or hex)."),
+        donatorBadge: z
+          .string()
+          .optional()
+          .describe("Custom donator badge text (only takes effect on a donator account)."),
+        notificationOptions: z
+          .array(
+            z.object({
+              type: z.enum(NOTIFICATION_TYPES).describe("Notification type to configure."),
+              enabled: z.boolean().optional().describe("Whether this notification type is on."),
+            }),
+          )
+          .refine(
+            (opts) => new Set(opts.map((o) => o.type)).size === NOTIFICATION_TYPES.length,
+            `Must include every one of the ${NOTIFICATION_TYPES.length} notification types exactly once.`,
+          )
+          .optional()
+          .describe(
+            "ALL 20 notification types, every time — confirmed live this is a full replace, " +
+              "not a partial merge: AniList silently drops every type you don't list (not just " +
+              "resets it to default, removes it) with no error. Fetch the account's current " +
+              "list first (get_authorized_user's `options.notificationOptions`) and resend it " +
+              "in full with just your changes applied.",
+          ),
+        timezone: z.string().optional().describe('Display timezone (e.g. "+09:00").'),
+        activityMergeTime: z
+          .number()
+          .int()
+          .optional()
+          .describe("Minutes within which consecutive list activity posts get merged into one."),
+        staffNameLanguage: z
+          .enum(STAFF_NAME_LANGUAGES)
+          .optional()
+          .describe("Preferred staff/character name display language."),
+        restrictMessagesToFollowing: z
+          .boolean()
+          .optional()
+          .describe("Only allow message activity from users you follow."),
+        disabledListActivity: z
+          .array(
+            z.object({
+              type: z.enum(MEDIA_LIST_STATUSES).describe("List status this toggle applies to."),
+              disabled: z
+                .boolean()
+                .optional()
+                .describe("Whether posting activity for this status is suppressed."),
+            }),
+          )
+          .refine(
+            (opts) => new Set(opts.map((o) => o.type)).size === MEDIA_LIST_STATUSES.length,
+            `Must include every one of the ${MEDIA_LIST_STATUSES.length} list statuses exactly once — AniList rejects a partial list.`,
+          )
+          .optional()
+          .describe(
+            "ALL 6 list statuses, every time — confirmed live: AniList rejects this with a " +
+              '400 error if any status is missing ("Incorrect number of disabled list activity ' +
+              "options\"), it's not a partial per-status update. Fetch the current list first " +
+              "(get_authorized_user's `options.disabledListActivity`) and resend it in full " +
+              "with just your changes applied.",
+          ),
+        animeListOptions: mediaListOptionsInput.describe(
+          "New anime-list display/scoring options — only the fields you set are changed " +
+            "(confirmed live: this is a partial merge, unlike add_list_entry's advancedScores).",
+        ),
+        mangaListOptions: mediaListOptionsInput.describe(
+          "New manga-list display/scoring options — same partial-merge behavior as " +
+            "`animeListOptions` above.",
+        ),
       }),
       outputSchema: z.object({ user: updateUserResult }),
       annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true },

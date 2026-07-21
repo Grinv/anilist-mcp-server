@@ -7,11 +7,25 @@ import { guard } from "./guard.js";
 import { pageInfoSchema, deleteResult, anilistId } from "./outputSchemas.js";
 
 const savedThread = z
-  .object({ id: z.number().int(), title: z.string().nullish(), siteUrl: z.string().nullish() })
+  .object({
+    id: z.number().int(),
+    title: z.string().nullish(),
+    siteUrl: z.string().nullish(),
+    replyCount: z.number().int().nullish(),
+    viewCount: z.number().int().nullish(),
+    likeCount: z.number().int().nullish(),
+    isLiked: z.boolean().nullish(),
+  })
   .passthrough();
 
 const savedThreadComment = z
-  .object({ id: z.number().int(), comment: z.string().nullish(), siteUrl: z.string().nullish() })
+  .object({
+    id: z.number().int(),
+    comment: z.string().nullish(),
+    siteUrl: z.string().nullish(),
+    likeCount: z.number().int().nullish(),
+    isLiked: z.boolean().nullish(),
+  })
   .passthrough();
 
 const threadObject = z
@@ -21,9 +35,27 @@ const threadObject = z
     body: z.string().nullish(),
     siteUrl: z.string().nullish(),
     replyCommentId: z.number().int().nullish(),
+    isSticky: z.boolean().nullish(),
+    isLocked: z.boolean().nullish(),
+    replyCount: z.number().int().nullish(),
+    viewCount: z.number().int().nullish(),
+    likeCount: z.number().int().nullish(),
+    isLiked: z.boolean().nullish(),
     user: z.object({ id: z.number().int(), name: z.string().nullish() }).passthrough().nullish(),
     categories: z
       .array(z.object({ id: z.number().int(), name: z.string().nullish() }).passthrough())
+      .nullish(),
+    mediaCategories: z
+      .array(
+        z
+          .object({
+            id: z.number().int(),
+            title: z
+              .object({ romaji: z.string().nullish(), english: z.string().nullish() })
+              .nullish(),
+          })
+          .passthrough(),
+      )
       .nullish(),
   })
   .passthrough();
@@ -33,7 +65,13 @@ const threadComment = z
     id: z.number().int(),
     comment: z.string().nullish(),
     siteUrl: z.string().nullish(),
+    likeCount: z.number().int().nullish(),
+    isLiked: z.boolean().nullish(),
     user: z.object({ id: z.number().int(), name: z.string().nullish() }).passthrough().nullish(),
+    // AniList's own untyped `Json` blob — replies posted via
+    // post_thread_comment's `parentCommentId` live here, not as separate
+    // top-level entries in this array.
+    childComments: z.unknown().nullish(),
   })
   .passthrough();
 
@@ -42,7 +80,9 @@ export function registerThreadTools(server: McpServer, client: AniListClient): v
     "get_thread",
     {
       title: "Get a forum thread",
-      description: "Get an AniList forum thread's title, body and metadata by its ID.",
+      description:
+        "Get an AniList forum thread's title, body and metadata (including `replyCount`, " +
+        "`viewCount`, `likeCount`, `isLiked`) by its ID.",
       inputSchema: z.object({
         id: anilistId.describe(
           "AniList thread ID — use search_thread to find one, or pass one already known " +
@@ -59,7 +99,10 @@ export function registerThreadTools(server: McpServer, client: AniListClient): v
     "get_thread_comments",
     {
       title: "Get comments on a forum thread",
-      description: "List comments posted on an AniList forum thread, by the thread's ID.",
+      description:
+        "List top-level comments posted on an AniList forum thread, by the thread's ID. " +
+        "Replies (posted via post_thread_comment's `parentCommentId`) are nested under their " +
+        "parent's `childComments` rather than appearing as separate entries in this list.",
       inputSchema: z.object({
         threadId: anilistId.describe(
           "AniList thread ID — use search_thread to find one, or pass one already known " +
@@ -117,7 +160,14 @@ export function registerThreadTools(server: McpServer, client: AniListClient): v
           .boolean()
           .optional()
           .describe("Pin this thread (only takes effect if you have moderator permission)."),
-        locked: z.boolean().optional().describe("Lock this thread to prevent further replies."),
+        locked: z
+          .boolean()
+          .optional()
+          .describe(
+            "Lock this thread to prevent further replies (only takes effect if you have " +
+              "moderator permission — confirmed live that a non-mod account's own thread " +
+              "silently stays unlocked).",
+          ),
         id: anilistId.optional().describe("Thread ID to update instead of creating a new one."),
       }),
       outputSchema: z.object({ thread: savedThread }),
@@ -158,7 +208,8 @@ export function registerThreadTools(server: McpServer, client: AniListClient): v
           .optional()
           .describe(
             "Reply to this specific comment instead of posting top-level (from " +
-              "get_thread_comments).",
+              "get_thread_comments). The reply then appears nested under that comment's " +
+              "`childComments` in get_thread_comments, not as a new top-level entry.",
           ),
         id: anilistId.optional().describe("Comment ID to update instead of creating a new one."),
       }),

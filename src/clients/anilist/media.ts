@@ -1,21 +1,34 @@
 import type { AniListContext } from "./context.js";
-import { MEDIA_FIELDS, MEDIA_DETAIL_FIELDS } from "./fields.js";
+import {
+  MEDIA_FIELDS,
+  MEDIA_DESCRIPTION_FIELD,
+  MEDIA_DETAIL_FIELDS,
+  MEDIA_STREAMING_EPISODES_FIELD,
+} from "./fields.js";
 
 export async function getMedia(
   ctx: AniListContext,
   type: "ANIME" | "MANGA",
   ids: number | number[],
+  includeStreamingEpisodes = false,
 ): Promise<unknown> {
+  const fields = `${MEDIA_FIELDS}${MEDIA_DESCRIPTION_FIELD}${MEDIA_DETAIL_FIELDS}${includeStreamingEpisodes ? MEDIA_STREAMING_EPISODES_FIELD : ""}`;
   if (Array.isArray(ids)) {
-    const query = `query($ids:[Int],$type:MediaType){Page(perPage:${ids.length}){media(id_in:$ids,type:$type){${MEDIA_FIELDS}${MEDIA_DETAIL_FIELDS}}}}`;
-    const data = await ctx.gql.request<{ Page: { media: unknown[] } }>(
+    const query = `query($ids:[Int],$type:MediaType){Page(perPage:${ids.length}){media(id_in:$ids,type:$type){${fields}}}}`;
+    const data = await ctx.gql.request<{ Page: { media: { id: number }[] } }>(
       query,
       { ids, type },
       ctx.authHeader(),
     );
-    return data.Page.media;
+    // AniList's `id_in` filter does NOT preserve the requested order (it
+    // came back sorted by id ascending in live testing, regardless of the
+    // caller's array order) — reorder client-side so the "same order as
+    // ids" this tool promises is actually true. An id that didn't resolve
+    // is simply absent, same as before this reordering was added.
+    const byId = new Map(data.Page.media.map((m) => [m.id, m]));
+    return ids.map((id) => byId.get(id)).filter((m) => m !== undefined);
   }
-  const query = `query($id:Int,$type:MediaType){Media(id:$id,type:$type){${MEDIA_FIELDS}${MEDIA_DETAIL_FIELDS}}}`;
+  const query = `query($id:Int,$type:MediaType){Media(id:$id,type:$type){${fields}}}`;
   const data = await ctx.gql.request<{ Media: unknown }>(
     query,
     { id: ids, type },
@@ -95,11 +108,15 @@ export async function getMediaReviews(
   id: number,
   page = 1,
   perPage = 10,
+  includeBody = false,
 ): Promise<unknown> {
+  // The full review body can run to thousands of characters — only requested
+  // on demand (includeBody) so a default listing doesn't burn tokens on text
+  // the caller may just want summary/rating for.
   const query = `query($id:Int,$type:MediaType,$page:Int,$perPage:Int){Media(id:$id,type:$type){
     reviews(page:$page,perPage:$perPage,sort:RATING_DESC){
       pageInfo{hasNextPage}
-      nodes{id summary rating ratingAmount score siteUrl user{id name}}
+      nodes{id summary${includeBody ? " body(asHtml:false)" : ""} rating ratingAmount score siteUrl user{id name}}
     }
   }}`;
   const data = await ctx.gql.request<{ Media: { reviews: unknown } }>(

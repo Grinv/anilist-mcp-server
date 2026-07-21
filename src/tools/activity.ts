@@ -19,6 +19,9 @@ const activityItem = z
     type: z.string().nullish(),
     createdAt: z.number().nullish(),
     siteUrl: z.string().nullish(),
+    replyCount: z.number().int().nullish(),
+    likeCount: z.number().int().nullish(),
+    isLiked: z.boolean().nullish(),
     text: z.string().nullish(),
     status: z.string().nullish(),
     progress: z.string().nullish(),
@@ -56,7 +59,8 @@ export function registerActivityTools(server: McpServer, client: AniListClient):
     {
       title: "Get an activity post",
       description:
-        "Get a single AniList activity post (list update, text post, or message) by its ID.",
+        "Get a single AniList activity post (list update, text post, or message) by its ID, " +
+        "including `replyCount`, `likeCount`, and `isLiked`.",
       inputSchema: z.object({
         id: anilistId.describe(
           "AniList activity ID — from get_user_activity, get_user_recent_activity, " +

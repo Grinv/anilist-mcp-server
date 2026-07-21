@@ -6,6 +6,47 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-07-22
+
+### Added
+
+- Add `tag_in`, `onList`, `averageScore`/`popularity`/`episodes` range filters, `startDate`/`endDate` range filters, and `source_in` to `search_media`.
+- Add `includeDescription` to `search_media`, returning each result's full synopsis on request (kept off by default — up to 25 results per call).
+- Return `media`/`staffMedia` filmography (with `characterRole`/`staffRole`) from `get_character`/`get_staff`.
+- Add `includeBody` to `get_media_reviews`, returning each review's full text on request (kept off by default — it can be long).
+- Return `nextAiringEpisode`, `externalLinks`, and (login required) `mediaListEntry` from `get_media`; add `includeStreamingEpisodes` for `streamingEpisodes` (kept off by default — AniList doesn't paginate this field, so long-running titles can return hundreds of entries).
+- Return `replyCount`/`likeCount`/`isLiked` from activity tools, and `replyCount`/`viewCount`/`likeCount`/`isLiked` from thread/comment tools.
+- Add `airingNotifications`, `profileColor`, `donatorBadge`, `timezone`, `activityMergeTime`, `staffNameLanguage`, and `restrictMessagesToFollowing` to `update_user`.
+- Add `rowOrder` to `update_user`, readable back via `mediaListOptions.rowOrder`.
+- Add `notificationOptions` to `update_user` — requires all 20 notification types every call, since AniList replaces the entire list rather than merging a partial one.
+- Add `disabledListActivity` to `update_user` — requires all 6 list statuses every call; AniList rejects a partial list.
+- Add `animeListOptions`/`mangaListOptions` to `update_user` (advanced scoring, custom lists, list display settings, and `theme`) — previously not settable at all; `theme`'s AniList read-back is an untyped, deprecated value, not guaranteed to match what was set.
+- Add `hiddenFromStatusLists` to `add_list_entry`/`update_list_entry`, and return it from `get_user_list`.
+- Return `isSticky`, `isLocked`, `mediaCategories`, and `childComments` from the thread read tools, so a `post_thread`/`post_thread_comment` call can actually be verified.
+- Return account preferences (`options`, `mediaListOptions`) from the user-profile tools and from `update_user`'s own response, so a settings change can actually be verified.
+- Return `customLists` and `advancedScores` from `get_user_list` — previously set via `add_list_entry`/`update_list_entry` but unreadable.
+
+### Fixed
+
+- Stop `search_thread` from treating an empty/whitespace `term` differently from an omitted one (same fix already applied to `search_media`).
+- Clear the read cache after every successful mutation — a read immediately after a write could otherwise serve stale pre-mutation data for up to `CACHE_TTL_MS`.
+- Correct `add_list_entry`'s description: AniList defaults an entry with no `status` to `CURRENT` (with `startedAt` set to today), not `PLANNING`.
+- Clarify that `search_media`'s `season`/`seasonYear` each work standalone (e.g. every Summer across all years) — the previous "pair with X" wording implied they're only meaningful together.
+- Give `submit_anilist_redirect` a clean, actionable message when the OAuth redirect denied access or had no `code`, instead of a generic "Unexpected error".
+- Reject `add_list_entry`/`update_list_entry`'s `advancedScores` when `advancedScoringEnabled` is `false`, instead of only checking that a category list exists.
+- Fix `get_notifications`' ACTIVITY_MESSAGE items always coming back with an empty message: AniList nests the DM text one level inside `message.message`, not directly on `message`.
+- Add the 3 stylised variants (`ROMAJI_STYLISED`, `ENGLISH_STYLISED`, `NATIVE_STYLISED`) to `update_user`'s `titleLanguage` — the enum only listed half of AniList's actual options.
+- Fix `get_media` with an array of `ids` returning results sorted by AniList's own default order instead of the input order the tool's own description promises — confirmed live (`[154587, 21]` came back as `[21, 154587]`).
+- Stop `get_media_tags`' description from claiming `search_media` can't filter by tag — it now can (`tag_in`, added this same release).
+
+### Changed
+
+- Bump `@modelcontextprotocol/server` to `2.0.0-beta.5` (from `beta.4`).
+
+## [0.1.5] - 2026-07-22
+
+Everything below is one commit: [194c7d3](https://github.com/Grinv/anilist-mcp-server/commit/194c7d3).
+
 ### Added
 
 - Add `search_thread`, `post_thread`, `post_thread_comment`, and `delete_thread_comment` — forum threads were previously read/delete-only.
@@ -18,15 +59,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
-- Return `rankings` from `get_media` — AniList's own ranking badges (e.g. "#134 highest rated all time", "#11 highest rated 2024").
+- Return `rankings` from `get_media` — AniList's own ranking badges (e.g. "#134 highest rated all time", "#11 highest rated 2024"). ([e47b610](https://github.com/Grinv/anilist-mcp-server/commit/e47b610))
 
 ### Fixed
 
-- Stop `search_media` from treating an empty/whitespace `term` differently from an omitted one — it now falls back to the documented term-less browse/ranking mode instead of silently returning zero results.
-- Paginate `get_media_tags` (`page`/`perPage`) instead of always returning the full ~425-tag list in one response.
-- Paginate `get_user_list` by `chunk`/`perChunk` (AniList's own mechanism for this field) instead of returning a user's entire list in one response.
-- Stop blaming "credentials" for every 401/403: the error message now distinguishes a token that was actually sent (invalid/expired, or the account just isn't allowed to do this specific thing) from no token at all (log in for an anonymous 401; a likely WAF block or outage, not a permissions problem, for an anonymous 403).
-- Bound every AniList numeric-ID input to GraphQL's 32-bit `Int` range, so an out-of-range ID now fails local validation with a clear message instead of a raw upstream GraphQL type error.
+- Stop `search_media` from treating an empty/whitespace `term` differently from an omitted one — it now falls back to the documented term-less browse/ranking mode instead of silently returning zero results. ([30b14c0](https://github.com/Grinv/anilist-mcp-server/commit/30b14c0))
+- Paginate `get_media_tags` (`page`/`perPage`) instead of always returning the full ~425-tag list in one response. ([30b14c0](https://github.com/Grinv/anilist-mcp-server/commit/30b14c0))
+- Paginate `get_user_list` by `chunk`/`perChunk` (AniList's own mechanism for this field) instead of returning a user's entire list in one response. ([30b14c0](https://github.com/Grinv/anilist-mcp-server/commit/30b14c0))
+- Stop blaming "credentials" for every 401/403: the error message now distinguishes a token that was actually sent (invalid/expired, or the account just isn't allowed to do this specific thing) from no token at all (log in for an anonymous 401; a likely WAF block or outage, not a permissions problem, for an anonymous 403). ([30b14c0](https://github.com/Grinv/anilist-mcp-server/commit/30b14c0))
+- Bound every AniList numeric-ID input to GraphQL's 32-bit `Int` range, so an out-of-range ID now fails local validation with a clear message instead of a raw upstream GraphQL type error. ([30b14c0](https://github.com/Grinv/anilist-mcp-server/commit/30b14c0))
 
 ## [0.1.3] - 2026-07-21
 

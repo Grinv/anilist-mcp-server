@@ -16,6 +16,23 @@ test("wrap caches and reuses the fresh value", async () => {
   assert.equal(calls, 1);
 });
 
+test("clear() drops cached entries so the next wrap() recomputes", async () => {
+  const cache = new TtlCache<number>(60_000);
+  let calls = 0;
+  const compute = async () => {
+    calls += 1;
+    return calls;
+  };
+  assert.equal(await cache.wrap("k", compute), 1);
+  cache.clear();
+  assert.equal(
+    await cache.wrap("k", compute),
+    2,
+    "cleared key must recompute, not reuse the old value",
+  );
+  assert.equal(calls, 2);
+});
+
 test("wrapStaleOnError serves the stale value when compute fails", async (t) => {
   t.mock.timers.enable({ apis: ["Date"], now: Date.now() });
   const cache = new TtlCache<number>(1); // 1ms TTL → expires almost immediately

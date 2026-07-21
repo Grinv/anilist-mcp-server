@@ -93,9 +93,9 @@ export function registerMiscTools(server: McpServer, client: AniListClient): voi
         "List every descriptive tag AniList uses on anime/manga (finer-grained than genres, " +
         "e.g. 'Time Skip', 'Tragedy', 'Reincarnation'), with category and adult-content flag. " +
         "There are ~425 tags total, so results are paginated — use `page`/`perPage` rather than " +
-        "expecting them all in one response. Informational only — search_media has no tag " +
-        "filter, so this can't narrow a search; use it to look up a tag's exact name/category " +
-        "or to label media you already have.",
+        "expecting them all in one response. Use this to look up a tag's exact name before " +
+        "passing it to search_media's `tag_in` — tag names are case-sensitive, and an " +
+        "unrecognized name doesn't error, it just silently matches nothing (confirmed live).",
       inputSchema: z.object({
         page: z.number().int().positive().default(1).describe("Page number for pagination."),
         perPage: z.number().int().min(1).max(25).default(25).describe("Results per page (max 25)."),

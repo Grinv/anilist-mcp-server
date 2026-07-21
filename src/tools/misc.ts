@@ -91,7 +91,8 @@ export function registerMiscTools(server: McpServer, client: AniListClient): voi
       description:
         "List every descriptive tag AniList uses on anime/manga (finer-grained than genres, " +
         "e.g. 'Time Skip', 'Tragedy', 'Reincarnation'), with category and adult-content flag. " +
-        "Use to discover valid tag names before filtering a search by tag.",
+        "Informational only — search_media has no tag filter, so this can't narrow a search; " +
+        "use it to look up a tag's exact name/category or to label media you already have.",
       inputSchema: z.object({}),
       outputSchema: z.object({ tags: z.array(mediaTagItem) }),
       annotations: { readOnlyHint: true, openWorldHint: true },

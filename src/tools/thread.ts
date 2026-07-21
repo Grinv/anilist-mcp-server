@@ -35,7 +35,15 @@ export function registerThreadTools(server: McpServer, client: AniListClient): v
     {
       title: "Get a forum thread",
       description: "Get an AniList forum thread's title, body and metadata by its ID.",
-      inputSchema: z.object({ id: z.number().int().describe("AniList thread ID.") }),
+      inputSchema: z.object({
+        id: z
+          .number()
+          .int()
+          .describe(
+            "AniList thread ID — there's no search_thread tool, so this typically comes from " +
+              "an AniList forum URL (anilist.co/forum/thread/<id>) the caller already has.",
+          ),
+      }),
       outputSchema: z.object({ thread: threadObject }),
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
@@ -48,7 +56,13 @@ export function registerThreadTools(server: McpServer, client: AniListClient): v
       title: "Get comments on a forum thread",
       description: "List comments posted on an AniList forum thread, by the thread's ID.",
       inputSchema: z.object({
-        threadId: z.number().int().describe("AniList thread ID."),
+        threadId: z
+          .number()
+          .int()
+          .describe(
+            "AniList thread ID — there's no search_thread tool, so this typically comes from " +
+              "an AniList forum URL (anilist.co/forum/thread/<id>) or from get_thread.",
+          ),
         page: z.number().int().positive().default(1).describe("Page number for pagination."),
         perPage: z.number().int().min(1).max(25).default(25).describe("Results per page (max 25)."),
       }),

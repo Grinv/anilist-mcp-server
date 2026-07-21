@@ -121,8 +121,10 @@ export function registerSearchTools(server: McpServer, client: AniListClient): v
       title: "Search anime/manga",
       description:
         "Search AniList for anime or manga by title and/or filters (genre, format, status, " +
-        "season/year). Adult (NSFW) results are included unless you set `sfw: true` — see the " +
-        "`sfw` parameter. Returns AniList IDs to use with get_media and other ID-based tools.",
+        "season/year), or browse term-less by ranking (top-rated, most popular, trending — see " +
+        "the `sort` parameter) when you don't have a title to search for. Adult (NSFW) results " +
+        "are included unless you set `sfw: true` — see the `sfw` parameter. Returns AniList IDs " +
+        "to use with get_media and other ID-based tools.",
       inputSchema: mediaSearchInput,
       outputSchema: z.object({
         results: z
@@ -257,7 +259,15 @@ export function registerSearchTools(server: McpServer, client: AniListClient): v
         "filtered to one user and/or one activity type. Returns AniList activity IDs to use " +
         "with get_activity.",
       inputSchema: z.object({
-        userId: z.number().int().optional().describe("Restrict results to this AniList user ID."),
+        userId: z
+          .number()
+          .int()
+          .optional()
+          .describe(
+            "Restrict results to this AniList user ID — numeric only; resolve one via " +
+              "search_user first, or use get_user_activity instead if you already have an " +
+              "exact username.",
+          ),
         type: z
           .enum(ACTIVITY_TYPES)
           .optional()

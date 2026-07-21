@@ -36,8 +36,9 @@ export function registerPrompts(server: McpServer): void {
               text:
                 `Recommend ${which} similar to "${title}".\n` +
                 `Steps: call search_media with type: "${mediaType}" to resolve it to an AniList id, ` +
-                `then get_recommendations_for_media for that id. Present 5-8 recommendations ` +
-                `with a one-line reason each, noting AniList's average score and genres.`,
+                `then get_recommendations_for_media with that id as \`mediaId\` (not \`id\` — ` +
+                `that's the param name for the different get_recommendation tool). Present 5-8 ` +
+                `recommendations with a one-line reason each, noting AniList's average score and genres.`,
             },
           },
         ],

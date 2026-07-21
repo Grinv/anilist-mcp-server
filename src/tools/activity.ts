@@ -62,8 +62,8 @@ export function registerActivityTools(server: McpServer, client: AniListClient):
           .number()
           .int()
           .describe(
-            "AniList activity ID — from get_user_activity, get_user_recent_activity, or the " +
-              "id returned by post_text_activity/post_message_activity.",
+            "AniList activity ID — from get_user_activity, get_user_recent_activity, " +
+              "search_activity, or the id returned by post_text_activity/post_message_activity.",
           ),
       }),
       outputSchema: z.object({ activity: activityItem }),
@@ -181,8 +181,8 @@ export function registerActivityTools(server: McpServer, client: AniListClient):
           .number()
           .int()
           .describe(
-            "AniList activity ID to delete — from get_user_activity or the id returned by a " +
-              "previous post_text_activity/post_message_activity call.",
+            "AniList activity ID to delete — from get_user_activity, search_activity, or the id " +
+              "returned by a previous post_text_activity/post_message_activity call.",
           ),
       }),
       outputSchema: z.object({ result: deleteResult }),

@@ -96,28 +96,17 @@ enable the personal-list/social tools (see
 [Connect your AniList account](#connect-your-anilist-account)). Leave them
 blank to use just the credential-free read tools.
 
-### From source
+### Via npx (no install)
 
-```sh
-git clone https://github.com/Grinv/anilist-mcp-server
-cd anilist-mcp-server
-npm ci
-npm run build
-```
-
-This produces a self-contained `dist/index.js`. Point your client at it (see below).
-
-## Connect it to an MCP client
-
-Add the server to your client's MCP config (Claude Desktop/Code, Cursor, VS Code,
-Cline, …):
+Published on npm as [`anilist-mcp-server`](https://www.npmjs.com/package/anilist-mcp-server).
+Add it to your client's MCP config (Claude Desktop/Code, Cursor, VS Code, Cline, …):
 
 ```json
 {
   "mcpServers": {
     "anilist": {
-      "command": "node",
-      "args": ["/absolute/path/to/anilist-mcp-server/dist/index.js"],
+      "command": "npx",
+      "args": ["-y", "anilist-mcp-server"],
       "env": {
         "ANILIST_CLIENT_ID": "...",
         "ANILIST_CLIENT_SECRET": "..."
@@ -130,10 +119,25 @@ Cline, …):
 Or with the Claude Code CLI:
 
 ```sh
-claude mcp add anilist -e ANILIST_CLIENT_ID=... -e ANILIST_CLIENT_SECRET=... -- node /absolute/path/to/anilist-mcp-server/dist/index.js
+claude mcp add anilist -e ANILIST_CLIENT_ID=... -e ANILIST_CLIENT_SECRET=... -- npx -y anilist-mcp-server
 ```
 
-The `env` block is **optional** — omit it to use only the credential-free read
+### From source
+
+```sh
+git clone https://github.com/Grinv/anilist-mcp-server
+cd anilist-mcp-server
+npm ci
+npm run build
+```
+
+This produces a self-contained `dist/index.js`. Point your client at it the same
+way as above, swapping `"command": "npx", "args": ["-y", "anilist-mcp-server"]`
+for `"command": "node", "args": ["/absolute/path/to/anilist-mcp-server/dist/index.js"]`
+(and `npx -y anilist-mcp-server` for `node /absolute/path/to/anilist-mcp-server/dist/index.js`
+in the CLI form).
+
+The `env` block (shown above for both install methods) is **optional** — omit it to use only the credential-free read
 tools; the personal/mutation tools will return a clear error until you log in.
 To enable them, set `ANILIST_CLIENT_ID` + `ANILIST_CLIENT_SECRET` and run the
 **`login_anilist`** tool once (a one-time browser authorization; the token is
@@ -245,6 +249,7 @@ To be notified of new versions, click **Watch → Releases** on GitHub.
 - **`.mcpb` bundle:** download the new `anilist-mcp-server.mcpb` from the
   [releases page](https://github.com/Grinv/anilist-mcp-server/releases) and
   reinstall it in your client (it replaces the old version).
+- **npx:** unpinned `npx -y anilist-mcp-server` fetches the latest on the next run.
 - **From source:** `git pull && npm ci && npm run build`.
 
 See the [CHANGELOG](CHANGELOG.md) for what changed in each release.

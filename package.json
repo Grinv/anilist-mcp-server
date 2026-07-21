@@ -1,6 +1,6 @@
 {
   "name": "anilist-mcp-server",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "mcpName": "io.github.Grinv/anilist-mcp-server",
   "description": "MCP server for the AniList GraphQL API — anime/manga search, details, and personal list management.",
   "type": "module",

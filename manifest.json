@@ -29,7 +29,9 @@
       "env": {
         "ANILIST_CLIENT_ID": "${user_config.anilist_client_id}",
         "ANILIST_CLIENT_SECRET": "${user_config.anilist_client_secret}",
-        "ANILIST_ACCESS_TOKEN": "${user_config.anilist_access_token}"
+        "ANILIST_ACCESS_TOKEN": "${user_config.anilist_access_token}",
+        "ANILIST_OAUTH_PORT": "${user_config.anilist_oauth_port}",
+        "ANILIST_TOKEN_STORE": "${user_config.anilist_token_store}"
       }
     }
   },
@@ -174,6 +176,23 @@
       "description": "Optional. A pre-obtained AniList access token, as an alternative to running login_anilist.",
       "required": false,
       "sensitive": true
+    },
+    "anilist_oauth_port": {
+      "type": "number",
+      "title": "OAuth Callback Port",
+      "description": "Optional. Localhost port for the login_anilist callback (default 8082) — change if that port is taken.",
+      "required": false,
+      "sensitive": false,
+      "min": 1,
+      "max": 65535,
+      "default": 8082
+    },
+    "anilist_token_store": {
+      "type": "string",
+      "title": "Token Store Path",
+      "description": "Optional. Overrides where the AniList access token is persisted (defaults under the OS config dir).",
+      "required": false,
+      "sensitive": false
     }
   }
 }

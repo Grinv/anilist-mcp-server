@@ -17,36 +17,40 @@ export async function getUserActivity(
   // AniList's `activities` field only accepts a numeric `userId` — there is
   // no `userName` argument (confirmed live: "Unknown argument userName on
   // field activities of type Page"), unlike most other user-scoped fields in
-  // this API. Resolve a username to its id first rather than passing it
-  // straight through.
+  // this API. Resolve to a verified id first (for either a username or a
+  // numeric id) rather than passing either straight through — an unresolved
+  // id makes AniList treat the `userId` filter as absent and silently return
+  // the *global* activity feed (or, for a bad numeric id, just an empty
+  // page) instead of erroring, both of which look like a valid answer.
   const header = ctx.authHeader();
-  let userId: number;
-  if (typeof user === "number") {
-    userId = user;
-  } else {
-    const data = await ctx.gql.request<{ User: { id: number } | null }>(
-      `query($name:String){User(name:$name){id}}`,
-      { name: user },
-      header,
-    );
-    // A resolved-to-nothing username must fail loudly — passing `userId:
-    // undefined` through to `activities(userId:$userId,...)` makes AniList
-    // treat the filter as absent entirely and silently return the *global*
-    // activity feed instead of erroring, which looks like a valid (wrong) answer.
-    if (!data.User) {
-      throw new ApiError({
-        code: "not_found",
-        message: `No AniList user named "${user}" was found.`,
-      });
-    }
-    userId = data.User.id;
+  const byId = typeof user === "number";
+  const query = byId
+    ? `query($id:Int){User(id:$id){id}}`
+    : `query($name:String){User(name:$name){id}}`;
+  const data = await ctx.gql.request<{ User: { id: number } | null }>(
+    query,
+    byId ? { id: user } : { name: user },
+    header,
+  );
+  if (!data.User) {
+    throw new ApiError({
+      code: "not_found",
+      message: byId
+        ? `No AniList user found with ID ${user}.`
+        : `No AniList user named "${user}" was found.`,
+    });
   }
-  const query = `query($userId:Int,$page:Int,$perPage:Int){Page(page:$page,perPage:$perPage){
+  const userId = data.User.id;
+  const activitiesQuery = `query($userId:Int,$page:Int,$perPage:Int){Page(page:$page,perPage:$perPage){
     pageInfo{total currentPage lastPage hasNextPage}
     activities(userId:$userId,sort:ID_DESC){${ACTIVITY_FRAGMENT}}
   }}`;
-  const data = await ctx.gql.request<{ Page: unknown }>(query, { userId, page, perPage }, header);
-  return data.Page;
+  const pageData = await ctx.gql.request<{ Page: unknown }>(
+    activitiesQuery,
+    { userId, page, perPage },
+    header,
+  );
+  return pageData.Page;
 }
 
 export async function postTextActivity(

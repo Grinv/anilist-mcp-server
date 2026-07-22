@@ -39,6 +39,45 @@ test("getMedia(single id) queries Media(), getMedia(array) queries Page.media()"
   assert.deepEqual(many, [{ id: 1 }, { id: 2 }]);
 });
 
+test("getSchedule confirms a given mediaId resolves before querying airingSchedules", async (t) => {
+  const mock = mockFetch((_url, init) => {
+    const body = JSON.parse(init?.body as string) as { query: string };
+    if (body.query.includes("Media(id")) return jsonResponse({ data: { Media: { id: 1 } } });
+    return jsonResponse({ data: { Page: { airingSchedules: [{ episode: 5 }] } } });
+  });
+  installFetch(t, mock);
+  const client = new AniListClient(testConfig({}), silentLogger());
+
+  const result = await media.getSchedule(client.ctx(), 1);
+  assert.deepEqual(result, [{ episode: 5 }]);
+});
+
+test("getSchedule rejects with not_found for a nonexistent mediaId, instead of silently returning an empty schedule", async (t) => {
+  const mock = mockFetch((_url, init) => {
+    const body = JSON.parse(init?.body as string) as { query: string };
+    if (body.query.includes("Media(id")) return jsonResponse({ data: { Media: null } });
+    return jsonResponse({ data: { Page: { airingSchedules: [{ episode: 5 }] } } });
+  });
+  installFetch(t, mock);
+  const client = new AniListClient(testConfig({}), silentLogger());
+
+  await assert.rejects(
+    () => media.getSchedule(client.ctx(), 999999999),
+    (err: unknown) => err instanceof ApiError && err.code === "not_found",
+  );
+  // Must fail before ever reaching the airingSchedules() query.
+  assert.equal(mock.calls.length, 1, "must not query the schedule after an unresolved mediaId");
+});
+
+test("getSchedule with no mediaId skips the existence check and goes straight to the site-wide schedule", async (t) => {
+  const mock = mockFetch(() => jsonResponse({ data: { Page: { airingSchedules: [] } } }));
+  installFetch(t, mock);
+  const client = new AniListClient(testConfig({}), silentLogger());
+
+  await media.getSchedule(client.ctx());
+  assert.equal(mock.calls.length, 1, "no mediaId means no existence check to make");
+});
+
 test("getUserProfile queries User(name:...) for a string username, not just User(id:...) for a number", async (t) => {
   const mock = mockFetch(() => jsonResponse({ data: { User: { id: 1, name: "Grinv" } } }));
   installFetch(t, mock);
@@ -367,14 +406,20 @@ test("toggleFavourite uses the correct AniList argument name per media kind", as
   assert.match(query, /studioId:\$id/);
 });
 
-test("getUserActivity queries activities(userId:...) directly for a numeric id", async (t) => {
-  const mock = mockFetch(() => jsonResponse({ data: { Page: { activities: [] } } }));
+test("getUserActivity resolves a numeric id via User(id) first, then queries activities(userId:...)", async (t) => {
+  const mock = mockFetch((_url, init) => {
+    const body = JSON.parse(init?.body as string) as { query: string };
+    if (body.query.includes("User(id")) return jsonResponse({ data: { User: { id: 7640432 } } });
+    return jsonResponse({ data: { Page: { activities: [] } } });
+  });
   installFetch(t, mock);
   const client = new AniListClient(testConfig({}), silentLogger());
 
   await activity.getUserActivity(client.ctx(), 7640432);
-  assert.equal(mock.calls.length, 1, "a numeric id needs no resolution query");
-  const { query, variables } = JSON.parse(mock.calls[0]!.init?.body as string) as {
+  const activitiesCall = mock.calls.find(
+    (c) => !JSON.parse(c.init?.body as string).query.includes("User(id"),
+  )!;
+  const { query, variables } = JSON.parse(activitiesCall.init?.body as string) as {
     query: string;
     variables: Record<string, unknown>;
   };
@@ -421,6 +466,27 @@ test("getUserActivity rejects with not_found when the username doesn't resolve t
     mock.calls.length,
     1,
     "must not query the global activity feed after an unresolved username",
+  );
+});
+
+test("getUserActivity rejects with not_found when a numeric user id doesn't resolve to any user, instead of silently returning an empty page", async (t) => {
+  const mock = mockFetch((_url, init) => {
+    const body = JSON.parse(init?.body as string) as { query: string };
+    if (body.query.includes("User(id")) return jsonResponse({ data: { User: null } });
+    return jsonResponse({ data: { Page: { activities: [{ id: 1 }] } } });
+  });
+  installFetch(t, mock);
+  const client = new AniListClient(testConfig({}), silentLogger());
+
+  await assert.rejects(
+    () => activity.getUserActivity(client.ctx(), 999999999),
+    (err: unknown) => err instanceof ApiError && err.code === "not_found",
+  );
+  // Must fail before ever reaching the activities() query.
+  assert.equal(
+    mock.calls.length,
+    1,
+    "must not query the activities feed after an unresolved numeric id",
   );
 });
 

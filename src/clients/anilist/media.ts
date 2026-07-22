@@ -155,6 +155,19 @@ export async function getSchedule(
   page = 1,
   perPage = 25,
 ): Promise<unknown> {
+  // airingSchedules(mediaId:...) is a Page connection filter, not a singular
+  // lookup — a nonexistent mediaId just filters down to an empty-but-successful
+  // page, indistinguishable from "this real anime has no upcoming episodes".
+  // Confirm the id resolves first so a bad id errors instead of looking like
+  // a legitimate empty schedule.
+  if (mediaId !== undefined) {
+    const check = await ctx.gql.request<{ Media: { id: number } | null }>(
+      `query($id:Int){Media(id:$id){id}}`,
+      { id: mediaId },
+      ctx.authHeader(),
+    );
+    assertFound(check.Media, `No anime found with ID ${mediaId}.`);
+  }
   const query = `query($mediaId:Int,$notYetAired:Boolean,$page:Int,$perPage:Int){Page(page:$page,perPage:$perPage){
     pageInfo{hasNextPage}
     airingSchedules(mediaId:$mediaId,notYetAired:$notYetAired,sort:TIME){

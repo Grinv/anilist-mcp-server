@@ -92,6 +92,19 @@ test("getUserProfile queries User(name:...) for a string username, not just User
   assert.deepEqual(variables, { name: "Grinv" });
 });
 
+test("getUserProfile/getUserStats/getFullUserInfo reject with not_found instead of returning null, for a User query that resolves to null", async (t) => {
+  const mock = mockFetch(() => jsonResponse({ data: { User: null } }));
+  installFetch(t, mock);
+  const client = new AniListClient(testConfig({}), silentLogger());
+
+  for (const fn of [user.getUserProfile, user.getUserStats, user.getFullUserInfo]) {
+    await assert.rejects(
+      () => fn(client.ctx(), "no-such-user"),
+      (err: unknown) => err instanceof ApiError && err.code === "not_found",
+    );
+  }
+});
+
 test("searchMedia passes isAdult through when set, and omits it when left undefined", async (t) => {
   const mock = mockFetch(() => jsonResponse({ data: { Page: { media: [] } } }));
   installFetch(t, mock);

@@ -1,4 +1,5 @@
 import type { AniListContext } from "./context.js";
+import { assertFound } from "../../lib/errors.js";
 import { USER_FIELDS, USER_DETAIL_FIELDS } from "./fields.js";
 
 export async function getUserProfile(ctx: AniListContext, user: number | string): Promise<unknown> {
@@ -12,7 +13,7 @@ export async function getUserProfile(ctx: AniListContext, user: number | string)
     byId ? { id: user } : { name: user },
     ctx.authHeader(),
   );
-  return data.User;
+  return assertFound(data.User, `No AniList user found matching ${JSON.stringify(user)}.`);
 }
 
 export async function getUserStats(ctx: AniListContext, user: number | string): Promise<unknown> {
@@ -26,7 +27,7 @@ export async function getUserStats(ctx: AniListContext, user: number | string): 
     byId ? { id: user } : { name: user },
     ctx.authHeader(),
   );
-  return data.User;
+  return assertFound(data.User, `No AniList user found matching ${JSON.stringify(user)}.`);
 }
 
 export async function getFullUserInfo(
@@ -43,7 +44,7 @@ export async function getFullUserInfo(
     byId ? { id: user } : { name: user },
     ctx.authHeader(),
   );
-  return data.User;
+  return assertFound(data.User, `No AniList user found matching ${JSON.stringify(user)}.`);
 }
 
 export async function getAuthorizedUser(ctx: AniListContext): Promise<unknown> {

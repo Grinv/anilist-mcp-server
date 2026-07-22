@@ -6,6 +6,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-07-23
+
 ### Changed
 
 - Halve `get_anime_schedule`/`get_user_activity`'s network round-trips for a given `mediaId` or numeric user ID by combining the not-found existence check into the same request as the real query, instead of a separate one. [aacfa8b](https://github.com/Grinv/anilist-mcp-server/commit/aacfa8b)

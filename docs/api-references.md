@@ -332,14 +332,36 @@ recommendations, likes`.
   `getUserStats()`/`getFullUserInfo()`, which guard the same way as a
   defensive-consistency measure even though `User` itself hasn't been
   observed returning the null-instead-of-404 shape live.
-- **`Page(...) { threadComments(threadId) }` doesn't error for a nonexistent
-  `threadId`** — it just returns an empty page (`nodes: []`, all `pageInfo`
-  fields `null`), indistinguishable from "this thread has zero comments".
-  `getThreadComments()` now does a cheap `Thread(id){id}` existence check
-  first (that query reliably 404s) so a bad id surfaces as an error instead
-  of a misleading empty success — costs one extra request per cold call
-  (cached like any other query, so repeat calls for the same thread are free
-  within the TTL window).
+- **A `Page(...)` connection filtered by a parent id doesn't error for a
+  nonexistent id** — it just returns an empty-but-successful page,
+  indistinguishable from "this parent genuinely has none of these". Confirmed
+  live for three fields so far, same shape each time:
+  - `threadComments(threadId)` — an empty page (`nodes: []`, all `pageInfo`
+    fields `null`) for a bad `threadId`. `getThreadComments()` does a cheap
+    `Thread(id){id}` existence check first, as a separate request (costs one
+    extra request per cold call — cached like any other query, so repeat
+    calls for the same thread are free within the TTL window).
+  - `activities(userId)` — an empty page for a bad numeric `userId` (the same
+    call with a bad _username_ instead silently returns the _global_ feed,
+    not even an empty page). For a numeric id, `getUserActivity()` aliases a
+    `User(id){id}` existence check into the _same_ request as the real
+    `activities(userId:...)` query — confirmed live that AniList 404s the
+    entire response (not just the aliased field) when `User(id)` doesn't
+    resolve, so this costs no extra request. A username has a genuine data
+    dependency (the id it resolves to must be known before `activities()` can
+    even be built), so that path still needs a separate resolution request first.
+  - `airingSchedules(mediaId)` — an empty schedule for a bad `mediaId`,
+    though a real completed anime legitimately has an empty schedule too, so
+    this one's ambiguity bites far less often in practice. `getSchedule()`
+    aliases a `Media(id){id}` existence check into the same request as
+    `airingSchedules(...)` (same no-extra-request combined-query approach as
+    `getUserActivity`'s numeric path above), only when `mediaId` is given.
+
+  Other `Page` connections filtered by a parent id (`mediaList`,
+  `notifications`, `followers`/`following`, `activityReplies`, `reviews`) are
+  NOT yet confirmed either way — check for this exact shape before assuming
+  they're fine, since this pattern has now recurred three times.
+
 - **`ToggleFavourite` does not validate that `id` actually belongs to the
   given `kind`** — confirmed live: `ToggleFavourite(characterId: <a real
 anime's id>)` succeeded and added that id to the account's favourited

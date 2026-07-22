@@ -37,6 +37,12 @@ src/
   prompts.ts      # MCP Prompts: multi-step plans that orchestrate the read tools
   __tests__/      # node:test (*.test.ts) + helpers.ts
 scripts/          # build-tests.mjs, run-tests.mjs, check-api.mjs, sync-version.mjs
+skills/           # reusable agent workflows for this repo (e.g. live-audit/) —
+                  # plain Markdown, not tied to any one tool's orchestration
+                  # features, per this file's agent-agnostic policy; same
+                  # skill name/layout as this project's sibling MCP servers
+                  # (tmdb-mcp, mal-mcp, steam-games-mcp) — sync improvements
+                  # both ways rather than letting them drift
 ```
 
 ## Why this server exists
@@ -141,6 +147,16 @@ typecheck:scripts`, folded into `npm run lint`) instead of the main
 - **CodeQL** (`.github/workflows/codeql.yml`) scans `javascript-typescript` on
   push/PR to main plus a weekly cron — no local equivalent command; findings
   surface under the repo's **Security → Code scanning** tab.
+
+## Testing the live/published server
+
+For a full audit of the currently published (or just-fixed) package —
+build/test/lint plus hammering the live MCP tools with edge cases,
+cross-checked against source — follow
+[skills/live-audit/SKILL.md](skills/live-audit/SKILL.md). It covers the
+safety rules for testing mutation tools against a real authenticated
+account, what edge cases to cover, and known bug classes found in past
+passes worth checking don't recur.
 
 ## Before opening a PR
 

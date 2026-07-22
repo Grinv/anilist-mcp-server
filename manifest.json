@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "anilist-mcp-server",
   "display_name": "AniList MCP Server",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "MCP server for the AniList GraphQL API — search and browse anime/manga, characters, staff and studios, and manage your own AniList lists.",
   "long_description": "MCP server for AniList. Reads (search/details/genres/tags/recommendations/threads/activity/public user data) call the public AniList GraphQL API and require no credentials. Personal-list and social tools (add/update/remove list entries, favourites, follow, posting/deleting activity or threads, update_user, notifications) act on the authenticated user's own AniList account and require a user token; without one they return an actionable error. Works with any MCP client.",
   "author": {

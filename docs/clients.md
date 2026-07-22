@@ -5,7 +5,7 @@ MCP client at `node /ABS/PATH/anilist-mcp-server/dist/index.js`. Replace
 `/ABS/PATH/anilist-mcp-server` with the absolute path to your clone. The `env`
 block is optional — omit it to use only the credential-free read tools.
 
-> Once published to npm, the command becomes `npx -y anilist-mcp-server` with no path.
+> Published to npm — `npx -y anilist-mcp-server` also works, with no path needed.
 
 ## Claude Desktop / Claude Code
 

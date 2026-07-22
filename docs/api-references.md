@@ -313,9 +313,44 @@ recommendations, likes`.
 - **`Media(id_in: [Int])` does not preserve the input array's order** —
   confirmed live: requesting `[154587, 21]` came back `[21, 154587]`
   (looked like default id-ascending sort). `getMedia()`'s array branch now
-  reorders the response client-side (dropping any id that didn't resolve)
-  so `get_media`'s documented "same order as `ids`" guarantee is actually
-  true.
+  reorders the response client-side, filling `null` in place of any id that
+  didn't resolve (rather than dropping it), so the result is always the same
+  length as `ids` and matches `get_media`'s documented "same order as `ids`,
+  with `null` in place of any ID that didn't resolve" guarantee.
+- **Several other singular lookups return `null` instead of erroring for an
+  unresolved ID, but NOT all of them** — confirmed live: a top-level
+  `Media(id)`/`Thread(id)` query (no nested fields beyond scalars) reliably
+  404s via a real HTTP status for a bad id, but `Media(id){ recommendations
+{...} }`/`Media(id){ stats {...} }`/`{ characters {...} }`/`{ staff {...} }`/
+  `{ reviews {...} }`/`{ relations {...} }` (nested connection fields) — plus
+  bare `Activity(id)`, `Character(id)`, `Staff(id)`, `Studio(id)`,
+  `Recommendation(id)` — resolve to `null` with a 200 OK instead. Every client
+  function hitting one of these null-instead-of-error shapes now calls
+  `assertFound()` (`lib/errors.ts`) to turn that into a clean `not_found`
+  `ApiError` rather than letting a raw `TypeError`/`null` reach the caller.
+- **`Page(...) { threadComments(threadId) }` doesn't error for a nonexistent
+  `threadId`** — it just returns an empty page (`nodes: []`, all `pageInfo`
+  fields `null`), indistinguishable from "this thread has zero comments".
+  `getThreadComments()` now does a cheap `Thread(id){id}` existence check
+  first (that query reliably 404s) so a bad id surfaces as an error instead
+  of a misleading empty success — costs one extra request per cold call
+  (cached like any other query, so repeat calls for the same thread are free
+  within the TTL window).
+- **`ToggleFavourite` does not validate that `id` actually belongs to the
+  given `kind`** — confirmed live: `ToggleFavourite(characterId: <a real
+anime's id>)` succeeded and added that id to the account's favourited
+  characters, with no error and no existence check. `favourite`'s tool
+  description warns callers to resolve `id` from the matching
+  search/get tool for `kind` rather than reusing an id on hand, since AniList
+  itself won't catch the mismatch.
+- **`User.options`/`User.mediaListOptions` are NOT viewer-gated** — confirmed
+  live: looking up a third-party account (not the caller's own) via
+  `get_user_profile`/`get_full_user_info` returns that account's full
+  notification toggles, `disabledListActivity`, `scoreFormat`, `rowOrder`,
+  and list-display/advanced-scoring settings, not just public profile fields
+  (name/about/avatar/donator status). This is AniList's own API behavior
+  (these fields simply aren't restricted to `Viewer`), not a bug in this
+  server, but it's worth knowing before treating them as private.
 - **`User.statistics` (anime/manga count, meanScore, etc.) lags behind the
   account's real list state** — confirmed live: an account with several
   real `MediaListCollection` entries (non-zero scores/progress) still had

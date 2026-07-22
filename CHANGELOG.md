@@ -6,6 +6,20 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- Fix several single-ID tools (`get_activity`, `get_character`, `get_staff`, `get_studio`, `get_recommendation`, `get_recommendations_for_media`, `get_thread`, `get_media_statistics`, `get_media_characters`, `get_media_staff`, `get_media_reviews`, `get_media_relations`) crashing or silently returning invalid output for a nonexistent ID — they now return a clean not-found error instead.
+- Fix `get_media` silently dropping array `ids` that don't resolve to a real title — it now fills `null` in that position instead, keeping the result the same length as `ids`.
+- Fix `get_thread_comments` returning a misleadingly-empty success for a nonexistent `threadId` instead of an error.
+- Fix not-found tool errors discarding their specific detail (e.g. which ID was invalid) behind a generic "(404)" message.
+- Fix a 403 error always blaming the authenticated account's permissions, even when it's actually an unrelated upstream security block (e.g. a WAF rejecting unusual request content).
+- Fix inline GraphQL errors always being classified as a generic bad request, even when AniList embeds a specific status (e.g. 404/401) in the response.
+- Reject `add_list_entry`/`update_list_entry`'s `advancedScores` values outside the documented 0-10 scale, instead of accepting e.g. `15` silently.
+- Give a clear validation message for `get_media`'s `ids` and every user-scoped tool's `user` parameter when missing/malformed, instead of a generic Zod error.
+- Clarify `get_user_profile`/`get_full_user_info`'s description: the account settings they return (notifications, list display, etc.) aren't restricted to the caller's own account — AniList returns them for any user looked up.
+- Clarify `favourite`'s description: AniList doesn't validate that `id` actually belongs to the given `kind` — a mismatched pair silently succeeds instead of erroring.
+- Fix the `seasonal_overview` prompt ignoring `season`/`year` when only one of the two was given, instead of treating them as the independent filters `search_media` actually supports.
+
 ## [0.2.0] - 2026-07-22
 
 ### Added

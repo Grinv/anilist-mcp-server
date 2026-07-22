@@ -6,6 +6,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+Everything below is one commit: [58ee542](https://github.com/Grinv/anilist-mcp-server/commit/58ee542).
+
 ### Fixed
 
 - Fix several single-ID tools (`get_activity`, `get_character`, `get_staff`, `get_studio`, `get_recommendation`, `get_recommendations_for_media`, `get_thread`, `get_media_statistics`, `get_media_characters`, `get_media_staff`, `get_media_reviews`, `get_media_relations`) crashing or silently returning invalid output for a nonexistent ID — they now return a clean not-found error instead.

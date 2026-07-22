@@ -319,15 +319,19 @@ recommendations, likes`.
   with `null` in place of any ID that didn't resolve" guarantee.
 - **Several other singular lookups return `null` instead of erroring for an
   unresolved ID, but NOT all of them** — confirmed live: a top-level
-  `Media(id)`/`Thread(id)` query (no nested fields beyond scalars) reliably
-  404s via a real HTTP status for a bad id, but `Media(id){ recommendations
-{...} }`/`Media(id){ stats {...} }`/`{ characters {...} }`/`{ staff {...} }`/
-  `{ reviews {...} }`/`{ relations {...} }` (nested connection fields) — plus
-  bare `Activity(id)`, `Character(id)`, `Staff(id)`, `Studio(id)`,
-  `Recommendation(id)` — resolve to `null` with a 200 OK instead. Every client
-  function hitting one of these null-instead-of-error shapes now calls
-  `assertFound()` (`lib/errors.ts`) to turn that into a clean `not_found`
-  `ApiError` rather than letting a raw `TypeError`/`null` reach the caller.
+  `Media(id)`/`Thread(id)`/`User(id)`/`User(name)` query (no nested fields
+  beyond scalars) reliably 404s via a real HTTP status for a bad id/name, but
+  `Media(id){ recommendations {...} }`/`Media(id){ stats {...} }`/
+  `{ characters {...} }`/`{ staff {...} }`/`{ reviews {...} }`/
+  `{ relations {...} }` (nested connection fields) — plus bare `Activity(id)`,
+  `Character(id)`, `Staff(id)`, `Studio(id)`, `Recommendation(id)` — resolve
+  to `null` with a 200 OK instead. Every client function hitting one of these
+  null-instead-of-error shapes calls `assertFound()` (`lib/errors.ts`) to turn
+  that into a clean `not_found` `ApiError` rather than letting a raw
+  `TypeError`/`null` reach the caller — including `getUserProfile()`/
+  `getUserStats()`/`getFullUserInfo()`, which guard the same way as a
+  defensive-consistency measure even though `User` itself hasn't been
+  observed returning the null-instead-of-404 shape live.
 - **`Page(...) { threadComments(threadId) }` doesn't error for a nonexistent
   `threadId`** — it just returns an empty page (`nodes: []`, all `pageInfo`
   fields `null`), indistinguishable from "this thread has zero comments".

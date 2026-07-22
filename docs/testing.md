@@ -39,6 +39,22 @@ selection you're mocking.
 - **`Page` can only carry one list field per query.** A fixture combining
   `Page.media` and `Page.characters` in the same response would never occur
   for real — each search/list tool queries exactly one field under `Page`.
+  This is about `Page`'s own sub-selection, not about combining `Page` with
+  an unrelated aliased root field alongside it in the same request (e.g.
+  `getSchedule`/`getUserActivity`'s `exists:Media(id:$id){id}` /
+  `exists:User(id:$id){id}` existence check next to `schedule:Page(...)` /
+  `feed:Page(...)`) — that combination is a different, valid pattern; a
+  fixture for it should mirror both aliased fields' real response shape.
+- **A fixture testing a defensive/not-yet-observed code path must say so.**
+  Some guards (`assertFound()` on a query AniList hasn't been observed
+  returning `null` for) exist as insurance against upstream behavior
+  changing, not because the null response has been seen live — see
+  `getUserProfile`/`getUserStats`/`getFullUserInfo` in `user.ts`. A fixture
+  exercising that branch (e.g. mocking `{data: {User: null}}`) is testing the
+  guard, not AniList's current live behavior, and must say so in a comment
+  right above the mock — otherwise it silently violates the rule above with
+  no signal to a future reader that the shape is hypothetical rather than
+  confirmed.
 
 ## How to verify a fixture
 

@@ -155,6 +155,20 @@ source for the actual mechanism (the query shape/const/regex that produced
 it) before calling it a finding. A live response that merely _looks_ odd but
 ties back to correct, intentional code isn't a finding.
 
+The same caution runs the other way: a finding produced by reading source
+_without_ calling any live tool (e.g. a background/sub-agent doing a
+static-only pass) is a hypothesis, not a confirmed bug — AniList's actual
+behavior sometimes contradicts what the code's shape implies. Concrete
+case: a static pass once flagged `getUserProfile`/`getUserStats`/
+`getFullUserInfo` as crashing (missing `assertFound()` on a nullable
+singular lookup, by analogy with every sibling function that needs it) —
+live-calling `get_user_profile`/`get_user_stats`/`get_full_user_info` with a
+nonexistent numeric id **and** a nonexistent username both showed AniList
+actually 404s the whole HTTP response for `User(...)` instead of returning
+`200` + `null`, so the "bug" didn't reproduce. Before reporting any
+source-only finding, spend one live call confirming the actual response
+shape it depends on.
+
 ## 4. Source-level code review
 
 Sweep every file under `src/tools/`, `src/clients/anilist/`, and `src/lib/`
@@ -174,7 +188,21 @@ Sweep every file under `src/tools/`, `src/clients/anilist/`, and `src/lib/`
   previous pass of this same audit).
 - A `Page`-based connection (`Page(...) { someConnection(parentId) }`) that
   returns an empty-but-successful page for a nonexistent parent ID instead
-  of erroring, indistinguishable from "genuinely zero results".
+  of erroring, indistinguishable from "genuinely zero results". Fix by
+  aliasing a cheap singular existence check (e.g. `exists:Media(id:$id){id}`)
+  into the _same_ request as the real query, not a separate round-trip —
+  confirmed live (`docs/api-references.md`) that AniList 404s the _entire_
+  response when one aliased root field fails to resolve, even combined with
+  unrelated fields in the same query, so this costs no extra request and
+  still surfaces a clean `not_found`. Only fall back to a genuinely separate
+  existence-check request when the real query has an actual data dependency
+  the existence check doesn't already satisfy (e.g. resolving a _username_
+  to a numeric id before it can be used as a filter argument elsewhere in
+  the same query — GraphQL can't thread one field's result into another
+  field's argument within a single request). Verify the aliasing approach
+  live with a raw `curl -X POST https://graphql.anilist.co` call before
+  relying on it (no auth needed for public data) — this behavior isn't
+  something the MCP tools' pre-built queries let you probe directly.
 - Missing bounds on a numeric field whose `.describe()` promises a range
   (e.g. "0-10 scale") but whose Zod schema has no `.min()/.max()`.
 - A union/required field with no custom Zod error message, falling back to

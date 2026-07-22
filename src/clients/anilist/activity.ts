@@ -17,30 +17,39 @@ export async function getUserActivity(
   // AniList's `activities` field only accepts a numeric `userId` — there is
   // no `userName` argument (confirmed live: "Unknown argument userName on
   // field activities of type Page"), unlike most other user-scoped fields in
-  // this API. Resolve to a verified id first (for either a username or a
-  // numeric id) rather than passing either straight through — an unresolved
-  // id makes AniList treat the `userId` filter as absent and silently return
-  // the *global* activity feed (or, for a bad numeric id, just an empty
-  // page) instead of erroring, both of which look like a valid answer.
+  // this API. A numeric id can be confirmed in the SAME request as the real
+  // query, aliased alongside it — confirmed live that AniList 404s the
+  // *entire* response when User(id) doesn't resolve, same as getSchedule's
+  // mediaId check, so that path costs one round trip. A username has a
+  // genuine data dependency (the numeric id it resolves to must be known
+  // before `activities(userId:...)` can even be built), so it still needs a
+  // separate resolution request first — leaving it unresolved would make
+  // AniList treat the `userId` filter as absent and silently return the
+  // *global* activity feed instead of erroring.
   const header = ctx.authHeader();
-  const byId = typeof user === "number";
-  const query = byId
-    ? `query($id:Int){User(id:$id){id}}`
-    : `query($name:String){User(name:$name){id}}`;
-  const data = await ctx.gql.request<{ User: { id: number } | null }>(
-    query,
-    byId ? { id: user } : { name: user },
+  if (typeof user === "number") {
+    const query = `query($userId:Int,$page:Int,$perPage:Int){
+      exists:User(id:$userId){id}
+      feed:Page(page:$page,perPage:$perPage){
+        pageInfo{total currentPage lastPage hasNextPage}
+        activities(userId:$userId,sort:ID_DESC){${ACTIVITY_FRAGMENT}}
+      }
+    }`;
+    const data = await ctx.gql.request<{ exists: { id: number } | null; feed: unknown }>(
+      query,
+      { userId: user, page, perPage },
+      header,
+    );
+    assertFound(data.exists, `No AniList user found with ID ${user}.`);
+    return data.feed;
+  }
+  const resolveQuery = `query($name:String){User(name:$name){id}}`;
+  const resolveData = await ctx.gql.request<{ User: { id: number } | null }>(
+    resolveQuery,
+    { name: user },
     header,
   );
-  if (!data.User) {
-    throw new ApiError({
-      code: "not_found",
-      message: byId
-        ? `No AniList user found with ID ${user}.`
-        : `No AniList user named "${user}" was found.`,
-    });
-  }
-  const userId = data.User.id;
+  const userId = assertFound(resolveData.User, `No AniList user named "${user}" was found.`).id;
   const activitiesQuery = `query($userId:Int,$page:Int,$perPage:Int){Page(page:$page,perPage:$perPage){
     pageInfo{total currentPage lastPage hasNextPage}
     activities(userId:$userId,sort:ID_DESC){${ACTIVITY_FRAGMENT}}

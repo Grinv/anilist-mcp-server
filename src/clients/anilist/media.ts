@@ -158,26 +158,27 @@ export async function getSchedule(
   // airingSchedules(mediaId:...) is a Page connection filter, not a singular
   // lookup — a nonexistent mediaId just filters down to an empty-but-successful
   // page, indistinguishable from "this real anime has no upcoming episodes".
-  // Confirm the id resolves first so a bad id errors instead of looking like
-  // a legitimate empty schedule.
-  if (mediaId !== undefined) {
-    const check = await ctx.gql.request<{ Media: { id: number } | null }>(
-      `query($id:Int){Media(id:$id){id}}`,
-      { id: mediaId },
-      ctx.authHeader(),
-    );
-    assertFound(check.Media, `No anime found with ID ${mediaId}.`);
-  }
-  const query = `query($mediaId:Int,$notYetAired:Boolean,$page:Int,$perPage:Int){Page(page:$page,perPage:$perPage){
-    pageInfo{hasNextPage}
-    airingSchedules(mediaId:$mediaId,notYetAired:$notYetAired,sort:TIME){
-      airingAt timeUntilAiring episode media{id title{romaji english} siteUrl}
+  // When a mediaId is given, alias a Media(id){id} existence check into the
+  // SAME request as the real query, rather than a separate round trip —
+  // confirmed live that AniList 404s the *entire* response (not just the
+  // aliased field) when Media(id) doesn't resolve, so a bad id still
+  // surfaces as a clean not_found error from one request. assertFound()
+  // below is defense-in-depth for the unobserved case where AniList instead
+  // returns 200 with `exists: null`.
+  const existsField = mediaId !== undefined ? "exists:Media(id:$mediaId){id}" : "";
+  const query = `query($mediaId:Int,$notYetAired:Boolean,$page:Int,$perPage:Int){
+    ${existsField}
+    schedule:Page(page:$page,perPage:$perPage){
+      pageInfo{hasNextPage}
+      airingSchedules(mediaId:$mediaId,notYetAired:$notYetAired,sort:TIME){
+        airingAt timeUntilAiring episode media{id title{romaji english} siteUrl}
+      }
     }
-  }}`;
-  const data = await ctx.gql.request<{ Page: { airingSchedules: unknown } }>(
-    query,
-    { mediaId, notYetAired, page, perPage },
-    ctx.authHeader(),
-  );
-  return data.Page.airingSchedules;
+  }`;
+  const data = await ctx.gql.request<{
+    exists?: { id: number } | null;
+    schedule: { airingSchedules: unknown };
+  }>(query, { mediaId, notYetAired, page, perPage }, ctx.authHeader());
+  if (mediaId !== undefined) assertFound(data.exists, `No anime found with ID ${mediaId}.`);
+  return data.schedule.airingSchedules;
 }

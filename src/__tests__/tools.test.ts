@@ -74,7 +74,7 @@ test("the media-detail tools (characters/staff/reviews/relations/schedule/statis
           relations: { edges: [{ relationType: "SEQUEL", node: { id: 2 } }] },
           stats: { scoreDistribution: [{ score: 90, amount: 100 }], statusDistribution: [] },
         },
-        Page: { pageInfo: {}, airingSchedules: [{ episode: 5, media: { id: 1 } }] },
+        schedule: { pageInfo: {}, airingSchedules: [{ episode: 5, media: { id: 1 } }] },
       },
     }),
   );

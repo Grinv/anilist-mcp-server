@@ -5,12 +5,8 @@ import * as user from "../clients/anilist/user.js";
 import * as activity from "../clients/anilist/activity.js";
 import { jsonResult } from "../lib/result.js";
 import { guard } from "./guard.js";
-import { pageInfoSchema, idOnly, anilistId } from "./outputSchemas.js";
+import { pageInfoSchema, idOnly, anilistId, userIdOrName } from "./outputSchemas.js";
 import { NOTIFICATION_TYPES } from "./notification.js";
-
-const userIdOrName = z
-  .union([anilistId, z.string().min(1)])
-  .describe("AniList user ID, or username.");
 
 const TITLE_LANGUAGES = [
   "ROMAJI",
@@ -189,6 +185,7 @@ const updateUserResult = z
   .object({
     id: z.number().int(),
     name: z.string().nullish(),
+    about: z.string().nullish(),
     donatorBadge: z.string().nullish(),
     ...userOptionsFields,
   })
@@ -200,9 +197,12 @@ export function registerUserTools(server: McpServer, client: AniListClient): voi
     {
       title: "Get a user's profile",
       description:
-        "Get an AniList user's public profile: name, about text, avatar, donator status. Accepts " +
-        "an exact AniList username directly — no need to call search_user first unless you only " +
-        "have a partial/fuzzy name and need to look up the exact one.",
+        "Get an AniList user's public profile: name, about text, avatar, donator status — plus " +
+        "their account settings (title/name-language preferences, notification toggles, list " +
+        "display options). Confirmed live these settings are NOT viewer-gated, so they're " +
+        "included for any user, not just the authenticated caller. Accepts an exact AniList " +
+        "username directly — no need to call search_user first unless you only have a " +
+        "partial/fuzzy name and need to look up the exact one.",
       inputSchema: z.object({ user: userIdOrName }),
       outputSchema: z.object({ profile: userProfileObject }),
       annotations: { readOnlyHint: true, openWorldHint: true },
@@ -235,9 +235,11 @@ export function registerUserTools(server: McpServer, client: AniListClient): voi
       title: "Get a user's complete profile and stats",
       description:
         "Get an AniList user's profile AND statistics in a single call — use this instead of " +
-        "calling get_user_profile and get_user_stats separately. Accepts an exact AniList " +
-        "username directly — no need to call search_user first unless you only have a " +
-        "partial/fuzzy name.",
+        "calling get_user_profile and get_user_stats separately. Like get_user_profile, this " +
+        "also returns the target's account settings (notifications, list display, etc.) " +
+        "regardless of who's authenticated — AniList doesn't viewer-gate those fields. Accepts " +
+        "an exact AniList username directly — no need to call search_user first unless you " +
+        "only have a partial/fuzzy name.",
       inputSchema: z.object({ user: userIdOrName }),
       outputSchema: z.object({ user: fullUserObject }),
       annotations: { readOnlyHint: true, openWorldHint: true },

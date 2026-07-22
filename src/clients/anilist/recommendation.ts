@@ -1,10 +1,11 @@
 import type { AniListContext } from "./context.js";
+import { assertFound } from "../../lib/errors.js";
 
 export async function getRecommendation(ctx: AniListContext, id: number): Promise<unknown> {
   const query = `query($id:Int){Recommendation(id:$id){id rating userRating
     media{id title{romaji english}} mediaRecommendation{id title{romaji english}}}}`;
   const data = await ctx.gql.request<{ Recommendation: unknown }>(query, { id }, ctx.authHeader());
-  return data.Recommendation;
+  return assertFound(data.Recommendation, `No recommendation found with ID ${id}.`);
 }
 
 interface RecommendationsPage {
@@ -26,12 +27,12 @@ export async function getRecommendationsForMedia(
     pageInfo{hasNextPage}
     nodes{id rating userRating mediaRecommendation{id title{romaji english} siteUrl mediaListEntry{id status}}}
   }}}`;
-  const data = await ctx.gql.request<{ Media: { recommendations: RecommendationsPage } }>(
+  const data = await ctx.gql.request<{ Media: { recommendations: RecommendationsPage } | null }>(
     query,
     { id: mediaId, page, perPage },
     ctx.authHeader(),
   );
-  const { recommendations } = data.Media;
+  const { recommendations } = assertFound(data.Media, `No anime/manga found with ID ${mediaId}.`);
   if (!excludeInList) return recommendations;
   return {
     ...recommendations,

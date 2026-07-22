@@ -120,7 +120,7 @@ export async function updateUser(ctx: AniListContext, fields: UpdateUserFields):
       restrictMessagesToFollowing:$restrictMessagesToFollowing,disabledListActivity:$disabledListActivity,
       animeListOptions:$animeListOptions,mangaListOptions:$mangaListOptions
     ){
-      id name donatorBadge
+      id name about(asHtml:false) donatorBadge
       options{
         titleLanguage displayAdultContent airingNotifications profileColor timezone
         activityMergeTime staffNameLanguage restrictMessagesToFollowing

@@ -1,4 +1,5 @@
 import type { AniListContext } from "./context.js";
+import { assertFound } from "../../lib/errors.js";
 import { STUDIO_FIELDS } from "./fields.js";
 
 export async function getStudio(ctx: AniListContext, idOrName: number | string): Promise<unknown> {
@@ -11,7 +12,7 @@ export async function getStudio(ctx: AniListContext, idOrName: number | string):
     byId ? { id: idOrName } : { search: idOrName },
     ctx.authHeader(),
   );
-  return data.Studio;
+  return assertFound(data.Studio, `No studio found matching ${JSON.stringify(idOrName)}.`);
 }
 
 export async function getGenres(ctx: AniListContext): Promise<unknown> {

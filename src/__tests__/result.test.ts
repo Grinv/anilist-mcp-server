@@ -52,12 +52,13 @@ test("apiErrorToResult: a real upstream 401 with no token sent asks the caller t
   assert.match(r.content[0]!.text, /login_anilist/i);
 });
 
-test("apiErrorToResult: a 403 with a token sent blames account permission, not a WAF", () => {
+test("apiErrorToResult: a 403 with a token sent doesn't blame account permission alone", () => {
   const r = apiErrorToResult(
     new ApiError({ code: "forbidden", message: "detail", status: 403, authenticated: true }),
   );
   assert.equal(r.isError, true);
   assert.match(r.content[0]!.text, /account may lack permission/i);
+  assert.match(r.content[0]!.text, /security block/i);
 });
 
 test("apiErrorToResult: a 403 with no token sent doesn't blame credentials", () => {

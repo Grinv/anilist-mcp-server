@@ -79,3 +79,13 @@ export const toggleFavouriteResult = z
 /** AniList's Media `type` enum — shared by every tool that operates on either
  *  an anime or a manga through one parameterized call. */
 export const MEDIA_TYPES = ["ANIME", "MANGA"] as const;
+
+/** A caller-supplied AniList user reference: either the numeric ID or an
+ *  exact username. Shared across every user-scoped tool (activity/list/user
+ *  domains) so the custom error message stays in one place instead of being
+ *  hand-copied (and left un-customized) per file. */
+export const userIdOrName = z
+  .union([anilistId, z.string().min(1)], {
+    error: "user is required — pass an AniList numeric ID or a username string.",
+  })
+  .describe("AniList user ID, or username.");

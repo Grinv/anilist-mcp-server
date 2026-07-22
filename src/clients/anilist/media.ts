@@ -1,4 +1,5 @@
 import type { AniListContext } from "./context.js";
+import { assertFound } from "../../lib/errors.js";
 import {
   MEDIA_FIELDS,
   MEDIA_DESCRIPTION_FIELD,
@@ -24,9 +25,11 @@ export async function getMedia(
     // came back sorted by id ascending in live testing, regardless of the
     // caller's array order) — reorder client-side so the "same order as
     // ids" this tool promises is actually true. An id that didn't resolve
-    // is simply absent, same as before this reordering was added.
+    // becomes `null` in that position (rather than being silently dropped)
+    // so the array stays the same length as `ids` and a caller can tell
+    // "this ID doesn't exist" apart from "this title just has sparse data".
     const byId = new Map(data.Page.media.map((m) => [m.id, m]));
-    return ids.map((id) => byId.get(id)).filter((m) => m !== undefined);
+    return ids.map((id) => byId.get(id) ?? null);
   }
   const query = `query($id:Int,$type:MediaType){Media(id:$id,type:$type){${fields}}}`;
   const data = await ctx.gql.request<{ Media: unknown }>(
@@ -48,12 +51,12 @@ export async function getMediaStatistics(
       statusDistribution { status amount }
     }
   }}`;
-  const data = await ctx.gql.request<{ Media: { stats: unknown } }>(
+  const data = await ctx.gql.request<{ Media: { stats: unknown } | null }>(
     query,
     { id, type },
     ctx.authHeader(),
   );
-  return data.Media.stats;
+  return assertFound(data.Media, `No anime/manga found with ID ${id}.`).stats;
 }
 
 export async function getMediaCharacters(
@@ -73,12 +76,12 @@ export async function getMediaCharacters(
       }
     }
   }}`;
-  const data = await ctx.gql.request<{ Media: { characters: unknown } }>(
+  const data = await ctx.gql.request<{ Media: { characters: unknown } | null }>(
     query,
     { id, type, page, perPage },
     ctx.authHeader(),
   );
-  return data.Media.characters;
+  return assertFound(data.Media, `No anime/manga found with ID ${id}.`).characters;
 }
 
 export async function getMediaStaff(
@@ -94,12 +97,12 @@ export async function getMediaStaff(
       edges{ role node{id name{full}} }
     }
   }}`;
-  const data = await ctx.gql.request<{ Media: { staff: unknown } }>(
+  const data = await ctx.gql.request<{ Media: { staff: unknown } | null }>(
     query,
     { id, type, page, perPage },
     ctx.authHeader(),
   );
-  return data.Media.staff;
+  return assertFound(data.Media, `No anime/manga found with ID ${id}.`).staff;
 }
 
 export async function getMediaReviews(
@@ -119,12 +122,12 @@ export async function getMediaReviews(
       nodes{id summary${includeBody ? " body(asHtml:false)" : ""} rating ratingAmount score siteUrl user{id name}}
     }
   }}`;
-  const data = await ctx.gql.request<{ Media: { reviews: unknown } }>(
+  const data = await ctx.gql.request<{ Media: { reviews: unknown } | null }>(
     query,
     { id, type, page, perPage },
     ctx.authHeader(),
   );
-  return data.Media.reviews;
+  return assertFound(data.Media, `No anime/manga found with ID ${id}.`).reviews;
 }
 
 export async function getMediaRelations(
@@ -137,12 +140,12 @@ export async function getMediaRelations(
       edges{relationType node{id type format title{romaji english} siteUrl}}
     }
   }}`;
-  const data = await ctx.gql.request<{ Media: { relations: unknown } }>(
+  const data = await ctx.gql.request<{ Media: { relations: unknown } | null }>(
     query,
     { id, type },
     ctx.authHeader(),
   );
-  return data.Media.relations;
+  return assertFound(data.Media, `No anime/manga found with ID ${id}.`).relations;
 }
 
 export async function getSchedule(

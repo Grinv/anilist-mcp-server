@@ -1,12 +1,12 @@
 import type { AniListContext } from "./context.js";
-import { ApiError } from "../../lib/errors.js";
+import { ApiError, assertFound } from "../../lib/errors.js";
 
 export async function getThread(ctx: AniListContext, id: number): Promise<unknown> {
   const query = `query($id:Int){Thread(id:$id){id title body(asHtml:false) siteUrl replyCommentId
     isSticky isLocked replyCount viewCount likeCount isLiked user{id name} categories{id name}
     mediaCategories{id title{romaji english}}}}`;
   const data = await ctx.gql.request<{ Thread: unknown }>(query, { id }, ctx.authHeader());
-  return data.Thread;
+  return assertFound(data.Thread, `No thread found with ID ${id}.`);
 }
 
 export async function getThreadComments(
@@ -15,6 +15,18 @@ export async function getThreadComments(
   page = 1,
   perPage = 25,
 ): Promise<unknown> {
+  // threadComments' Page connection doesn't error for a nonexistent threadId
+  // — it just returns an empty page, indistinguishable from "this thread
+  // really has zero comments" (confirmed live). A direct Thread(id) lookup
+  // reliably errors instead, so check that first to surface a bad ID as an
+  // actual error rather than a misleadingly-empty success.
+  const header = ctx.authHeader();
+  const existsData = await ctx.gql.request<{ Thread: { id: number } | null }>(
+    `query($id:Int){Thread(id:$id){id}}`,
+    { id: threadId },
+    header,
+  );
+  assertFound(existsData.Thread, `No thread found with ID ${threadId}.`);
   // threadComments only returns TOP-LEVEL comments — a reply posted via
   // post_thread_comment's parentCommentId doesn't appear in this array at
   // all; it's nested under its parent's own childComments (an untyped
@@ -23,11 +35,7 @@ export async function getThreadComments(
     pageInfo{total currentPage lastPage hasNextPage}
     threadComments(threadId:$threadId){id comment(asHtml:false) siteUrl likeCount isLiked user{id name} childComments}
   }}`;
-  const data = await ctx.gql.request<{ Page: unknown }>(
-    query,
-    { threadId, page, perPage },
-    ctx.authHeader(),
-  );
+  const data = await ctx.gql.request<{ Page: unknown }>(query, { threadId, page, perPage }, header);
   return data.Page;
 }
 

@@ -56,6 +56,18 @@ export function classifyStatus(status: number): { code: ApiErrorCode; retryable:
   return { code: "unknown", retryable: false };
 }
 
+/** Throw a standard not-found ApiError if an upstream single-resource lookup
+ *  resolved to `null` instead of the resource — AniList's GraphQL layer does
+ *  this for some singular fields (e.g. a nested `Media(id){ recommendations }`
+ *  lookup) even where a sibling top-level query for the same ID reliably
+ *  errors with a real HTTP 404 instead. */
+export function assertFound<T>(value: T | null | undefined, message: string): T {
+  if (value === null || value === undefined) {
+    throw new ApiError({ code: "not_found", message });
+  }
+  return value;
+}
+
 /** Strip anything that looks like a credential before logging. */
 export function redact(input: string): string {
   return input

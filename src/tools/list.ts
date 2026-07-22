@@ -4,7 +4,13 @@ import type { AniListClient } from "../clients/anilist.js";
 import * as list from "../clients/anilist/list.js";
 import { jsonResult } from "../lib/result.js";
 import { guard } from "./guard.js";
-import { deleteResult, MEDIA_TYPES, fuzzyDateOut, anilistId } from "./outputSchemas.js";
+import {
+  deleteResult,
+  MEDIA_TYPES,
+  fuzzyDateOut,
+  anilistId,
+  userIdOrName,
+} from "./outputSchemas.js";
 
 const STATUSES = ["CURRENT", "PLANNING", "COMPLETED", "DROPPED", "PAUSED", "REPEATING"] as const;
 
@@ -15,10 +21,6 @@ const fuzzyDate = z
     day: z.number().int().min(1).max(31).optional(),
   })
   .describe("A partial date; omit fields you don't know (e.g. just {year: 2026}).");
-
-const userIdOrName = z
-  .union([anilistId, z.string().min(1)])
-  .describe("AniList user ID, or username.");
 
 const listEntryMediaLite = z
   .object({
@@ -190,7 +192,7 @@ export function registerListTools(server: McpServer, client: AniListClient): voi
               "— naming one that doesn't exist yet is silently a no-op, not an error.",
           ),
         advancedScores: z
-          .record(z.string(), z.number())
+          .record(z.string(), z.number().min(0).max(10))
           .optional()
           .describe(
             "Per-category scores, 0-10 scale (e.g. {Story: 8, Characters: 9}) — only meaningful " +
@@ -261,7 +263,7 @@ export function registerListTools(server: McpServer, client: AniListClient): voi
               "naming one that doesn't exist yet is silently a no-op, not an error.",
           ),
         advancedScores: z
-          .record(z.string(), z.number())
+          .record(z.string(), z.number().min(0).max(10))
           .optional()
           .describe(
             "New per-category scores, keyed the same way as add_list_entry. Unlike this tool's " +

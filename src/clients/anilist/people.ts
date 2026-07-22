@@ -1,4 +1,5 @@
 import type { AniListContext } from "./context.js";
+import { assertFound } from "../../lib/errors.js";
 import {
   CHARACTER_FIELDS,
   CHARACTER_DETAIL_FIELDS,
@@ -9,13 +10,13 @@ import {
 export async function getCharacter(ctx: AniListContext, id: number): Promise<unknown> {
   const query = `query($id:Int){Character(id:$id){${CHARACTER_FIELDS}${CHARACTER_DETAIL_FIELDS}}}`;
   const data = await ctx.gql.request<{ Character: unknown }>(query, { id }, ctx.authHeader());
-  return data.Character;
+  return assertFound(data.Character, `No character found with ID ${id}.`);
 }
 
 export async function getStaff(ctx: AniListContext, id: number): Promise<unknown> {
   const query = `query($id:Int){Staff(id:$id){${STAFF_FIELDS}${STAFF_DETAIL_FIELDS}}}`;
   const data = await ctx.gql.request<{ Staff: unknown }>(query, { id }, ctx.authHeader());
-  return data.Staff;
+  return assertFound(data.Staff, `No staff member found with ID ${id}.`);
 }
 
 export async function getTodaysBirthdays(

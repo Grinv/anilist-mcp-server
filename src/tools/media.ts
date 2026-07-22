@@ -13,10 +13,12 @@ import {
   anilistId,
 } from "./outputSchemas.js";
 
-const mediaType = z.enum(MEDIA_TYPES).describe("Whether `id`/`ids` refers to anime or manga.");
+const mediaType = z.enum(MEDIA_TYPES).describe("Whether `id` refers to anime or manga.");
 
 const idsSchema = z
-  .union([anilistId, z.array(anilistId).min(1)])
+  .union([anilistId, z.array(anilistId).min(1)], {
+    error: "ids is required — pass a single AniList ID (number), or a non-empty array of IDs.",
+  })
   .describe("A single AniList anime/manga ID, or an array of IDs to fetch in one call.");
 
 /** MEDIA_FIELDS(+MEDIA_DETAIL_FIELDS) — only `id` is guaranteed; every other
@@ -313,10 +315,11 @@ export function registerMediaTools(server: McpServer, client: AniListClient): vo
         "`externalLinks` (official sites, streaming platforms), and — [requires login] — " +
         "`mediaListEntry`, the authenticated user's own list entry for this title, or null if " +
         "it isn't on their list. Use search_media first to resolve a title to its AniList ID. " +
-        "Returns a single object if `ids` is a single ID, or an array (same order as `ids`) if " +
-        "`ids` is an array.",
+        "Returns a single object if `ids` is a single ID, or an array (same order as `ids`, " +
+        "with `null` in place of any ID that didn't resolve to a real anime/manga) if `ids` " +
+        "is an array.",
       inputSchema: z.object({
-        type: mediaType,
+        type: mediaType.describe("Whether `ids` refers to anime or manga."),
         ids: idsSchema,
         includeStreamingEpisodes: z
           .boolean()
@@ -327,7 +330,7 @@ export function registerMediaTools(server: McpServer, client: AniListClient): vo
               "return hundreds of entries.",
           ),
       }),
-      outputSchema: z.object({ media: z.union([mediaObject, z.array(mediaObject)]) }),
+      outputSchema: z.object({ media: z.union([mediaObject, z.array(mediaObject.nullable())]) }),
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
     ({ type, ids, includeStreamingEpisodes }) =>
@@ -492,7 +495,10 @@ export function registerMediaTools(server: McpServer, client: AniListClient): vo
         "authenticated user's AniList favourites. Calling it again on the same `kind`+`id` " +
         "un-favourites it. Resolve `id` first via search_media/get_media (kind: ANIME/MANGA), " +
         "search_character/get_character, search_staff/get_staff, or search_studio/get_studio, " +
-        "matching `kind`.",
+        "matching `kind`. Confirmed live: AniList does NOT validate that `id` actually belongs " +
+        "to the given `kind` — e.g. passing an anime's ID with `kind: CHARACTER` succeeds " +
+        "silently instead of erroring, favouriting a nonexistent character. Always resolve " +
+        "`id` from the tool matching `kind` rather than reusing an ID you already have on hand.",
       inputSchema: z.object({
         kind: z.enum(FAVOURITE_KINDS).describe("Which kind of entity `id` refers to."),
         id: anilistId.describe("AniList ID of that anime/manga/character/staff/studio."),

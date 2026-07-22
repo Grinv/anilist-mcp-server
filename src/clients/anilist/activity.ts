@@ -1,11 +1,11 @@
 import type { AniListContext } from "./context.js";
 import { ACTIVITY_FRAGMENT } from "./fields.js";
-import { ApiError } from "../../lib/errors.js";
+import { ApiError, assertFound } from "../../lib/errors.js";
 
 export async function getActivity(ctx: AniListContext, id: number): Promise<unknown> {
   const query = `query($id:Int){Activity(id:$id){${ACTIVITY_FRAGMENT}}}`;
   const data = await ctx.gql.request<{ Activity: unknown }>(query, { id }, ctx.authHeader());
-  return data.Activity;
+  return assertFound(data.Activity, `No activity found with ID ${id}.`);
 }
 
 export async function getUserActivity(

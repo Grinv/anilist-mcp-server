@@ -6,7 +6,7 @@
 // that made the previous third-party AniList MCP unable to write list
 // entries — see docs/api-references.md.
 import { HttpClient } from "./http.js";
-import { ApiError } from "./errors.js";
+import { ApiError, classifyStatus } from "./errors.js";
 import type { TtlCache } from "./cache.js";
 import type { Logger } from "./logger.js";
 
@@ -109,8 +109,24 @@ export class GraphQLClient {
       ...(authHeader ? { headers: authHeader } : {}),
     });
     if (res.errors?.length) {
+      // Most inline errors[] entries carry no `status` (e.g. query/argument
+      // validation) and stay classified as bad_request. Some do carry one
+      // (e.g. a 404/401 embedded in a 200 response) — classify those the
+      // same way a real HTTP status would be, so messageFor() (lib/result.ts)
+      // gives its more specific not_found/unauthorized/etc. advice instead of
+      // the generic "rejected as invalid" bad_request message. Only trust a
+      // status when every entry that has one agrees — a response mixing an
+      // unrelated statused error with a genuine unstatused validation error
+      // shouldn't have the whole thing misclassified off the unrelated one.
+      const statuses = new Set(
+        res.errors.map((e) => e.status).filter((s): s is number => typeof s === "number"),
+      );
+      const status = statuses.size === 1 ? [...statuses][0] : undefined;
+      const classified = status !== undefined ? classifyStatus(status) : undefined;
       throw new ApiError({
-        code: "bad_request",
+        code: classified?.code ?? "bad_request",
+        status,
+        retryable: classified?.retryable,
         message: res.errors.map(describeGraphQLError).join("; "),
       });
     }

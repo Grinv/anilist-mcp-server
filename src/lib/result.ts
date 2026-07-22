@@ -56,20 +56,33 @@ function messageFor(err: ApiError): string {
         : "The upstream service rejected this request (401): it requires an authenticated " +
             "AniList account. Run login_anilist (or set ANILIST_ACCESS_TOKEN) first.";
     case "forbidden":
-      // Same reasoning as above: a 403 with no token sent isn't a
-      // "credentials" problem at all (there were none) — it's more likely a
-      // security block (e.g. a WAF rejecting an unusual query string) or a
-      // transient upstream outage, so don't tell the caller to check an API
-      // key that was never in play.
+      // Same reasoning as the 401 case above, plus one more wrinkle: this
+      // server always attaches a token when one is configured, even to
+      // read-only/public endpoints (e.g. search_*) that don't need it at
+      // all — so `authenticated: true` does NOT mean the endpoint actually
+      // checked permissions. Confirmed live: a search term shaped like a
+      // SQL/GraphQL injection attempt (e.g. `"OR 1=1 --"`) reliably triggers
+      // a 403 on public search tools regardless of whether a token is
+      // attached — an upstream WAF/security block on the request content,
+      // not an account permission issue. Don't confidently blame the account
+      // just because a token happened to be sent.
       return err.authenticated
-        ? "The upstream service denied access (403). The authenticated account may lack " +
-            "permission for this specific action."
+        ? "The upstream service denied access (403). This can mean the authenticated " +
+            "account may lack permission for this specific action, but a 403 can also happen " +
+            "for reasons unrelated to the account or token — e.g. an upstream security block " +
+            "(a WAF rejecting unusual characters in the request). If the action should " +
+            "normally be permitted, try simplifying the request before assuming it's an " +
+            "account/token issue."
         : "The upstream service denied access (403) to this anonymous request. Since no " +
             "credentials were involved, this isn't a permissions issue — it's more likely a " +
             "security block or a temporary upstream outage. Try simplifying the request or " +
             "retrying shortly.";
     case "not_found":
-      return "No matching resource was found (404).";
+      // Callers throw a specific, actionable ApiError.message for this code
+      // (e.g. assertFound()'s "No thread found with ID 42.", or a delete
+      // tool's "AniList reported this X as not deleted...") — surface it
+      // instead of discarding it behind a generic "(404)" label.
+      return `No matching resource was found (404): ${err.message}`;
     case "not_modified":
       return "The content has not changed since the last request (304).";
     case "rate_limited":

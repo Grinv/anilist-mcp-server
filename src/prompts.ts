@@ -61,12 +61,26 @@ export function registerPrompts(server: McpServer): void {
       },
     },
     ({ season, year }) => {
-      const which = season && year ? `the ${season} ${year} season` : "the current season";
-      // status_in: ["RELEASING"] only makes sense for "the current season" (no
-      // season/year given) — a past season's titles are long since FINISHED,
-      // so filtering to RELEASING there would return nothing.
-      const filters =
-        season && year ? `season: "${season}", seasonYear: ${year}` : `status_in: ["RELEASING"]`;
+      // season/seasonYear are independent filters on search_media (confirmed
+      // live — see docs/api-references.md) — support either alone, not just
+      // both together, so e.g. `year: "2020"` with no season doesn't get
+      // silently dropped in favor of "the current season".
+      const which =
+        season && year
+          ? `the ${season} ${year} season`
+          : season
+            ? `the ${season} season (across all years)`
+            : year
+              ? `the ${year} season (any season within that year)`
+              : "the current season";
+      // status_in: ["RELEASING"] only makes sense when neither is given (no
+      // way to pin a season/year otherwise) — a past season's/year's titles
+      // are long since FINISHED, so filtering to RELEASING there would
+      // return nothing.
+      const filterParts = [season && `season: "${season}"`, year && `seasonYear: ${year}`].filter(
+        Boolean,
+      );
+      const filters = filterParts.length ? filterParts.join(", ") : `status_in: ["RELEASING"]`;
       return {
         messages: [
           {

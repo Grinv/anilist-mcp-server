@@ -4,11 +4,7 @@ import type { AniListClient } from "../clients/anilist.js";
 import * as activity from "../clients/anilist/activity.js";
 import { jsonResult } from "../lib/result.js";
 import { guard } from "./guard.js";
-import { pageInfoSchema, deleteResult, anilistId } from "./outputSchemas.js";
-
-const userIdOrName = z
-  .union([anilistId, z.string().min(1)])
-  .describe("AniList user ID, or username.");
+import { pageInfoSchema, deleteResult, anilistId, userIdOrName } from "./outputSchemas.js";
 
 /** Matches the ACTIVITY_FRAGMENT union (TextActivity/ListActivity/MessageActivity) —
  *  `id` is the only field common to every branch; the rest are optional since

@@ -6,6 +6,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- Halve `get_anime_schedule`/`get_user_activity`'s network round-trips for a given `mediaId` or numeric user ID by combining the not-found existence check into the same request as the real query, instead of a separate one. [aacfa8b](https://github.com/Grinv/anilist-mcp-server/commit/aacfa8b)
+
 ### Fixed
 
 - Fix `get_user_activity` silently returning an empty activity list for a nonexistent numeric user ID instead of an error, unlike its existing username path. [33a0262](https://github.com/Grinv/anilist-mcp-server/commit/33a0262)

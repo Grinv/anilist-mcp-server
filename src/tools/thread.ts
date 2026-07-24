@@ -237,7 +237,9 @@ export function registerThreadTools(server: McpServer, client: AniListClient): v
     {
       title: "Delete a forum thread",
       description:
-        "[Requires login] Delete a forum thread the authenticated user owns, by its ID. This cannot be undone.",
+        "[Requires login] Delete a forum thread the authenticated user owns, by its ID. This " +
+        "cannot be undone, and calling it again on an already-deleted id errors rather than " +
+        "silently succeeding.",
       inputSchema: z.object({ id: anilistId.describe("AniList thread ID to delete.") }),
       outputSchema: z.object({ result: deleteResult }),
       annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true },
@@ -252,7 +254,9 @@ export function registerThreadTools(server: McpServer, client: AniListClient): v
       title: "Delete a comment on a forum thread",
       description:
         "[Requires login] Delete a comment the authenticated user owns, by its ID (from " +
-        "get_thread_comments or the id returned by post_thread_comment). This cannot be undone.",
+        "get_thread_comments or the id returned by post_thread_comment). This cannot be " +
+        "undone, and calling it again on an already-deleted id errors rather than silently " +
+        "succeeding.",
       inputSchema: z.object({ id: anilistId.describe("AniList comment ID to delete.") }),
       outputSchema: z.object({ result: deleteResult }),
       annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true },

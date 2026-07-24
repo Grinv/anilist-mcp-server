@@ -195,10 +195,10 @@ export function registerListTools(server: McpServer, client: AniListClient): voi
           .record(z.string(), z.number().min(0).max(10))
           .optional()
           .describe(
-            "Per-category scores, 0-10 scale (e.g. {Story: 8, Characters: 9}) — only meaningful " +
-              "if the account has advanced scoring enabled for this media's type. Anime and manga " +
-              "have SEPARATELY configured category lists, so keys must match whichever list " +
-              "applies to this entry. Any of that list's categories you omit here is set to 0, " +
+            "Per-category scores, 0-10 scale (e.g. {Story: 8, Characters: 9}) — errors if " +
+              "advanced scoring isn't enabled for this media's type, or if a key doesn't match " +
+              "the account's configured category list for it (anime and manga have SEPARATELY " +
+              "configured lists). Any of that list's categories you omit here is set to 0, " +
               "not left unchanged — include every category if you don't want the others zeroed.",
           ),
       }),
@@ -266,10 +266,11 @@ export function registerListTools(server: McpServer, client: AniListClient): voi
           .record(z.string(), z.number().min(0).max(10))
           .optional()
           .describe(
-            "New per-category scores, keyed the same way as add_list_entry. Unlike this tool's " +
-              "other fields, this one is NOT a true partial update: any configured category you " +
-              "omit is set to 0, not left at its previous value — pass every category if you're " +
-              "only changing one.",
+            "New per-category scores, keyed and error-checked the same way as add_list_entry " +
+              "(errors if advanced scoring is disabled, or a key doesn't match a configured " +
+              "category). Unlike this tool's other fields, this one is NOT a true partial " +
+              "update: any configured category you omit is set to 0, not left at its previous " +
+              "value — pass every category if you're only changing one.",
           ),
       }),
       outputSchema: z.object({ entry: savedListEntry }),
@@ -287,7 +288,9 @@ export function registerListTools(server: McpServer, client: AniListClient): voi
       title: "Remove an entry from your AniList list",
       description:
         "[Requires login] Delete an entry from the authenticated user's own AniList list by " +
-        "its list-entry ID (NOT the media id) — get it from get_user_list. This cannot be undone.",
+        "its list-entry ID (NOT the media id) — get it from get_user_list. This cannot be " +
+        "undone, and calling it again on an already-deleted id errors rather than silently " +
+        "succeeding.",
       inputSchema: z.object({
         listEntryId: anilistId.describe("The list ENTRY id to delete (not the media id)."),
       }),

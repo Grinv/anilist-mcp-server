@@ -161,7 +161,9 @@ export function registerActivityTools(server: McpServer, client: AniListClient):
     {
       title: "Delete an activity post",
       description:
-        "[Requires login] Delete an activity post the authenticated user owns. This cannot be undone.",
+        "[Requires login] Delete an activity post the authenticated user owns. This cannot be " +
+        "undone, and calling it again on an already-deleted id errors rather than silently " +
+        "succeeding.",
       inputSchema: z.object({
         id: anilistId.describe(
           "AniList activity ID to delete — from get_user_activity, search_activity, or the id " +

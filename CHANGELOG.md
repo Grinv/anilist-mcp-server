@@ -6,6 +6,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- Rename `search_activity`'s `userId` parameter to `user`, matching every other user-scoped tool, and accept a username (resolved to an id with one extra internal lookup) as well as a numeric ID — passing the wrong-but-plausible `user` name used to be silently dropped, making the tool fall back to the unfiltered global activity feed instead of erroring or filtering. [f2b28bd](https://github.com/Grinv/anilist-mcp-server/commit/f2b28bd)
+- Clarify `delete_activity`/`delete_thread`/`delete_thread_comment`/`remove_list_entry`'s descriptions: calling one again on an already-deleted id errors rather than silently succeeding, despite their `idempotentHint: true` annotation. [8fa063c](https://github.com/Grinv/anilist-mcp-server/commit/8fa063c)
+- Clarify `add_list_entry`/`update_list_entry`'s `advancedScores` description: the call errors if advanced scoring isn't enabled for the media's type, or if a key doesn't match a configured category — previously worded as merely "not meaningful," implying a silent no-op instead of a hard error. [8fa063c](https://github.com/Grinv/anilist-mcp-server/commit/8fa063c)
+
 ### Fixed
 
 - Surface the actual upstream error detail for `not_modified`/`rate_limited`/`server_error`/`network`/`timeout` tool errors, instead of a fixed generic message. [2c2fe8b](https://github.com/Grinv/anilist-mcp-server/commit/2c2fe8b)

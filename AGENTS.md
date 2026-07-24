@@ -38,11 +38,15 @@ src/
   __tests__/      # node:test (*.test.ts) + helpers.ts
 scripts/          # build-tests.mjs, run-tests.mjs, check-api.mjs, sync-version.mjs
 skills/           # reusable agent workflows for this repo (e.g. live-audit/) —
-                  # plain Markdown, not tied to any one tool's orchestration
-                  # features, per this file's agent-agnostic policy; same
-                  # skill name/layout as this project's sibling MCP servers
-                  # (tmdb-mcp, mal-mcp, steam-games-mcp) — sync improvements
-                  # both ways rather than letting them drift
+                  # plain Markdown with a YAML frontmatter name/description,
+                  # not tied to any one tool's orchestration features, per
+                  # this file's agent-agnostic policy; same skill name/layout
+                  # as this project's sibling MCP servers (tmdb-mcp, mal-mcp,
+                  # steam-games-mcp) — sync improvements both ways rather
+                  # than letting them drift. `.claude/skills` and
+                  # `.agents/skills` are symlinks to this directory, so
+                  # Claude Code/Codex CLI/Gemini CLI pick up every skill here
+                  # without duplicating content per client path.
 ```
 
 ## Why this server exists
@@ -84,8 +88,8 @@ npm run check:api      # live upstream health-check (network)
   network call rather than making a doomed authenticated request.
 - Write tool `description`s and per-field `.describe()` text for the calling
   model: explain when to use a tool and what each parameter means. Check new
-  or edited descriptions against [docs/tool-descriptions.md](docs/tool-descriptions.md)
-  (Glama's TDQS rubric) before committing.
+  or edited descriptions against the `tool-description-check` skill (Glama's
+  TDQS rubric) before committing.
 - Every tool declares an `outputSchema` alongside `inputSchema`, describing the
   `structuredContent` shape `jsonResult()` returns. Model top-level keys
   precisely; for arrays of AniList media/character/staff/etc. objects and
@@ -95,7 +99,7 @@ npm run check:api      # live upstream health-check (network)
   calls (a good signal, not just a style nit).
 - Mocked-`fetch` test fixtures must mirror the real upstream response shape
   for that exact query, not just whatever fields make the current code
-  pass — see [docs/testing.md](docs/testing.md).
+  pass — see the `fixture-accuracy-check` skill.
 - **Schema-first for hand-built internal shapes** (config, persisted state —
   not GraphQL passthrough objects, which stay loose per the `outputSchema`
   rule above): when a type describes an object the code itself constructs
@@ -161,14 +165,15 @@ passes worth checking don't recur.
 ## Before opening a PR
 
 Run `npm run build && npm test && npm run lint && npm run format:check`.
-Update `CHANGELOG.md` (Unreleased section) — see
-[docs/changelog-style.md](docs/changelog-style.md) for entry style.
+Update `CHANGELOG.md` (Unreleased section) — see the `changelog-style` skill
+for entry style.
 
 ## Releasing
 
 `package.json` is the single source of truth for the version; `npm version`
-bumps + syncs every derived file + tags the release. See
-[docs/releasing.md](docs/releasing.md) for the full steps and MCP Registry details.
+bumps + syncs every derived file + tags the release. See the `release` skill
+for the full steps (including the `preversion` gate on `CHANGELOG.md` and
+tool descriptions) and MCP Registry details.
 
 ## Reuse / shared architecture
 

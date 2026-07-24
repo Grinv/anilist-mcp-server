@@ -1,3 +1,8 @@
+---
+name: fixture-accuracy-check
+description: Make sure a mocked-fetch test fixture mirrors AniList's real GraphQL response shape, not just whatever fields make the current code pass. Use before writing or changing a fixture in src/__tests__/*.test.ts.
+---
+
 # Testing conventions
 
 `src/__tests__/*.test.ts` mocks `fetch` and feeds it canned JSON fixtures (see
@@ -36,15 +41,14 @@ selection you're mocking.
   `advancedScores` argument — a fixture with the categories in a different
   order than the account actually has configured would validate the wrong
   thing; see `orderAdvancedScores`'s tests.
-- **`Page` can only carry one list field per query.** A fixture combining
-  `Page.media` and `Page.characters` in the same response would never occur
-  for real — each search/list tool queries exactly one field under `Page`.
-  This is about `Page`'s own sub-selection, not about combining `Page` with
-  an unrelated aliased root field alongside it in the same request (e.g.
-  `getSchedule`/`getUserActivity`'s `exists:Media(id:$id){id}` /
-  `exists:User(id:$id){id}` existence check next to `schedule:Page(...)` /
-  `feed:Page(...)`) — that combination is a different, valid pattern; a
-  fixture for it should mirror both aliased fields' real response shape.
+- **`Page` can only carry one list field per query** (see
+  `docs/api-references.md`'s Pagination section for why) — a fixture
+  combining `Page.media` and `Page.characters` in one response would never
+  occur for real. That rule is about `Page`'s own sub-selection only;
+  combining `Page` with an unrelated aliased root field in the same request
+  (e.g. `getSchedule`/`getUserActivity`'s `exists:Media(id:$id){id}` check
+  next to `schedule:Page(...)`) is a different, valid pattern — mirror both
+  fields' real response shape in that fixture.
 - **A fixture testing a defensive/not-yet-observed code path must say so.**
   Some guards (`assertFound()` on a query AniList hasn't been observed
   returning `null` for) exist as insurance against upstream behavior

@@ -1,3 +1,8 @@
+---
+name: live-audit
+description: Audit anilist-mcp-server — build/test/lint gate, live MCP tool edge-case sweep (input validation, not-found paths, mutations with capture/revert), source-level code review, and docs/metadata consistency. Use when asked to test/audit the published or just-fixed anilist-mcp-server package, hunt for bugs/edge cases, or repeat "the same kind of testing as before."
+---
+
 # live-audit — anilist-mcp-server health check + edge-case hunt
 
 Repo-specific playbook, for any agent/model working on this repo (not tied to
@@ -17,6 +22,17 @@ commit author/no-Co-Authored-By, etc.).
 This assumes the server is already reachable as an MCP connection in your
 current session (e.g. as `mcp__anilist__*` tools in Claude Code). If it isn't
 connected, connect it first rather than skipping straight to step 1.
+
+## Contents
+
+- 0. Confirm "published"/"fixed" actually means what you think it means
+- 1. Static pass first (cheap, catches regressions before you burn API calls)
+- 2. Safety rules for live testing (read before calling anything)
+- 3. Live edge-case sweep
+- 4. Source-level code review
+- 5. Docs/metadata consistency
+- 6. Report, then fix only what's confirmed
+- 7. Commit + changelog, if asked
 
 ## 0. Confirm "published"/"fixed" actually means what you think it means
 
@@ -66,23 +82,9 @@ to live testing.
 - **Mutation tools** (`add_/update_/remove_/delete_/post_/follow_/favourite`,
   `update_user`) require the user's explicit go-ahead before this pass
   touches them. If they say "test mutations too, just revert after" (or
-  similar), proceed under this contract for every mutation call:
-  1. Capture the exact pre-state first (e.g. `get_authorized_user`,
-     `get_media`'s `mediaListEntry`/`isFavourite`, `get_user_profile`'s
-     `isFollowing`) — not just an assumption of what it probably is.
-  2. Make the smallest possible change that still exercises the behavior.
-  3. Verify the change landed (a mutation's own echoed response is not
-     always trustworthy — e.g. `update_user` has historically omitted
-     fields it actually changed — so re-fetch via a read tool).
-  4. Revert to the captured pre-state immediately, in the same turn, and
-     verify the revert too. Don't batch five mutations and revert at the
-     end — revert each one before moving to the next unrelated test.
-  5. Never send message-activity/forum posts to an uninvolved third party —
-     self-message (`recipientId` = the caller's own id) and self-created,
-     immediately-deleted test threads/comments are fine; pinging a random
-     other real user is not.
-  6. Never leave the account in a different state than you found it, even
-     if a step errors partway through — check and clean up regardless.
+  similar), run the `mutation-test-safety` skill's contract for every
+  mutation call — its self-message/self-created-post exception is the only
+  case where targeting a "real user" is fine (that user is the caller).
 - Do not call `login_anilist`/`submit_anilist_redirect` live — re-running the
   OAuth flow can disrupt the session's already-configured credentials and
   isn't meaningfully revertible.
@@ -133,20 +135,10 @@ supports concurrent subagents/background tasks.
   triggered an upstream WAF 403 on search tools before; check the error
   message doesn't misattribute it to account permissions just because a
   token happened to be attached).
-- **Live prompt testing** (`src/prompts.ts`) — a static read comparing prompt
-  text against tool names/params misses argument-handling bugs. Actually
-  render every prompt through the real MCP protocol:
-  `npx @modelcontextprotocol/inspector --cli node dist/index.js --method
-prompts/list`, then `--method prompts/get --prompt-name <name>
---prompt-args key=value key2=value2` (space-separated `key=value` pairs,
-  NOT a JSON blob — the CLI rejects JSON with "Invalid parameter format").
-  Run each prompt with no args, with only one of several optional args set
-  at a time, and with all of them set — an argument that's individually
-  optional can still have a bug that only shows up when given alone (e.g. a
-  prompt silently ignoring `year` because its branching logic required
-  `season` to also be present, even though the two are independent filters
-  on the underlying tool). Read-only, no-account-risk — never route it
-  through anything that touches mutations.
+- **Live prompt testing**: run the `prompt-check` skill against every prompt
+  in `src/prompts.ts` — a static read comparing prompt text against tool
+  names/params misses argument-handling bugs that only show up when actually
+  rendered through the real MCP protocol.
 - **Systematic input-schema fuzzing** across every tool: wrong JS types,
   invalid enums, missing required fields, malformed nested objects (e.g. a
   date field), extremely long strings. Only flag a genuine problem — an
@@ -181,6 +173,20 @@ Sweep every file under `src/tools/`, `src/clients/anilist/`, and `src/lib/`
 - A shared Zod constant's `.describe()`/error text that references a
   specific field name (e.g. `id` vs `ids`) that doesn't match at every call
   site.
+- A tool whose field name for a concept diverges from every sibling tool
+  handling the same concept (e.g. `search_activity`'s `userId` vs every
+  other user-scoped tool's `user`, from `userIdOrName`) — grep the shared
+  schema constant's usage sites and diff the field names at each call site,
+  don't just check that each one individually looks reasonable. This bug
+  class can't be caught by testing well-formed values (every call site
+  works fine on its own) or by a clean-error check (no schema in this
+  codebase is `.strict()`, so a plausible-but-wrong name is silently
+  dropped as an unrecognized key instead of erroring) — the tool then quietly
+  falls back to whatever its field being _absent_ means (e.g. an unfiltered
+  global feed), which looks like a legitimate result, not a bug, unless you
+  already know what the correctly-filtered result should look like. Confirmed
+  live: `search_activity({user: <id>})` silently returned the global feed
+  instead of erroring or filtering, because the real field is `userId`.
 - A GraphQL query whose single-resource lookup returns AniList's `null`
   instead of erroring — check whether the client function dereferences it
   unguarded (`data.Media.stats` with no null check) instead of using
@@ -233,43 +239,20 @@ Sweep every file under `src/tools/`, `src/clients/anilist/`, and `src/lib/`
 
 ## 5. Docs/metadata consistency
 
-Check every one of these, not just a sample:
-
-- `README.md`'s tool table matches `src/server.ts`'s registrations (names,
-  and the permission/auth column against each tool's actual `requireAuth()`
-  usage).
-- `manifest.json`'s and `server.json`'s `tools` arrays list the same tool
-  **names** as what's actually registered (`npm test` already asserts this
-  via `e2e.test.ts` — treat a failure there as authoritative). Their
-  `description` fields are deliberately short, independent marketing-style
-  summaries, NOT a copy of the tool's full `.describe()`/`description` text
-  in `src/tools/*.ts` — don't "fix" them to match verbatim, that's not a
-  bug. Do re-read them for accuracy if a tool's _behavior_ changed in a way
-  the short summary now misrepresents.
-- Tool `description`/field `.describe()` text in `src/tools/*.ts` itself:
-  does it still match the actual `inputSchema`/`outputSchema` and the client
-  function's real behavior?
-- `CHANGELOG.md`'s `[Unreleased]` section (see `docs/changelog-style.md` for
-  entry style) has one line per real behavior change made in this pass — add
-  missing entries, don't just flag them as missing.
-- `docs/api-references.md`'s "confirmed live" claims still match the current
-  client code, especially any claim this pass's own fixes just invalidated.
-- `AGENTS.md`'s `src/` tree (and this `skills/` entry) still matches the
-  filesystem.
-- `docs/clients.md` and any other `docs/*.md` for stale phrasing (e.g.
-  describing something as "once published"/"upcoming" that already
-  shipped).
+Run the `docs-consistency-check` skill.
 
 ## 6. Report, then fix only what's confirmed
 
 Rank findings by severity. For each: what's wrong, concrete repro (exact
 tool call + params), the file/line causing it, and the fix shape. Silence on
 a category you didn't get to (rather than implying full coverage) beats a
-false "all clear."
+false "all clear." Then run the `self-learning` skill against each confirmed
+finding.
 
 If asked to fix: implement the smallest correct change, add/extend a test in
 the matching `src/__tests__/*.test.ts` (mirror the existing test's style in
-that file), then re-run the full `build && test && lint && format:check`
+that file, per the `fixture-accuracy-check` skill for any mocked-fetch
+fixture), then re-run the full `build && test && lint && format:check`
 gate before calling it done. Re-verify live only after the running MCP
 server process has been restarted (it won't pick up source changes on its
 own) — build/test passing is necessary but re-confirming actual live
@@ -279,7 +262,7 @@ behavior changed is stronger evidence than trusting the diff alone.
 
 One `fix:`/`feat:` commit per logically distinct change (don't bundle two
 unrelated fixes into one commit), then a separate `docs:` commit adding to
-`CHANGELOG.md`'s `[Unreleased]` section (style: `docs/changelog-style.md`)
+`CHANGELOG.md`'s `[Unreleased]` section (style: the `changelog-style` skill)
 with one bullet per fix, each linking that fix commit's short sha
 (`https://github.com/Grinv/anilist-mcp-server/commit/<7-char-sha>`).
 Author/committer `Grinv <4070730+Grinv@users.noreply.github.com>`, **no**

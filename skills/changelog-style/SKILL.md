@@ -1,3 +1,8 @@
+---
+name: changelog-style
+description: Turn a commit range into CHANGELOG.md entries following common-changelog style. Use when finishing a PR (adding to the [Unreleased] section) or cutting a release (moving [Unreleased] under a new version heading).
+---
+
 # Changelog entries: style & workflow
 
 Entries in `CHANGELOG.md` should be short and self-describing. Style reference:

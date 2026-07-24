@@ -6,6 +6,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- Surface the actual upstream error detail for `not_modified`/`rate_limited`/`server_error`/`network`/`timeout` tool errors, instead of a fixed generic message. [2c2fe8b](https://github.com/Grinv/anilist-mcp-server/commit/2c2fe8b)
+- Stop `get_media`'s `ids` and every user-scoped tool's `user` parameter from saying a wrongly-typed value (e.g. a decimal where an integer is expected) "is required" — that message now only fires when the value is actually missing. [189c21a](https://github.com/Grinv/anilist-mcp-server/commit/189c21a)
+
 ## [0.2.1] - 2026-07-23
 
 ### Changed

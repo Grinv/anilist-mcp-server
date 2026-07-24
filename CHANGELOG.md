@@ -6,6 +6,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.2.2] - 2026-07-25
+
 ### Changed
 
 - Rename `search_activity`'s `userId` parameter to `user`, accepting a username too — the old name was silently ignored, falling back to the unfiltered global feed instead of erroring. [f2b28bd](https://github.com/Grinv/anilist-mcp-server/commit/f2b28bd)

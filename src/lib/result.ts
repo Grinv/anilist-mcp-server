@@ -84,15 +84,18 @@ function messageFor(err: ApiError): string {
       // instead of discarding it behind a generic "(404)" label.
       return `No matching resource was found (404): ${err.message}`;
     case "not_modified":
-      return "The content has not changed since the last request (304).";
+      return `The content has not changed since the last request (304): ${err.message}`;
     case "rate_limited":
-      return "Upstream rate limit hit (429). Please retry in a few seconds.";
+      return `Upstream rate limit hit (429): ${err.message} Please retry in a few seconds.`;
     case "server_error":
-      return "The upstream service returned an error (5xx). Please retry later.";
+      return `The upstream service returned an error (5xx): ${err.message} Please retry later.`;
     case "network":
-      return "Could not reach the upstream service (network error). Check connectivity and retry.";
+      return (
+        `Could not reach the upstream service (network error): ${err.message} ` +
+        "Check connectivity and retry."
+      );
     case "timeout":
-      return "The upstream request timed out. Please retry.";
+      return `The upstream request timed out: ${err.message} Please retry.`;
     case "bad_request":
       return `The request was rejected as invalid: ${err.message}`;
     default:

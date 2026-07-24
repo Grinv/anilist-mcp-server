@@ -17,22 +17,36 @@ test("errorResult sets content and isError flag", () => {
 });
 
 test("apiErrorToResult produces an actionable message per error code", () => {
-  const cases: [ApiErrorCode, RegExp][] = [
+  // `expectDetail` tracks whether this code's branch must surface the
+  // caller's actual `err.message` verbatim, not just a generic templated
+  // string — regression test for not_modified/rate_limited/server_error/
+  // network/timeout, which used to silently discard it (unlike not_found/
+  // bad_request/unknown, which already did). `forbidden` deliberately stays
+  // generic (see the two dedicated tests below) since its whole point is
+  // explaining that the real cause is ambiguous, not echoing upstream detail.
+  const cases: [ApiErrorCode, RegExp, boolean][] = [
     // A real upstream 401 (status set) gets the generic templated text.
-    ["forbidden", /denied access/i],
-    ["not_found", /no matching resource|404/i],
-    ["not_modified", /not changed|304/i],
-    ["rate_limited", /rate limit/i],
-    ["server_error", /5xx|retry later/i],
-    ["network", /network/i],
-    ["timeout", /timed out/i],
-    ["bad_request", /invalid/i],
-    ["unknown", /unexpected/i],
+    ["forbidden", /denied access/i, false],
+    ["not_found", /no matching resource|404/i, true],
+    ["not_modified", /not changed|304/i, true],
+    ["rate_limited", /rate limit/i, true],
+    ["server_error", /5xx|retry later/i, true],
+    ["network", /network/i, true],
+    ["timeout", /timed out/i, true],
+    ["bad_request", /invalid/i, true],
+    ["unknown", /unexpected/i, true],
   ];
-  for (const [code, re] of cases) {
+  for (const [code, re, expectDetail] of cases) {
     const r = apiErrorToResult(new ApiError({ code, message: "detail" }));
     assert.equal(r.isError, true);
     assert.match(r.content[0]!.text, re);
+    if (expectDetail) {
+      assert.match(
+        r.content[0]!.text,
+        /detail/,
+        `${code} must surface the caller's actual err.message ("detail"), not just a generic string`,
+      );
+    }
   }
 });
 

@@ -8,14 +8,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
-- Rename `search_activity`'s `userId` parameter to `user`, matching every other user-scoped tool, and accept a username (resolved to an id with one extra internal lookup) as well as a numeric ID — passing the wrong-but-plausible `user` name used to be silently dropped, making the tool fall back to the unfiltered global activity feed instead of erroring or filtering. [f2b28bd](https://github.com/Grinv/anilist-mcp-server/commit/f2b28bd)
-- Clarify `delete_activity`/`delete_thread`/`delete_thread_comment`/`remove_list_entry`'s descriptions: calling one again on an already-deleted id errors rather than silently succeeding, despite their `idempotentHint: true` annotation. [8fa063c](https://github.com/Grinv/anilist-mcp-server/commit/8fa063c)
-- Clarify `add_list_entry`/`update_list_entry`'s `advancedScores` description: the call errors if advanced scoring isn't enabled for the media's type, or if a key doesn't match a configured category — previously worded as merely "not meaningful," implying a silent no-op instead of a hard error. [8fa063c](https://github.com/Grinv/anilist-mcp-server/commit/8fa063c)
+- Rename `search_activity`'s `userId` parameter to `user`, accepting a username too — the old name was silently ignored, falling back to the unfiltered global feed instead of erroring. [f2b28bd](https://github.com/Grinv/anilist-mcp-server/commit/f2b28bd)
+- Document that `delete_activity`/`delete_thread`/`delete_thread_comment`/`remove_list_entry` error on an already-deleted id instead of silently succeeding. [8fa063c](https://github.com/Grinv/anilist-mcp-server/commit/8fa063c)
+- Document that `add_list_entry`/`update_list_entry`'s `advancedScores` errors when advanced scoring is disabled or a category name doesn't match. [8fa063c](https://github.com/Grinv/anilist-mcp-server/commit/8fa063c)
 
 ### Fixed
 
-- Surface the actual upstream error detail for `not_modified`/`rate_limited`/`server_error`/`network`/`timeout` tool errors, instead of a fixed generic message. [2c2fe8b](https://github.com/Grinv/anilist-mcp-server/commit/2c2fe8b)
-- Stop `get_media`'s `ids` and every user-scoped tool's `user` parameter from saying a wrongly-typed value (e.g. a decimal where an integer is expected) "is required" — that message now only fires when the value is actually missing. [189c21a](https://github.com/Grinv/anilist-mcp-server/commit/189c21a)
+- Surface the real upstream error detail for 5xx/network/timeout/rate-limit/not-modified tool errors instead of a generic message. [2c2fe8b](https://github.com/Grinv/anilist-mcp-server/commit/2c2fe8b)
+- Fix `get_media`'s `ids` and every user-scoped tool's `user` parameter wrongly saying "is required" for a present-but-wrongly-typed value. [189c21a](https://github.com/Grinv/anilist-mcp-server/commit/189c21a)
 
 ## [0.2.1] - 2026-07-23
 

@@ -211,8 +211,8 @@ Sweep every file under `src/tools/`, `src/clients/anilist/`, and `src/lib/`
   (e.g. "0-10 scale") but whose Zod schema has no `.min()/.max()`.
 - A union/required field with no custom Zod error message, falling back to
   a generic "Invalid input" instead of something actionable. Also check the
-  inverse: a custom error given as a plain *string* (`z.union([...], {error:
-  "X is required — ..."})`) fires for every union-mismatch reason alike, so a
+  inverse: a custom error given as a plain _string_ (`z.union([...], {error:
+"X is required — ..."})`) fires for every union-mismatch reason alike, so a
   wrongly-typed-but-present value (e.g. a decimal where an int is expected)
   gets told "is required" too — misleading since something WAS passed. Fix
   by branching a function-based `error` on `issue.input === undefined`

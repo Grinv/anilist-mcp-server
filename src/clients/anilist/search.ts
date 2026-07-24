@@ -1,4 +1,5 @@
 import type { AniListContext } from "./context.js";
+import { assertFound } from "../../lib/errors.js";
 import {
   MEDIA_FIELDS,
   MEDIA_DESCRIPTION_FIELD,
@@ -205,11 +206,31 @@ export async function searchThread(
 
 export async function searchActivity(
   ctx: AniListContext,
-  userId?: number,
+  user?: number | string,
   type?: string,
   page = 1,
   perPage = 10,
 ): Promise<unknown> {
+  const header = ctx.authHeader();
+  // AniList's `activities` field only accepts a numeric `userId` filter, so a
+  // username has a genuine data dependency (its numeric id must be known
+  // before `activities(userId:...)` can even be built) and needs a separate
+  // resolution request first — same constraint as getUserActivity. Leaving a
+  // username unresolved would make AniList treat the `userId` filter as
+  // absent and silently return the *global* activity feed instead of
+  // erroring on an unknown username.
+  let userId: number | undefined;
+  if (typeof user === "string") {
+    const resolveQuery = `query($name:String){User(name:$name){id}}`;
+    const resolveData = await ctx.gql.request<{ User: { id: number } | null }>(
+      resolveQuery,
+      { name: user },
+      header,
+    );
+    userId = assertFound(resolveData.User, `No AniList user named "${user}" was found.`).id;
+  } else {
+    userId = user;
+  }
   const query = `query($userId:Int,$type:ActivityType,$page:Int,$perPage:Int){Page(page:$page,perPage:$perPage){
     pageInfo{total currentPage lastPage hasNextPage}
     activities(userId:$userId,type:$type,sort:ID_DESC){${ACTIVITY_FRAGMENT}}
@@ -217,7 +238,7 @@ export async function searchActivity(
   const data = await ctx.gql.request<{ Page: unknown }>(
     query,
     { userId, type, page, perPage },
-    ctx.authHeader(),
+    header,
   );
   return data.Page;
 }

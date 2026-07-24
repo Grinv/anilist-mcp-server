@@ -504,6 +504,65 @@ test("getUserActivity rejects with not_found when a numeric user id doesn't reso
   assert.equal(mock.calls.length, 1, "the not-found check costs no extra request");
 });
 
+test("searchActivity passes a numeric user straight through as the userId filter", async (t) => {
+  const mock = mockFetch(() => jsonResponse({ data: { Page: { activities: [] } } }));
+  installFetch(t, mock);
+  const client = new AniListClient(testConfig({}), silentLogger());
+
+  await search.searchActivity(client.ctx(), 7640432);
+  assert.equal(mock.calls.length, 1);
+  const { variables } = JSON.parse(mock.calls[0]!.init?.body as string) as {
+    variables: Record<string, unknown>;
+  };
+  assert.equal(variables.userId, 7640432);
+});
+
+test("searchActivity resolves a username to an id first, since activities() has no userName argument", async (t) => {
+  const mock = mockFetch((_url, init) => {
+    const body = JSON.parse(init?.body as string) as { query: string };
+    if (body.query.includes("User(name")) return jsonResponse({ data: { User: { id: 42 } } });
+    return jsonResponse({ data: { Page: { activities: [] } } });
+  });
+  installFetch(t, mock);
+  const client = new AniListClient(testConfig({}), silentLogger());
+
+  await search.searchActivity(client.ctx(), "Grinv");
+  const activitiesCall = mock.calls.find(
+    (c) => !JSON.parse(c.init?.body as string).query.includes("User(name"),
+  )!;
+  const variables = JSON.parse(activitiesCall.init?.body as string).variables as Record<
+    string,
+    unknown
+  >;
+  assert.equal(variables.userId, 42, "must query activities with the resolved numeric id");
+});
+
+test("searchActivity rejects with not_found when the username doesn't resolve to any user, instead of silently returning the global feed", async (t) => {
+  // Regression test: passing the wrong-but-plausible field name (`user`
+  // instead of `userId`) used to be silently dropped by the tool's own
+  // non-strict Zod object, making the tool fall back to no filter at all —
+  // this only guards the client function's own username-resolution path,
+  // not the tool schema, but confirms the underlying data-dependency is
+  // enforced now that the tool accepts `user` (via userIdOrName) directly.
+  const mock = mockFetch((_url, init) => {
+    const body = JSON.parse(init?.body as string) as { query: string };
+    if (body.query.includes("User(name")) return jsonResponse({ data: { User: null } });
+    return jsonResponse({ data: { Page: { activities: [{ id: 1 }] } } });
+  });
+  installFetch(t, mock);
+  const client = new AniListClient(testConfig({}), silentLogger());
+
+  await assert.rejects(
+    () => search.searchActivity(client.ctx(), "no-such-user"),
+    (err: unknown) => err instanceof ApiError && err.code === "not_found",
+  );
+  assert.equal(
+    mock.calls.length,
+    1,
+    "must not query the global activity feed after an unresolved username",
+  );
+});
+
 test("deleteListEntry rejects when AniList reports deleted: false instead of reporting a false success", async (t) => {
   const mock = mockFetch(() =>
     jsonResponse({ data: { DeleteMediaListEntry: { deleted: false } } }),

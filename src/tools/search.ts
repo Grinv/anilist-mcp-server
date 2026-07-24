@@ -4,7 +4,7 @@ import type { AniListClient } from "../clients/anilist.js";
 import * as search from "../clients/anilist/search.js";
 import { jsonResult } from "../lib/result.js";
 import { guard } from "./guard.js";
-import { pageInfoSchema, MEDIA_TYPES, idOnly, anilistId } from "./outputSchemas.js";
+import { pageInfoSchema, MEDIA_TYPES, idOnly, anilistId, userIdOrName } from "./outputSchemas.js";
 
 const FORMATS = [
   "TV",
@@ -436,12 +436,13 @@ export function registerSearchTools(server: McpServer, client: AniListClient): v
         "filtered to one user and/or one activity type. Returns AniList activity IDs to use " +
         "with get_activity.",
       inputSchema: z.object({
-        userId: anilistId
+        user: userIdOrName
           .optional()
           .describe(
-            "Restrict results to this AniList user ID — numeric only; resolve one via " +
-              "search_user first, or use get_user_activity instead if you already have an " +
-              "exact username.",
+            "Restrict results to this AniList user — numeric ID or exact username (resolved " +
+              "to an id with one extra internal lookup; no need to call search_user first " +
+              "unless you only have a partial/fuzzy name). Use get_user_activity instead if " +
+              "you only need one user's feed without the type filter.",
           ),
         type: z
           .enum(ACTIVITY_TYPES)
@@ -463,10 +464,10 @@ export function registerSearchTools(server: McpServer, client: AniListClient): v
       }),
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
-    ({ userId, type, page, perPage }) =>
+    ({ user, type, page, perPage }) =>
       guard(async () =>
         jsonResult({
-          results: await search.searchActivity(client.ctx(), userId, type, page, perPage),
+          results: await search.searchActivity(client.ctx(), user, type, page, perPage),
         }),
       ),
   );

@@ -92,7 +92,11 @@ to live testing.
 ## 3. Live edge-case sweep
 
 Batch independent tool calls together where your harness supports it — this
-is slow one-at-a-time. Adapt ids/tools to whatever's currently registered
+is slow one-at-a-time. But don't trust positional matching of results back to
+calls in a large batch (especially many calls to the same tool name) as proof
+of a bug — a surprising-looking result there is unconfirmed until you re-run
+that one call in isolation; treat it the same as any other unverified
+hypothesis. Adapt ids/tools to whatever's currently registered
 (`grep -n 'registerTool(' src/tools/*.ts`), don't just replay last run's exact
 calls verbatim. Split into independent workstreams if your environment
 supports concurrent subagents/background tasks.
@@ -206,7 +210,14 @@ Sweep every file under `src/tools/`, `src/clients/anilist/`, and `src/lib/`
 - Missing bounds on a numeric field whose `.describe()` promises a range
   (e.g. "0-10 scale") but whose Zod schema has no `.min()/.max()`.
 - A union/required field with no custom Zod error message, falling back to
-  a generic "Invalid input" instead of something actionable.
+  a generic "Invalid input" instead of something actionable. Also check the
+  inverse: a custom error given as a plain *string* (`z.union([...], {error:
+  "X is required — ..."})`) fires for every union-mismatch reason alike, so a
+  wrongly-typed-but-present value (e.g. a decimal where an int is expected)
+  gets told "is required" too — misleading since something WAS passed. Fix
+  by branching a function-based `error` on `issue.input === undefined`
+  (confirmed live: `get_media({type:"ANIME", ids: 1.5})` and omitting `ids`
+  entirely produced the identical "ids is required" message).
 - `lib/result.ts`'s `messageFor()` — does every error code's branch actually
   surface the specific `err.message` a caller threw, or does a generic
   per-code string silently discard it?

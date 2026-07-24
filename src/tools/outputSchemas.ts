@@ -86,6 +86,12 @@ export const MEDIA_TYPES = ["ANIME", "MANGA"] as const;
  *  hand-copied (and left un-customized) per file. */
 export const userIdOrName = z
   .union([anilistId, z.string().min(1)], {
-    error: "user is required — pass an AniList numeric ID or a username string.",
+    // Same fix as media.ts's idsSchema: a plain string `error` fires for
+    // every union-mismatch reason, so branch on `issue.input` to avoid
+    // telling the caller "is required" when a wrongly-typed value WAS given.
+    error: (issue) =>
+      issue.input === undefined
+        ? "user is required — pass an AniList numeric ID or a username string."
+        : "user must be an AniList numeric ID or a username string.",
   })
   .describe("AniList user ID, or username.");

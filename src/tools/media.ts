@@ -17,7 +17,13 @@ const mediaType = z.enum(MEDIA_TYPES).describe("Whether `id` refers to anime or 
 
 const idsSchema = z
   .union([anilistId, z.array(anilistId).min(1)], {
-    error: "ids is required — pass a single AniList ID (number), or a non-empty array of IDs.",
+    // A plain string `error` fires for every union-mismatch reason alike, so a
+    // wrong-but-present value (e.g. a decimal) would get told "is required" —
+    // misleading when something WAS passed. Branch on `issue.input` instead.
+    error: (issue) =>
+      issue.input === undefined
+        ? "ids is required — pass a single AniList ID (number), or a non-empty array of IDs."
+        : "ids must be a single AniList ID (number), or a non-empty array of IDs.",
   })
   .describe("A single AniList anime/manga ID, or an array of IDs to fetch in one call.");
 

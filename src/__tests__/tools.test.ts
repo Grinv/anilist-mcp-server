@@ -181,6 +181,62 @@ test("get_studio reports an actionable error (isError: true) when neither id nor
   assert.equal(mock.calls.length, 0, "must not call AniList at all without an id or name");
 });
 
+test("get_media's ids validation error distinguishes a missing value from a wrongly-typed one", async (t) => {
+  // Regression: idsSchema's z.union used a single string `error`, which fires
+  // for EVERY union-mismatch reason alike — so a wrongly-typed-but-present
+  // value (e.g. a decimal) used to get the same "ids is required" message as
+  // omitting it entirely, which is misleading since something WAS passed.
+  // Input validation failures come back as a normal isError:true tool result
+  // (not a rejected callTool()), same as get_studio's own validation test.
+  const { client, close } = await connectServer({});
+  t.after(close);
+
+  const missing = await client.callTool({ name: "get_media", arguments: { type: "ANIME" } });
+  assert.equal(missing.isError, true);
+  assert.match(
+    (missing.content as { type: "text"; text: string }[])[0]!.text,
+    /ids is required — pass a single AniList ID/,
+    "omitting ids entirely must say it's required",
+  );
+
+  const wrongType = await client.callTool({
+    name: "get_media",
+    arguments: { type: "ANIME", ids: 1.5 },
+  });
+  assert.equal(wrongType.isError, true);
+  assert.match(
+    (wrongType.content as { type: "text"; text: string }[])[0]!.text,
+    /ids must be a single AniList ID/,
+    'a wrongly-typed (non-integer) ids must not be told it\'s "required" — it WAS provided',
+  );
+});
+
+test("get_user_profile's user validation error distinguishes a missing value from a wrongly-typed one", async (t) => {
+  // Same fix/regression as idsSchema above, applied to the shared
+  // userIdOrName union used by every user-scoped tool.
+  const { client, close } = await connectServer({});
+  t.after(close);
+
+  const missing = await client.callTool({ name: "get_user_profile", arguments: {} });
+  assert.equal(missing.isError, true);
+  assert.match(
+    (missing.content as { type: "text"; text: string }[])[0]!.text,
+    /user is required — pass an AniList numeric ID/,
+    "omitting user entirely must say it's required",
+  );
+
+  const wrongType = await client.callTool({
+    name: "get_user_profile",
+    arguments: { user: 1.5 },
+  });
+  assert.equal(wrongType.isError, true);
+  assert.match(
+    (wrongType.content as { type: "text"; text: string }[])[0]!.text,
+    /user must be an AniList numeric ID/,
+    'a wrongly-typed (non-integer) user must not be told it\'s "required" — it WAS provided',
+  );
+});
+
 test("personal/mutation tools without a token return an actionable error instead of calling AniList", async (t) => {
   // A real fetch mock that always throws — proves the requireAuth() gate is
   // actually checked *before* any network call, not just that the result

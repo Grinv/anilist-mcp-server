@@ -384,6 +384,21 @@ anime's id>)` succeeded and added that id to the account's favourited
   reproduced with a bare `curl` query bypassing this server entirely. This
   is AniList's own stats aggregation being stale, not a bug in `get_user_stats`
   — its query already exactly matches the schema.
+- **`Media.isFavourite`/`isFollowing`-shaped viewer fields have a brief
+  read-after-write lag on AniList's own backend** — confirmed live: right
+  after `ToggleFavourite` succeeded, a `get_media` call for that same id
+  (cache already cleared, so genuinely uncached) still returned the
+  pre-toggle `isFavourite`, reproducible again on the next call before
+  finally resolving. A bare `curl` at the same moment, bypassing this server
+  entirely, showed AniList's own API returning that same stale value — not
+  this server's cache. `GraphQLClient.request()` clearing its cache after
+  every mutation (`lib/graphql.ts`) guarantees the next read is _uncached_,
+  not that it's _correct_ — a stale-but-fresh response like this one gets
+  cached normally afterward, so the inaccuracy can then persist for the
+  cache's full TTL (default 5 min) rather than resolving on AniList's own
+  (much shorter) timescale. Not fixable server-side short of never caching
+  viewer-relative fields at all — expect it when a test or a real caller
+  mutates then immediately re-reads to verify.
 - **`Media.characters(page, perPage)`**/**`Media.staff(page, perPage)`**
   return `CharacterConnection`/`StaffConnection`; the per-title role
   (MAIN/SUPPORTING/BACKGROUND for characters, e.g. "ADR Director" for staff)
@@ -452,6 +467,46 @@ CONTAINS`) lives on `MediaEdge.relationType`, again not on the node.
   (a `CharacterConnection`) is voice-actor-specific (the characters they
   voiced); `staffMedia` covers every staff role (writer, director, VA, etc.)
   and is the one `get_staff` uses for a role-agnostic filmography.
+
+## MCP client quirk observed during testing (not an AniList API fact)
+
+Unlike every other entry in this file, this one is about the calling _MCP
+client_, not AniList — recorded here anyway since it was discovered while
+live-testing against AniList and would otherwise look like a server bug.
+
+Calling a tool whose Zod input schema is a scalar/collection union — e.g.
+`get_media`'s `ids: z.union([anilistId, z.array(anilistId).min(1)])`
+(JSON Schema `anyOf: [integer, array]`), or `userIdOrName`'s
+`z.union([anilistId, z.string().min(1)])` (`anyOf: [integer, string]`) —
+**with a bare scalar number** (`ids: 16498`, `user: 6933956`) reproducibly
+fails or silently takes the wrong union branch when the call is made through
+a live Claude Code session, even though:
+
+- the server's declared JSON Schema is correct (verified via
+  `npx @modelcontextprotocol/inspector --cli node dist/index.js --method
+tools/list`),
+- and the exact same call, made directly against the same running package
+  (`npx @modelcontextprotocol/inspector --cli node dist/index.js --method
+tools/call --tool-name get_media --tool-arg ids=16498`, bypassing Claude
+  Code entirely) succeeds.
+
+Confirmed on two different fields: `get_media`'s `ids=<number>` raised a
+validation error claiming `ids` was missing entirely, while `ids=[<number>]`
+(same id, wrapped in an array) worked; `get_user_profile`'s/
+`get_full_user_info`'s `user=<a real numeric id>` 404'd — consistent with the
+number being sent as a string and matching the schema's `string` branch
+instead of `integer`, so the client function's `typeof user === "number"`
+branch (`clients/anilist/user.ts`) took the _username_ path and looked up a
+user literally named after the digits, which doesn't exist — while the exact
+same numeric id resolved correctly via `User(name:"...")`'s sibling
+`User(id:...)` path when called directly, bypassing Claude Code.
+
+Nothing to fix in this repo — the server, its schema, and its client
+functions all behave correctly when called directly. Workaround when hitting
+this through Claude Code: wrap a scalar/array union argument in an array
+even for a single value (`ids: [16498]`); no equivalent workaround is known
+for a scalar/string union (`user`) beyond passing the value some other way
+(e.g. a resolved username instead of a numeric id, where one is available).
 
 ## Why our own GraphQL client instead of a wrapper library
 

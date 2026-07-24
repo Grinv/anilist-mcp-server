@@ -24,7 +24,11 @@ genuinely has no user-facing changes, e.g. a pure dependency bump.)
 don't rely on the `preversion` hook alone to catch a skipped one:
 
 1. Invoke the `changelog-style` skill against the commits since the last tag;
-   write/fix the `[Unreleased]` entries per its style rules.
+   write/fix the `[Unreleased]` entries per its style rules, then rename
+   `## [Unreleased]` to `## [X.Y.Z] - <today>` (add a fresh empty
+   `## [Unreleased]` above it) yourself — `npm version`/`sync-version.mjs`
+   never touch `CHANGELOG.md`'s heading, so skipping this step ships a
+   release whose own changelog still calls its entries "Unreleased".
 2. Commit it.
 3. `npm version <patch|minor|major>` — preversion gate, then bumps + syncs
    every file + commits + tags `vX.Y.Z`.

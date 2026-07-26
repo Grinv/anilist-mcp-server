@@ -83,6 +83,42 @@ test("getSchedule with no mediaId skips the existence check and goes straight to
   assert.ok(!query.includes("exists:Media"), "no mediaId means no existence check to make");
 });
 
+test("getThreadComments aliases a threadId existence check into the same request as the comments query", async (t) => {
+  const mock = mockFetch(() =>
+    jsonResponse({
+      data: { exists: { id: 1 }, Page: { pageInfo: {}, threadComments: [{ id: 5 }] } },
+    }),
+  );
+  installFetch(t, mock);
+  const client = new AniListClient(testConfig({}), silentLogger());
+
+  const result = await thread.getThreadComments(client.ctx(), 1);
+  assert.deepEqual(result, { pageInfo: {}, threadComments: [{ id: 5 }] });
+  assert.equal(mock.calls.length, 1, "the existence check and comments query are one request");
+  const query = JSON.parse(mock.calls[0]!.init?.body as string).query as string;
+  assert.match(query, /exists:Thread\(id:\$threadId\)/);
+});
+
+test("getThreadComments rejects with not_found for a nonexistent threadId, instead of silently returning an empty page", async (t) => {
+  // Confirmed live: AniList 404s the entire HTTP response (not just the
+  // aliased `exists` field) when Thread(id) doesn't resolve, same as
+  // getSchedule's Media(id) existence check.
+  const mock = mockFetch(() =>
+    jsonResponse(
+      { errors: [{ message: "Not Found.", status: 404 }], data: { exists: null, Page: null } },
+      { status: 404 },
+    ),
+  );
+  installFetch(t, mock);
+  const client = new AniListClient(testConfig({}), silentLogger());
+
+  await assert.rejects(
+    () => thread.getThreadComments(client.ctx(), 999999999),
+    (err: unknown) => err instanceof ApiError && err.code === "not_found",
+  );
+  assert.equal(mock.calls.length, 1, "the not-found check costs no extra request");
+});
+
 test("getUserProfile queries User(name:...) for a string username, not just User(id:...) for a number", async (t) => {
   const mock = mockFetch(() => jsonResponse({ data: { User: { id: 1, name: "Grinv" } } }));
   installFetch(t, mock);

@@ -17,25 +17,30 @@ export async function getThreadComments(
 ): Promise<unknown> {
   // threadComments' Page connection doesn't error for a nonexistent threadId
   // — it just returns an empty page, indistinguishable from "this thread
-  // really has zero comments" (confirmed live). A direct Thread(id) lookup
-  // reliably errors instead, so check that first to surface a bad ID as an
-  // actual error rather than a misleadingly-empty success.
-  const header = ctx.authHeader();
-  const existsData = await ctx.gql.request<{ Thread: { id: number } | null }>(
-    `query($id:Int){Thread(id:$id){id}}`,
-    { id: threadId },
-    header,
-  );
-  assertFound(existsData.Thread, `No thread found with ID ${threadId}.`);
+  // really has zero comments" (confirmed live). Alias a Thread(id){id}
+  // existence check into the SAME request as the real query (as getSchedule/
+  // getUserActivity do) rather than a separate round trip — AniList 404s the
+  // entire response when Thread(id) doesn't resolve, so a bad ID still
+  // surfaces as a clean not_found error from one request. assertFound()
+  // below is defense-in-depth for the unobserved case where AniList instead
+  // returns 200 with `exists: null`.
   // threadComments only returns TOP-LEVEL comments — a reply posted via
   // post_thread_comment's parentCommentId doesn't appear in this array at
   // all; it's nested under its parent's own childComments (an untyped
   // AniList `Json` blob, not a further-queryable ThreadComment list).
-  const query = `query($threadId:Int,$page:Int,$perPage:Int){Page(page:$page,perPage:$perPage){
-    pageInfo{total currentPage lastPage hasNextPage}
-    threadComments(threadId:$threadId){id comment(asHtml:false) siteUrl likeCount isLiked user{id name} childComments}
-  }}`;
-  const data = await ctx.gql.request<{ Page: unknown }>(query, { threadId, page, perPage }, header);
+  const query = `query($threadId:Int,$page:Int,$perPage:Int){
+    exists:Thread(id:$threadId){id}
+    Page(page:$page,perPage:$perPage){
+      pageInfo{total currentPage lastPage hasNextPage}
+      threadComments(threadId:$threadId){id comment(asHtml:false) siteUrl likeCount isLiked user{id name} childComments}
+    }
+  }`;
+  const data = await ctx.gql.request<{ exists: { id: number } | null; Page: unknown }>(
+    query,
+    { threadId, page, perPage },
+    ctx.authHeader(),
+  );
+  assertFound(data.exists, `No thread found with ID ${threadId}.`);
   return data.Page;
 }
 

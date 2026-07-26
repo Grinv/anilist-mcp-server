@@ -122,6 +122,7 @@ test("a representative read tool from each category is wired end-to-end", async 
         Recommendation: { id: 1 },
         Media: { id: 1 },
         Thread: { id: 1 },
+        exists: { id: 1 },
         User: { id: 1, name: "Grinv" },
         Activity: { id: 1 },
         Page: {

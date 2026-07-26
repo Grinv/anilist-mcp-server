@@ -29,6 +29,7 @@ const statSeries = z
           .passthrough(),
       )
       .nullish(),
+    pageInfo: pageInfoSchema.optional(),
   })
   .passthrough();
 
@@ -112,13 +113,28 @@ export function registerMiscTools(server: McpServer, client: AniListClient): voi
     {
       title: "Get AniList site statistics",
       description:
-        "Get AniList's own site-wide statistics (new users/anime/manga counts) for the last " +
-        "several days. Useful for questions about AniList's growth/activity, not for anime data.",
-      inputSchema: z.object({}),
+        "Get AniList's own site-wide statistics (new users/anime/manga daily counts), newest " +
+        "first. Useful for questions about AniList's growth/activity, not for anime data. " +
+        "Defaults to the last 7 days; use `page`/`perPage` to go further back. Confirmed live " +
+        "(bypassing this tool's own 25 cap): AniList's SiteStatistics field silently caps " +
+        "`perPage` at 25 itself, so this tool's own limit doesn't lose you anything.",
+      inputSchema: z.object({
+        page: z.number().int().positive().default(1).describe("Page number for pagination."),
+        perPage: z
+          .number()
+          .int()
+          .min(1)
+          .max(25)
+          .default(7)
+          .describe("Results per page/series (max 25, enforced by AniList itself)."),
+      }),
       outputSchema: z.object({ statistics: siteStatisticsObject }),
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
-    () => guard(async () => jsonResult({ statistics: await misc.getSiteStatistics(client.ctx()) })),
+    ({ page, perPage }) =>
+      guard(async () =>
+        jsonResult({ statistics: await misc.getSiteStatistics(client.ctx(), page, perPage) }),
+      ),
   );
 
   server.registerTool(

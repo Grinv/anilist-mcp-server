@@ -47,7 +47,7 @@
     },
     {
       "name": "get_site_statistics",
-      "description": "AniList's own site-wide statistics for the last several days."
+      "description": "AniList's own day-by-day site-wide statistics (new users/anime/manga counts)."
     },
     { "name": "get_studio", "description": "A studio's profile and most popular produced titles." },
     {

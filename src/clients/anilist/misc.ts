@@ -57,12 +57,20 @@ export async function getMediaTags(
   };
 }
 
-export async function getSiteStatistics(ctx: AniListContext): Promise<unknown> {
-  const query = `query{SiteStatistics{
-    users(sort:DATE_DESC,perPage:7){nodes{date count change}}
-    anime(sort:DATE_DESC,perPage:7){nodes{date count change}}
-    manga(sort:DATE_DESC,perPage:7){nodes{date count change}}
+export async function getSiteStatistics(
+  ctx: AniListContext,
+  page = 1,
+  perPage = 7,
+): Promise<unknown> {
+  const query = `query($page:Int,$perPage:Int){SiteStatistics{
+    users(sort:DATE_DESC,page:$page,perPage:$perPage){nodes{date count change} pageInfo{total currentPage lastPage hasNextPage perPage}}
+    anime(sort:DATE_DESC,page:$page,perPage:$perPage){nodes{date count change} pageInfo{total currentPage lastPage hasNextPage perPage}}
+    manga(sort:DATE_DESC,page:$page,perPage:$perPage){nodes{date count change} pageInfo{total currentPage lastPage hasNextPage perPage}}
   }}`;
-  const data = await ctx.gql.request<{ SiteStatistics: unknown }>(query, {}, ctx.authHeader());
+  const data = await ctx.gql.request<{ SiteStatistics: unknown }>(
+    query,
+    { page, perPage },
+    ctx.authHeader(),
+  );
   return data.SiteStatistics;
 }

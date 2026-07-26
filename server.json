@@ -3,7 +3,7 @@
   "name": "io.github.Grinv/anilist-mcp-server",
   "title": "AniList MCP Server",
   "description": "MCP server for the AniList GraphQL API — anime/manga search, details, and personal list management.",
-  "version": "0.2.2",
+  "version": "0.3.0",
   "repository": {
     "url": "https://github.com/Grinv/anilist-mcp-server",
     "source": "github",
@@ -13,7 +13,7 @@
     {
       "registryType": "npm",
       "identifier": "anilist-mcp-server",
-      "version": "0.2.2",
+      "version": "0.3.0",
       "runtimeHint": "npx",
       "transport": { "type": "stdio" },
       "environmentVariables": [
@@ -51,8 +51,8 @@
     },
     {
       "registryType": "mcpb",
-      "identifier": "https://github.com/Grinv/anilist-mcp-server/releases/download/v0.2.2/anilist-mcp-server.mcpb",
-      "version": "0.2.2",
+      "identifier": "https://github.com/Grinv/anilist-mcp-server/releases/download/v0.3.0/anilist-mcp-server.mcpb",
+      "version": "0.3.0",
       "transport": { "type": "stdio" },
       "environmentVariables": [
         {

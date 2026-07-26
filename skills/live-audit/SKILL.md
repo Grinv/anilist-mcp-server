@@ -198,9 +198,13 @@ Sweep every file under `src/tools/`, `src/clients/anilist/`, and `src/lib/`
   previous pass of this same audit).
 - A `Page`-based connection (`Page(...) { someConnection(parentId) }`) that
   returns an empty-but-successful page for a nonexistent parent ID instead
-  of erroring, indistinguishable from "genuinely zero results". Fix by
-  aliasing a cheap singular existence check (e.g. `exists:Media(id:$id){id}`)
-  into the _same_ request as the real query, not a separate round-trip —
+  of erroring, indistinguishable from "genuinely zero results". Also flag a
+  function that's already correctness-safe via a _separate_ existence-check
+  request instead of an aliased one (found in `get_thread_comments`, unlike
+  already-fixed siblings `getSchedule`/`getUserActivity`) — same inefficiency
+  this bullet targets, just not a correctness bug. Fix by aliasing a cheap
+  singular existence check (e.g. `exists:Media(id:$id){id}`) into the _same_
+  request as the real query, not a separate round-trip —
   confirmed live (`docs/api-references.md`) that AniList 404s the _entire_
   response when one aliased root field fails to resolve, even combined with
   unrelated fields in the same query, so this costs no extra request and

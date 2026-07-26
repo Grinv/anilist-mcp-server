@@ -6,6 +6,20 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-07-26
+
+### Added
+
+- Add `page`/`perPage` pagination to `get_site_statistics` (previously fixed to the last 7 days); AniList caps `perPage` at 25 regardless of input. [4af0916](https://github.com/Grinv/anilist-mcp-server/commit/4af0916)
+
+### Changed
+
+- Halve `get_thread_comments`'s network round-trips for a given `threadId` by combining the not-found existence check into the same request as the real query, instead of a separate one. [4268f5f](https://github.com/Grinv/anilist-mcp-server/commit/4268f5f)
+- Add missing `destructiveHint`/`idempotentHint`/`openWorldHint` MCP tool annotations across write tools, for accurate client-side risk hints. [ff469f6](https://github.com/Grinv/anilist-mcp-server/commit/ff469f6)
+- Document that `get_studio`'s returned titles cap at 10 and `get_todays_birthdays`'s results cap at 50 — both fixed, unpaginated limits. [ff469f6](https://github.com/Grinv/anilist-mcp-server/commit/ff469f6)
+- Document that `favourite` returns the account's entire current favourites across all 5 categories, not just the toggled item. [ff469f6](https://github.com/Grinv/anilist-mcp-server/commit/ff469f6)
+- Document that `get_user_activity` doesn't filter by activity type, cross-referencing `search_activity` for that. [ff469f6](https://github.com/Grinv/anilist-mcp-server/commit/ff469f6)
+
 ## [0.2.2] - 2026-07-25
 
 ### Changed

@@ -15,6 +15,19 @@ before changing `src/clients/anilist/*.ts` or `src/lib/graphql.ts`.
   <https://docs.anilist.co/guide/graphql/> (source markdown fetched via
   `github.com/AniList/docs`, since the rendered site 403s plain fetches).
 
+## No official API changelog
+
+- AniList's backend is closed source and publishes no changelog/release notes
+  for the GraphQL schema itself. The closest substitutes: commit history on
+  <https://github.com/AniList/docs> (the docs *site's* source — occasionally
+  reflects a real API change, e.g. a rate-limit-header fix or a new
+  `Page`-limit note, but it's docs-history, not a formal changelog) and this
+  file's own "confirmed live" sections, built by testing the schema directly
+  rather than trusting any external doc to stay current.
+- `docs.anilist.co`'s "What's Next?" page is **not** a changelog despite the
+  name — it's a getting-started page pointing new API users at query
+  examples and community projects.
+
 ## Auth — OAuth2 Authorization Code grant
 
 <https://docs.anilist.co/guide/auth/> / `.../auth/authorization-code`

@@ -78,7 +78,8 @@ export function registerActivityTools(server: McpServer, client: AniListClient):
         "List recent AniList activity posts from a specific user (list updates, text posts). " +
         "Accepts an exact AniList username directly (it's resolved to an id with one extra " +
         "internal lookup) — no need to call search_user first unless you only have a " +
-        "partial/fuzzy name.",
+        "partial/fuzzy name. Use search_activity instead if you also want to filter by activity " +
+        "type (TEXT/ANIME_LIST/MANGA_LIST/MESSAGE) or browse without pinning to one user.",
       inputSchema: z.object({
         user: userIdOrName,
         page: z.number().int().positive().default(1).describe("Page number for pagination."),
@@ -171,7 +172,12 @@ export function registerActivityTools(server: McpServer, client: AniListClient):
         ),
       }),
       outputSchema: z.object({ result: deleteResult }),
-      annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: true,
+        idempotentHint: true,
+        openWorldHint: true,
+      },
     },
     ({ id }) =>
       guard(async () => jsonResult({ result: await activity.deleteActivity(client.ctx(), id) })),

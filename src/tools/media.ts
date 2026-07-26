@@ -499,7 +499,10 @@ export function registerMediaTools(server: McpServer, client: AniListClient): vo
       description:
         "[Requires login] Toggle an anime, manga, character, staff member, or studio in the " +
         "authenticated user's AniList favourites. Calling it again on the same `kind`+`id` " +
-        "un-favourites it. Resolve `id` first via search_media/get_media (kind: ANIME/MANGA), " +
+        "un-favourites it. The response is not scoped to just the toggled item: it returns the " +
+        "account's entire current favourites (id-only) across all 5 categories " +
+        "(anime/manga/characters/staff/studios), so expect a wide result even for a single " +
+        "toggle. Resolve `id` first via search_media/get_media (kind: ANIME/MANGA), " +
         "search_character/get_character, search_staff/get_staff, or search_studio/get_studio, " +
         "matching `kind`. Confirmed live: AniList does NOT validate that `id` actually belongs " +
         "to the given `kind` — e.g. passing an anime's ID with `kind: CHARACTER` succeeds " +
@@ -510,7 +513,12 @@ export function registerMediaTools(server: McpServer, client: AniListClient): vo
         id: anilistId.describe("AniList ID of that anime/manga/character/staff/studio."),
       }),
       outputSchema: z.object({ favourites: toggleFavouriteResult }),
-      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: false,
+        openWorldHint: true,
+      },
     },
     ({ kind, id }) =>
       guard(async () =>

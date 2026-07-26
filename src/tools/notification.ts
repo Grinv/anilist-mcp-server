@@ -69,7 +69,12 @@ export function registerNotificationTools(server: McpServer, client: AniListClie
           })
           .passthrough(),
       }),
-      annotations: { readOnlyHint: false, idempotentHint: false, openWorldHint: true },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: false,
+        openWorldHint: true,
+      },
     },
     ({ type_in, markAsRead, page, perPage }) =>
       guard(async () =>

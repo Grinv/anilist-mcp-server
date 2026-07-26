@@ -24,7 +24,12 @@ export function registerLoginTools(server: McpServer, client: AniListClient): vo
         auto_capture: z.boolean(),
         instructions: z.string(),
       }),
-      annotations: { readOnlyHint: false, openWorldHint: true },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: false,
+        openWorldHint: true,
+      },
     },
     () =>
       guard(async () => {
@@ -64,7 +69,12 @@ export function registerLoginTools(server: McpServer, client: AniListClient): vo
           .describe("The full redirected URL (contains ?code=...), or just the code value."),
       }),
       outputSchema: z.object({ success: z.boolean() }),
-      annotations: { readOnlyHint: false, openWorldHint: true },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: false,
+        openWorldHint: true,
+      },
     },
     ({ redirect_url }) =>
       guard(async () => {

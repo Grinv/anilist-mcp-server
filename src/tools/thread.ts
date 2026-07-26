@@ -242,7 +242,12 @@ export function registerThreadTools(server: McpServer, client: AniListClient): v
         "silently succeeding.",
       inputSchema: z.object({ id: anilistId.describe("AniList thread ID to delete.") }),
       outputSchema: z.object({ result: deleteResult }),
-      annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: true,
+        idempotentHint: true,
+        openWorldHint: true,
+      },
     },
     ({ id }) =>
       guard(async () => jsonResult({ result: await thread.deleteThread(client.ctx(), id) })),
@@ -259,7 +264,12 @@ export function registerThreadTools(server: McpServer, client: AniListClient): v
         "succeeding.",
       inputSchema: z.object({ id: anilistId.describe("AniList comment ID to delete.") }),
       outputSchema: z.object({ result: deleteResult }),
-      annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: true,
+        idempotentHint: true,
+        openWorldHint: true,
+      },
     },
     ({ id }) =>
       guard(async () => jsonResult({ result: await thread.deleteThreadComment(client.ctx(), id) })),

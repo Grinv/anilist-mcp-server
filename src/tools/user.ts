@@ -425,7 +425,12 @@ export function registerUserTools(server: McpServer, client: AniListClient): voi
         ),
       }),
       outputSchema: z.object({ user: updateUserResult }),
-      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: true,
+      },
     },
     (args) => guard(async () => jsonResult({ user: await user.updateUser(client.ctx(), args) })),
   );

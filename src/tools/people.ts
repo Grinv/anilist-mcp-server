@@ -92,9 +92,10 @@ export function registerPeopleTools(server: McpServer, client: AniListClient): v
     {
       title: "Get today's birthday characters or staff",
       description:
-        "List all AniList characters or staff members whose birthday (month/day) is today. " +
-        "Returns character-shaped objects for kind: CHARACTER, or staff-shaped objects (same " +
-        "fields plus `primaryOccupations`) for kind: STAFF.",
+        "List AniList characters or staff members whose birthday (month/day) is today, up to " +
+        "50 results (a fixed cap, not paginated — entries beyond 50 are silently omitted, not " +
+        "an error). Returns character-shaped objects for kind: CHARACTER, or staff-shaped " +
+        "objects (same fields plus `primaryOccupations`) for kind: STAFF.",
       inputSchema: z.object({
         kind: z.enum(BIRTHDAY_KINDS).describe("Whether to list characters or staff members."),
       }),

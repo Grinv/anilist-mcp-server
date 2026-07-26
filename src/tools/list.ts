@@ -203,7 +203,12 @@ export function registerListTools(server: McpServer, client: AniListClient): voi
           ),
       }),
       outputSchema: z.object({ entry: savedListEntry }),
-      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: false,
+        openWorldHint: true,
+      },
     },
     (args) =>
       guard(async () => jsonResult({ entry: await list.saveListEntry(client.ctx(), args) })),
@@ -274,7 +279,12 @@ export function registerListTools(server: McpServer, client: AniListClient): voi
           ),
       }),
       outputSchema: z.object({ entry: savedListEntry }),
-      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: true,
+      },
     },
     ({ listEntryId, ...rest }) =>
       guard(async () =>
@@ -295,7 +305,12 @@ export function registerListTools(server: McpServer, client: AniListClient): voi
         listEntryId: anilistId.describe("The list ENTRY id to delete (not the media id)."),
       }),
       outputSchema: z.object({ result: deleteResult }),
-      annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: true,
+        idempotentHint: true,
+        openWorldHint: true,
+      },
     },
     ({ listEntryId }) =>
       guard(async () =>

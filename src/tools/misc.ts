@@ -142,10 +142,11 @@ export function registerMiscTools(server: McpServer, client: AniListClient): voi
     {
       title: "Get studio",
       description:
-        "Get a studio's profile (name, whether it's an animation studio) and its most popular " +
-        "produced titles, by AniList studio ID or by name. Use search_studio first if you only " +
-        "have a partial name and need to resolve it to an ID. If both `id` and `name` are given, " +
-        "`id` takes precedence and `name` is ignored.",
+        "Get a studio's profile (name, whether it's an animation studio) and its top 10 most " +
+        "popular produced titles (a fixed cap, not paginated — AniList's studio field exposes no " +
+        "more via this lookup), by AniList studio ID or by name. Use search_studio first if you " +
+        "only have a partial name and need to resolve it to an ID. If both `id` and `name` are " +
+        "given, `id` takes precedence and `name` is ignored.",
       inputSchema: z.object({
         id: anilistId.optional().describe("AniList studio ID. Provide this or `name`."),
         name: z

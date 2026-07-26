@@ -19,7 +19,7 @@ before changing `src/clients/anilist/*.ts` or `src/lib/graphql.ts`.
 
 - AniList's backend is closed source and publishes no changelog/release notes
   for the GraphQL schema itself. The closest substitutes: commit history on
-  <https://github.com/AniList/docs> (the docs *site's* source — occasionally
+  <https://github.com/AniList/docs> (the docs _site's_ source — occasionally
   reflects a real API change, e.g. a rate-limit-header fix or a new
   `Page`-limit note, but it's docs-history, not a formal changelog) and this
   file's own "confirmed live" sections, built by testing the schema directly

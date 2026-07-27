@@ -8,6 +8,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [0.4.0] - 2026-07-28
 
+Everything below is one commit: [48049f6](https://github.com/Grinv/anilist-mcp-server/commit/48049f6).
+
 ### Added
 
 - Add `pageInfo.lastPage` to `get_media_tags`'s response — computed client-side, so unlike AniList-paginated tools it's accurate, not degraded.

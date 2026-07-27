@@ -5,8 +5,8 @@ description: The capture-state/smallest-change/verify/revert/verify-revert contr
 
 # Mutation testing safety contract
 
-Applies to any mutation tool (add/update/remove/delete/post/follow/favourite/
-etc.) once the user has given explicit go-ahead to test it against a real
+Applies to any mutation tool (add/update/remove/delete/post/toggle_follow/
+toggle_favourite/etc.) once the user has given explicit go-ahead to test it against a real
 account. For every mutation call:
 
 1. **Capture the exact pre-state first** (via the matching read tool) — not

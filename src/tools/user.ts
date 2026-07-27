@@ -5,8 +5,9 @@ import * as user from "../clients/anilist/user.js";
 import * as activity from "../clients/anilist/activity.js";
 import { jsonResult } from "../lib/result.js";
 import { guard } from "./guard.js";
-import { pageInfoSchema, idOnly, anilistId, userIdOrName } from "./outputSchemas.js";
+import { pageInfoSchema, anilistId, userIdOrName } from "./outputSchemas.js";
 import { NOTIFICATION_TYPES } from "./notification.js";
+import { activityItem } from "./activity.js";
 
 const TITLE_LANGUAGES = [
   "ROMAJI",
@@ -27,9 +28,6 @@ const MEDIA_LIST_STATUSES = [
   "REPEATING",
 ] as const;
 
-// idOnly matches the ACTIVITY_FRAGMENT union (TextActivity/ListActivity/
-// MessageActivity); only `id` is common to every branch.
-
 const mediaListOptionsInput = z
   .object({
     sectionOrder: z.array(z.string()).optional().describe("Custom list-status section order."),
@@ -37,11 +35,33 @@ const mediaListOptionsInput = z
       .boolean()
       .optional()
       .describe("Split the Completed section by format (TV/Movie/etc.)."),
-    customLists: z.array(z.string()).optional().describe("Names of this account's custom lists."),
+    customLists: z
+      .array(z.string())
+      .optional()
+      .describe(
+        "Names of this account's custom lists — REPLACES the entire array, not merged " +
+          "by name: any existing list name you omit here is silently deleted (confirmed " +
+          "live), even though sibling fields like advancedScoring/sectionOrder and the " +
+          "other list type (mangaList) are left untouched. Fetch the current array first " +
+          "(get_authorized_user's mediaListOptions.animeList/mangaList.customLists) and " +
+          "include every name you want to keep, not just the one you're adding.",
+      ),
     advancedScoring: z
       .array(z.string())
       .optional()
-      .describe("Advanced-scoring category names (e.g. Story, Characters, Visuals)."),
+      .describe(
+        "Advanced-scoring category names (e.g. Story, Characters, Visuals) — ordered, and " +
+          "the order is load-bearing: every list entry's per-category `advancedScores` is " +
+          "stored as a plain positional array, matched against THIS list at read time, not " +
+          "by name. Renaming or reordering categories here silently reinterprets every " +
+          "already-scored entry's stored values under the new names/positions — e.g. a " +
+          "score the user gave for 'Story' can start reading as their 'Characters' score, " +
+          "with no error and no way to detect it happened after the fact. Fetch the current " +
+          "order first (get_authorized_user's `mediaListOptions.animeList/mangaList." +
+          "advancedScoring`) so you know the existing positions before changing anything. " +
+          "Only add new categories at the end, or rename in place (same position) — never " +
+          "reorder an account that already has scored entries.",
+      ),
     advancedScoringEnabled: z
       .boolean()
       .optional()
@@ -220,7 +240,11 @@ export function registerUserTools(server: McpServer, client: AniListClient): voi
       description:
         "Get an AniList user's anime/manga statistics: counts, mean score, time watched, " +
         "episodes/chapters/volumes consumed. Accepts an exact AniList username directly — no " +
-        "need to call search_user first unless you only have a partial/fuzzy name.",
+        "need to call search_user first unless you only have a partial/fuzzy name. AniList's " +
+        "own stats aggregation can lag behind the account's real list — confirmed live, an " +
+        "account with real scored/progressed entries still read back all-zero statistics — " +
+        "so don't treat a zeroed result as 'this account has no list activity' without " +
+        "cross-checking get_user_list.",
       inputSchema: z.object({ user: userIdOrName }),
       outputSchema: z.object({ stats: userStatsObject }),
       annotations: { readOnlyHint: true, openWorldHint: true },
@@ -239,7 +263,9 @@ export function registerUserTools(server: McpServer, client: AniListClient): voi
         "also returns the target's account settings (notifications, list display, etc.) " +
         "regardless of who's authenticated — AniList doesn't viewer-gate those fields. Accepts " +
         "an exact AniList username directly — no need to call search_user first unless you " +
-        "only have a partial/fuzzy name.",
+        "only have a partial/fuzzy name. Its embedded statistics carry the same staleness " +
+        "caveat as get_user_stats: AniList's own aggregation can lag and read all-zero even " +
+        "for an account with real list entries.",
       inputSchema: z.object({ user: userIdOrName }),
       outputSchema: z.object({ user: fullUserObject }),
       annotations: { readOnlyHint: true, openWorldHint: true },
@@ -253,16 +279,17 @@ export function registerUserTools(server: McpServer, client: AniListClient): voi
     {
       title: "Get a user's most recent activity",
       description:
-        "Get an AniList user's 5 most recent activity posts (a fixed count, not configurable; " +
-        "use get_user_activity for a paginated full feed instead). Accepts an exact AniList " +
-        "username directly — no need to call search_user first unless you only have a " +
-        "partial/fuzzy name (username resolution costs one extra internal lookup either way).",
+        "Get an AniList user's 5 most recent activity posts, with full content (not just IDs) " +
+        "— a fixed count, not configurable; use get_user_activity for a paginated full feed " +
+        "instead. Accepts an exact AniList username directly — no need to call search_user " +
+        "first unless you only have a partial/fuzzy name (username resolution costs one " +
+        "extra internal lookup either way).",
       inputSchema: z.object({ user: userIdOrName }),
       outputSchema: z.object({
         activity: z
           .object({
             pageInfo: pageInfoSchema.optional(),
-            activities: z.array(idOnly).optional(),
+            activities: z.array(activityItem).optional(),
           })
           .passthrough(),
       }),
@@ -280,7 +307,12 @@ export function registerUserTools(server: McpServer, client: AniListClient): voi
       title: "Get the logged-in user's profile",
       description:
         "[Requires login] Get the profile of the AniList account currently authorized via " +
-        "login_anilist/ANILIST_ACCESS_TOKEN — use this to confirm which account is connected.",
+        "login_anilist/ANILIST_ACCESS_TOKEN — use this to confirm which account is connected. " +
+        "Also the authoritative source to fetch BEFORE a full-replace update_user call: its " +
+        "`options.notificationOptions`/`options.disabledListActivity` and " +
+        "`mediaListOptions.animeList/mangaList.{customLists,advancedScoring,...}` are the " +
+        "current values update_user's own field descriptions tell you to read first and " +
+        "resend in full (those writes replace the whole array/list, not merge by entry).",
       inputSchema: z.object({}),
       outputSchema: z.object({ user: userProfileObject }),
       annotations: { readOnlyHint: true, openWorldHint: true },
@@ -289,7 +321,7 @@ export function registerUserTools(server: McpServer, client: AniListClient): voi
   );
 
   server.registerTool(
-    "follow_user",
+    "toggle_follow_user",
     {
       title: "Follow/unfollow a user",
       description:
@@ -321,8 +353,11 @@ export function registerUserTools(server: McpServer, client: AniListClient): voi
         "(about text, preferred title language, adult-content visibility, score format, " +
         "notification/messaging preferences, anime/manga list options). Only set the fields " +
         "you want to change — most fields are a true partial update (see " +
-        "`notificationOptions`/`disabledListActivity` below for the two confirmed exceptions). " +
-        "Note: this mutation isn't atomic — confirmed live that rejecting one invalid field " +
+        "`notificationOptions`/`disabledListActivity` below for two confirmed exceptions, " +
+        "PLUS `animeListOptions`/`mangaListOptions`'s nested `customLists` — a third: that " +
+        "one field's ARRAY VALUE is a full replace even though its sibling fields and the " +
+        "other list type merge normally). Note: this mutation isn't atomic — confirmed live " +
+        "that rejecting one invalid field " +
         "(e.g. an incomplete `disabledListActivity`) can still leave OTHER fields from that " +
         "same call applied. If a call errors, re-check with get_authorized_user rather than " +
         "assuming nothing changed.",
@@ -364,7 +399,15 @@ export function registerUserTools(server: McpServer, client: AniListClient): voi
           .array(
             z.object({
               type: z.enum(NOTIFICATION_TYPES).describe("Notification type to configure."),
-              enabled: z.boolean().optional().describe("Whether this notification type is on."),
+              enabled: z
+                .boolean()
+                .optional()
+                .describe(
+                  "Whether this notification type is on. Optional per entry, but not really — " +
+                    "omitting it doesn't error and doesn't inherit the previous value either; " +
+                    "confirmed live it's written as `enabled: null`, effectively unsetting the " +
+                    "type. Always pass an explicit true/false for every one of the 20 types.",
+                ),
             }),
           )
           .refine(
@@ -400,7 +443,13 @@ export function registerUserTools(server: McpServer, client: AniListClient): voi
               disabled: z
                 .boolean()
                 .optional()
-                .describe("Whether posting activity for this status is suppressed."),
+                .describe(
+                  "Whether posting activity for this status is suppressed. Optional in the " +
+                    "schema, but NOT safe to omit: confirmed live, leaving it out on even one " +
+                    "of the 6 statuses makes the whole call fail with a 500 Internal Server " +
+                    "Error on AniList's side (not a clean validation error, and not this " +
+                    "server's bug) — always pass an explicit true/false for every status.",
+                ),
             }),
           )
           .refine(

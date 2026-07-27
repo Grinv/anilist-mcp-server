@@ -79,8 +79,8 @@ to live testing.
   and profile settings are all publicly visible or persisted.
 - **Read-only tools** (`search_*`, `get_*`) are always safe to call freely —
   no special permission needed.
-- **Mutation tools** (`add_/update_/remove_/delete_/post_/follow_/favourite`,
-  `update_user`) require the user's explicit go-ahead before this pass
+- **Mutation tools** (`add_/update_/remove_/delete_/post_/toggle_follow_/
+toggle_favourite`, `update_user`) require the user's explicit go-ahead before this pass
   touches them. If they say "test mutations too, just revert after" (or
   similar), run the `mutation-test-safety` skill's contract for every
   mutation call — its self-message/self-created-post exception is the only

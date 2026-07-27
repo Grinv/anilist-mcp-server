@@ -53,17 +53,27 @@ const listEntry = z
     // untyped `Json` object keyed by every one of the account's configured
     // custom list names (`{listName: boolean}`), which isn't representable
     // as a stable schema; `asArray` gives a predictable list instead.
-    // Confirmed live: setting `customLists` on an entry to a name that isn't
-    // already in the account's own `animeListOptions`/`mangaListOptions`
-    // `customLists` (see update_user) is silently a no-op — the list must
-    // already exist before an entry can be filed under it.
     customLists: z
       .array(z.object({ name: z.string().nullish(), enabled: z.boolean().nullish() }).passthrough())
-      .nullish(),
+      .nullish()
+      .describe(
+        "Every custom list configured on the account, with `enabled` showing whether THIS " +
+          "entry is filed under it. Naming a list here (via add_list_entry/update_list_entry) " +
+          "that isn't already in the account's `animeListOptions`/`mangaListOptions` " +
+          "`customLists` is silently a no-op on write — the list must exist first.",
+      ),
     // Same untyped `Json` situation as customLists above — the input side
     // takes a plain {category: score} map, but AniList echoes this back in
     // whatever shape it actually stores it in.
-    advancedScores: z.unknown().nullish(),
+    advancedScores: z
+      .unknown()
+      .nullish()
+      .describe(
+        "Per-category advanced scores as AniList actually stores them — an untyped value " +
+          "(the write side takes a plain {category: score} map via add_list_entry/" +
+          "update_list_entry's `advancedScores`, but the echoed read-back shape isn't " +
+          "guaranteed to match it).",
+      ),
     media: listEntryMediaLite.nullish(),
   })
   .passthrough();
@@ -142,16 +152,23 @@ export function registerListTools(server: McpServer, client: AniListClient): voi
       description:
         "[Requires login] Add an anime/manga to the authenticated user's own AniList list. " +
         "Use search_media first to resolve the title to its AniList media ID. " +
-        "Only set the fields you care about — everything else is left at AniList's defaults.",
+        "Only set the fields you care about — everything else is left at AniList's defaults " +
+        "ONLY if this media isn't already on the list. AniList upserts by media ID: if an " +
+        "entry for it already exists (e.g. previously dropped, with its own score/notes/" +
+        "progress), calling this updates that entry in place instead — every field you don't " +
+        "set here keeps its previous value, not a default. Use get_user_list first to check " +
+        "for an existing entry if you need a guaranteed-fresh one.",
       inputSchema: z.object({
         mediaId: anilistId.describe("AniList anime/manga ID to add (from search_media)."),
         status: z
           .enum(STATUSES)
           .optional()
           .describe(
-            "List status. If omitted, AniList defaults to CURRENT (with `startedAt` " +
-              "auto-set to today) — confirmed live; despite AniList's own site UI defaulting " +
-              "new entries to Planning, the API itself does not.",
+            "List status. If omitted on a genuinely NEW entry, AniList defaults to CURRENT " +
+              "(with `startedAt` auto-set to today) — confirmed live; despite AniList's own " +
+              "site UI defaulting new entries to Planning, the API itself does not. If the " +
+              "media is already on the list, this default does NOT apply — omitting `status` " +
+              "on an update-in-place leaves the entry's existing status untouched.",
           ),
         score: z
           .number()
@@ -187,9 +204,13 @@ export function registerListTools(server: McpServer, client: AniListClient): voi
           .array(z.string())
           .optional()
           .describe(
-            "Names of custom lists to file this entry under. The list must already exist on " +
-              "the account (update_user's `animeListOptions`/`mangaListOptions` `customLists`) " +
-              "— naming one that doesn't exist yet is silently a no-op, not an error.",
+            "Names of custom lists to file this entry under — REPLACES this entry's full set " +
+              "of enabled lists, not merged: naming only a subset silently turns OFF every " +
+              "other list this entry was previously filed under (confirmed live), it doesn't " +
+              "leave them alone. Include every list name you want this entry to stay tagged " +
+              "with, not just the one you're adding. Also, the list must already exist on the " +
+              "account (update_user's `animeListOptions`/`mangaListOptions` `customLists`) — " +
+              "naming one that doesn't exist yet is silently a no-op, not an error.",
           ),
         advancedScores: z
           .record(z.string(), z.number().min(0).max(10))

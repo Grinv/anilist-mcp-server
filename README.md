@@ -75,11 +75,11 @@ Once it's connected, just ask your agent in natural language.
 | `get_user_profile`, `get_user_stats`, `get_full_user_info`, `get_user_recent_activity`                | none  |
 | `get_activity`, `get_user_activity`                                                                   | none  |
 | `get_user_list`                                                                                       | none  |
-| `favourite`                                                                                           | token |
+| `toggle_favourite`                                                                                    | token |
 | `add_list_entry`, `update_list_entry`, `remove_list_entry`                                            | token |
 | `post_text_activity`, `post_message_activity`, `delete_activity`                                      | token |
 | `post_thread`, `post_thread_comment`, `delete_thread`, `delete_thread_comment`                        | token |
-| `get_authorized_user`, `follow_user`, `update_user`                                                   | token |
+| `get_authorized_user`, `toggle_follow_user`, `update_user`                                            | token |
 | `get_notifications`                                                                                   | token |
 | `login_anilist`, `submit_anilist_redirect`                                                            | login |
 

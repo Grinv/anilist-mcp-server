@@ -235,6 +235,17 @@ disabled list activity options (6 required)`. Worse: that rejection
       don't reset to a default, they disappear outright. `update_user` now
       client-side requires all 20 `NotificationType` values whenever this
       arg is set at all, specifically to prevent this silent data loss.
+    - **Omitting the per-entry `enabled`/`disabled` boolean behaves
+      differently on these two otherwise-parallel array args** — confirmed
+      live: a `notificationOptions` entry missing `enabled` (e.g.
+      `{type: THREAD_LIKE}`) is accepted and persists as `enabled: null`
+      (verified via `get_authorized_user`), no error. The same shape of
+      omission on `disabledListActivity` (e.g. `{type: PAUSED}`, with the
+      other 5 statuses complete) instead fails the **entire** mutation with
+      a bare `500 Internal Server Error` — not the structured 400
+      validation shape described above, and confirmed to leave the account
+      completely unchanged (not a partial-apply case). Always send an
+      explicit `true`/`false` for every entry of both arrays.
   - **`animeListOptions`/`mangaListOptions` (`MediaListOptionsInput`: `{
 sectionOrder, splitCompletedSectionByFormat, customLists, advancedScoring,
 advancedScoringEnabled, theme }`) is a true partial merge, not full-replace**
@@ -243,6 +254,14 @@ advancedScoringEnabled, theme }`) is a true partial merge, not full-replace**
     list type (`mangaList`) completely untouched. This is the opposite
     convention from `SaveMediaListEntry`'s `advancedScores`, which zeros any
     omitted category — don't assume one behavior implies the other.
+  - **But `customLists` itself is full-replace, not merged by name** —
+    confirmed live: an account with `customLists: [A, B]`, sent
+    `{customLists: [A]}`, ended up with `customLists: [A]` — `B` was
+    silently deleted, not preserved. So while sibling _fields_ merge
+    (previous bullet), the _array value_ of a field you do set is taken
+    verbatim as the new complete value. Fetch the current array via
+    `get_authorized_user` first and include every name you want to keep,
+    not just the one being added or removed.
   - **A non-empty `advancedScoring` category list does NOT mean advanced
     scoring is enabled** — confirmed live: an account with
     `advancedScoringEnabled: false` still had `advancedScoring: [Story,
@@ -378,7 +397,7 @@ recommendations, likes`.
 - **`ToggleFavourite` does not validate that `id` actually belongs to the
   given `kind`** — confirmed live: `ToggleFavourite(characterId: <a real
 anime's id>)` succeeded and added that id to the account's favourited
-  characters, with no error and no existence check. `favourite`'s tool
+  characters, with no error and no existence check. `toggle_favourite`'s tool
   description warns callers to resolve `id` from the matching
   search/get tool for `kind` rather than reusing an id on hand, since AniList
   itself won't catch the mismatch.

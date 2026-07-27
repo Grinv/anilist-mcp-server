@@ -95,7 +95,11 @@ const mediaSearchInput = z.object({
   genres: z
     .array(z.string())
     .optional()
-    .describe("Restrict to entries matching ALL of these genre names (see get_genres)."),
+    .describe(
+      "Restrict to entries matching ALL of these genre names (see get_genres for valid " +
+        "names) — an unrecognized genre name doesn't error, it just filters out all results, " +
+        "same silent-mismatch behavior as `format_in`/`tag_in` below.",
+    ),
   format_in: z
     .array(z.enum(FORMATS))
     .optional()
@@ -128,7 +132,8 @@ const mediaSearchInput = z.object({
     .describe(
       "Restrict to entries matching ALL of these exact tag names (see get_media_tags for valid " +
         "names — unlike `genres`, tag names are case-sensitive and more specific, e.g. " +
-        '"Time Loop" or "Tragedy").',
+        '"Time Loop" or "Tragedy"). An unrecognized tag name doesn\'t error, it just silently ' +
+        "matches nothing (same behavior as `genres`/`format_in` above, confirmed live).",
     ),
   onList: z
     .boolean()
@@ -355,7 +360,9 @@ export function registerSearchTools(server: McpServer, client: AniListClient): v
     {
       title: "Search users",
       description:
-        "Search AniList for users by username. Returns AniList user IDs to use with profile/list tools.",
+        "Search AniList for users by username. Returns AniList user IDs to use with " +
+        "get_user_profile/get_full_user_info (profile), get_user_stats (statistics), " +
+        "get_user_list (their public list), or toggle_follow_user.",
       inputSchema: z.object({
         term: z.string().min(1).describe("Username (or part of it) to search for."),
         page: z.number().int().positive().default(1).describe("Page number for pagination."),
@@ -394,13 +401,17 @@ export function registerSearchTools(server: McpServer, client: AniListClient): v
           .describe(
             "Restrict to this forum category ID. Not independently listable by any tool — " +
               "resolve one from a thread you've already read (its `categories` field) or from " +
-              "a forum URL like anilist.co/forum/recent?category=<id>.",
+              "a forum URL like anilist.co/forum/recent?category=<id>. A wrong or nonexistent " +
+              "ID doesn't error, it silently filters to an empty result — indistinguishable " +
+              "from 'no threads in this category.'",
           ),
         mediaCategoryId: anilistId
           .optional()
           .describe(
             "Restrict to threads tagged with this AniList anime/manga ID (from " +
-              "search_media/get_media).",
+              "search_media/get_media). Not existence-checked: a nonexistent media ID doesn't " +
+              "error, it silently filters to an empty result — resolve the ID via search_media " +
+              "first if you need to confirm the title actually exists.",
           ),
         page: z.number().int().positive().default(1).describe("Page number for pagination."),
         perPage: z.number().int().min(1).max(25).default(10).describe("Results per page (max 25)."),
@@ -441,8 +452,13 @@ export function registerSearchTools(server: McpServer, client: AniListClient): v
           .describe(
             "Restrict results to this AniList user — numeric ID or exact username (resolved " +
               "to an id with one extra internal lookup; no need to call search_user first " +
-              "unless you only have a partial/fuzzy name). Use get_user_activity instead if " +
-              "you only need one user's feed without the type filter.",
+              "unless you only have a partial/fuzzy name). Validation is asymmetric: an " +
+              "unknown USERNAME errors ('No AniList user named ... was found'), but an " +
+              "unknown numeric ID does NOT — it silently returns an empty result, " +
+              "indistinguishable from 'this user has no matching activity'. Resolve a numeric " +
+              "ID via search_user first if you need to confirm the account actually exists. " +
+              "Use get_user_activity instead if you only need one user's feed without the " +
+              "type filter.",
           ),
         type: z
           .enum(ACTIVITY_TYPES)

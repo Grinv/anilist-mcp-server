@@ -90,6 +90,17 @@ npm run check:api      # live upstream health-check (network)
   model: explain when to use a tool and what each parameter means. Check new
   or edited descriptions against the `tool-description-check` skill (Glama's
   TDQS rubric) before committing.
+- **Name a field for what it actually accepts, not a generic ID suffix** —
+  e.g. `user` (accepts either a numeric AniList ID or an exact username, see
+  `outputSchemas.ts`'s shared `userIdOrName`) rather than `user_id`/`userId`,
+  which would wrongly imply numbers only. Keep the same field name for the
+  same concept across every tool that takes it — grep sibling tools before
+  naming a new field for an existing concept. A name that silently diverges
+  (e.g. `search_activity`'s old `userId` vs every other user-scoped tool's
+  `user`) isn't caught by schema validation (no schema in this codebase is
+  `.strict()`) — the mismatched key is just dropped, and the tool silently
+  falls back to whatever the field being absent means, instead of erroring
+  (see `CHANGELOG.md` 0.2.2 for the bug this caused live).
 - Every tool declares an `outputSchema` alongside `inputSchema`, describing the
   `structuredContent` shape `jsonResult()` returns. Model top-level keys
   precisely; for arrays of AniList media/character/staff/etc. objects and

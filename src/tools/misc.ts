@@ -86,6 +86,27 @@ export function registerMiscTools(server: McpServer, client: AniListClient): voi
     () => guard(async () => jsonResult({ genres: await misc.getGenres(client.ctx()) })),
   );
 
+  const mediaTagsPageInfo = pageInfoSchema.extend({
+    total: z
+      .number()
+      .int()
+      .nullish()
+      .describe(
+        "Exact total tag count — unlike this field's usual meaning on AniList-paginated " +
+          "tools, this one IS accurate: it's computed client-side from the full ~425-tag " +
+          "collection fetched in one request, not from AniList's own degraded page resolver. " +
+          "Safe to rely on to know when you've paged through everything.",
+      ),
+    lastPage: z
+      .number()
+      .int()
+      .nullish()
+      .describe(
+        "Exact final page number for the requested `perPage` size (computed client-side) — " +
+          "accurate here, unlike the same field on AniList-paginated tools.",
+      ),
+  });
+
   server.registerTool(
     "get_media_tags",
     {
@@ -101,7 +122,10 @@ export function registerMiscTools(server: McpServer, client: AniListClient): voi
         page: z.number().int().positive().default(1).describe("Page number for pagination."),
         perPage: z.number().int().min(1).max(25).default(25).describe("Results per page (max 25)."),
       }),
-      outputSchema: z.object({ tags: z.array(mediaTagItem), pageInfo: pageInfoSchema.optional() }),
+      outputSchema: z.object({
+        tags: z.array(mediaTagItem),
+        pageInfo: mediaTagsPageInfo.optional(),
+      }),
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
     ({ page, perPage }) =>

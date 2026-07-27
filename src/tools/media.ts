@@ -372,7 +372,10 @@ export function registerMediaTools(server: McpServer, client: AniListClient): vo
       description:
         "List an anime/manga's characters with their role (Main/Supporting/Background) and, " +
         "for anime, Japanese voice actors. Use search_media first to resolve a title to its " +
-        "AniList ID.",
+        "AniList ID. No explicit ordering is requested — don't assume results are grouped by " +
+        "role or sorted by popularity (unlike get_character/get_staff's reverse-direction " +
+        "lookup, which IS popularity-sorted); confirmed live, a Main-role character can appear " +
+        "well after several Supporting ones.",
       inputSchema: z.object({
         type: mediaType,
         id: anilistId.describe("AniList ID."),
@@ -397,7 +400,9 @@ export function registerMediaTools(server: McpServer, client: AniListClient): vo
       description:
         "List an anime/manga's staff (director, writer, character designer, author, " +
         "illustrator, etc.) with their role. Use search_media first to resolve a title to its " +
-        "AniList ID.",
+        "AniList ID. No explicit ordering is requested — don't assume results are sorted by " +
+        "role or popularity (unlike get_staff's reverse-direction lookup, which IS " +
+        "popularity-sorted).",
       inputSchema: z.object({
         type: mediaType,
         id: anilistId.describe("AniList ID."),
@@ -469,9 +474,10 @@ export function registerMediaTools(server: McpServer, client: AniListClient): vo
     {
       title: "Get the anime airing schedule",
       description:
-        "Get upcoming (or a specific title's) episode air times. Omit `mediaId` for the " +
-        "site-wide upcoming schedule, or pass it (from search_media/get_media) to get one " +
-        "title's next-episode air time. Anime only — manga has no airing schedule.",
+        "Get upcoming (or a specific title's) episode air times, soonest-airing first " +
+        "(confirmed live). Omit `mediaId` for the site-wide upcoming schedule, or pass it " +
+        "(from search_media/get_media) to get one title's next-episode air time. Anime only " +
+        "— manga has no airing schedule.",
       inputSchema: z.object({
         mediaId: anilistId.optional().describe("Restrict to this AniList anime ID."),
         notYetAired: z
@@ -493,7 +499,7 @@ export function registerMediaTools(server: McpServer, client: AniListClient): vo
   );
 
   server.registerTool(
-    "favourite",
+    "toggle_favourite",
     {
       title: "Favourite/unfavourite an anime, manga, character, staff member, or studio",
       description:

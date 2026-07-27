@@ -33,12 +33,16 @@ const recommendationNode = z
         id: z.number().int(),
         title: z.object({ romaji: z.string().nullish(), english: z.string().nullish() }).nullish(),
         siteUrl: z.string().nullish(),
-        // Only resolves when the caller is logged in (viewer-relative) — null
-        // otherwise, or when this title isn't on the caller's own list.
         mediaListEntry: z
           .object({ id: z.number().int(), status: z.string().nullish() })
           .passthrough()
-          .nullish(),
+          .nullish()
+          .describe(
+            "Whether this recommended title is on the caller's own list — viewer-relative, " +
+              "so it only resolves when logged in; null both when logged out and when the " +
+              "title just isn't on the list (the two cases aren't distinguishable from this " +
+              "field alone).",
+          ),
       })
       .passthrough()
       .nullish(),
@@ -89,7 +93,16 @@ export function registerRecommendationTools(server: McpServer, client: AniListCl
           ),
       }),
       outputSchema: z.object({
-        recommendations: z.object({ nodes: z.array(recommendationNode).nullish() }).passthrough(),
+        recommendations: z
+          .object({
+            pageInfo: z
+              .object({ hasNextPage: z.boolean().nullish() })
+              .passthrough()
+              .optional()
+              .describe("Whether another page exists — use this to decide whether to paginate."),
+            nodes: z.array(recommendationNode).nullish(),
+          })
+          .passthrough(),
       }),
       annotations: { readOnlyHint: true, openWorldHint: true },
     },

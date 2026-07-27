@@ -36,7 +36,13 @@ export async function getMediaTags(
   perPage = 25,
 ): Promise<{
   tags: unknown[];
-  pageInfo: { total: number; currentPage: number; perPage: number; hasNextPage: boolean };
+  pageInfo: {
+    total: number;
+    currentPage: number;
+    perPage: number;
+    lastPage: number;
+    hasNextPage: boolean;
+  };
 }> {
   const query = `query{MediaTagCollection{id name description category isAdult}}`;
   const data = await ctx.gql.request<{ MediaTagCollection: unknown[] }>(
@@ -52,6 +58,7 @@ export async function getMediaTags(
       total: all.length,
       currentPage: page,
       perPage,
+      lastPage: Math.max(1, Math.ceil(all.length / perPage)),
       hasNextPage: start + perPage < all.length,
     },
   };

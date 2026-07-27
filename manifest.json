@@ -51,7 +51,7 @@
     },
     { "name": "get_studio", "description": "A studio's profile and most popular produced titles." },
     {
-      "name": "favourite",
+      "name": "toggle_favourite",
       "description": "Favourite/unfavourite an anime, manga, character, staff member or studio (requires token)."
     },
     { "name": "get_activity", "description": "A single activity post by its ID." },
@@ -147,7 +147,7 @@
       "name": "get_authorized_user",
       "description": "The logged-in user's own profile (requires token)."
     },
-    { "name": "follow_user", "description": "Follow/unfollow a user (requires token)." },
+    { "name": "toggle_follow_user", "description": "Follow/unfollow a user (requires token)." },
     {
       "name": "update_user",
       "description": "Update your AniList account settings (requires token)."

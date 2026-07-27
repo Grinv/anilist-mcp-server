@@ -9,7 +9,7 @@ import { pageInfoSchema, deleteResult, anilistId, userIdOrName } from "./outputS
 /** Matches the ACTIVITY_FRAGMENT union (TextActivity/ListActivity/MessageActivity) —
  *  `id` is the only field common to every branch; the rest are optional since
  *  which ones are populated depends on which concrete activity type came back. */
-const activityItem = z
+export const activityItem = z
   .object({
     id: z.number().int(),
     type: z.string().nullish(),
@@ -131,8 +131,13 @@ export function registerActivityTools(server: McpServer, client: AniListClient):
     {
       title: "Post a message activity",
       description:
-        "[Requires login] Post a new direct message-style activity to another AniList user's " +
-        "profile, or update an existing one by passing its `id`.",
+        "[Requires login] Post a new message-style activity to another AniList user's " +
+        "profile, or update an existing one by passing its `id`. Despite the name, this is " +
+        "NOT a private DM — like post_text_activity, it's publicly visible on both users' " +
+        "activity feeds/profiles to anyone who can view them. This is a limitation of this " +
+        "tool, not AniList itself: AniList's underlying mutation does accept a `private` " +
+        "argument, but this tool doesn't expose it, so every message sent through it is " +
+        "public. Don't use it for anything the sender expects to stay confidential.",
       inputSchema: z.object({
         recipientId: anilistId.describe(
           "AniList numeric user ID of the message recipient (resolve a username via " +

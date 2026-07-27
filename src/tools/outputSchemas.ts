@@ -50,7 +50,14 @@ export const deleteResult = z.object({ deleted: z.boolean().nullish() }).passthr
  *  to every branch (e.g. the ACTIVITY_FRAGMENT union) — per the precision
  *  policy, loosely typed rather than duplicating the full shape per call
  *  site. Shared so the same one-line schema isn't hand-copied per file. */
-export const idOnly = z.object({ id: z.number().int() }).passthrough();
+export const idOnly = z
+  .object({ id: z.number().int() })
+  .passthrough()
+  .describe(
+    "Only `id` is guaranteed here — the real object has more fields, but their shape " +
+      "depends on which variant of an underlying union type this is (e.g. which activity " +
+      "type), so only the field common to every variant is declared.",
+  );
 
 /** A FuzzyDate in AniList's *output* shape (all fields nullable — unlike the
  *  input variant, which is a plain optional {year,month,day}). */

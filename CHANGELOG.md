@@ -6,6 +6,37 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-07-28
+
+### Added
+
+- Add `pageInfo.lastPage` to `get_media_tags`'s response — computed client-side, so unlike AniList-paginated tools it's accurate, not degraded.
+
+### Changed
+
+- **BREAKING:** Rename tools `favourite` → `toggle_favourite` and `follow_user` → `toggle_follow_user`, matching this server's verb+resource naming.
+  Update any pinned tool names in your own configs/prompts.
+- Document that `update_user`'s `customLists` replaces the whole array rather than merging by name.
+  Omitting an existing list silently deletes it.
+- Document that `add_list_entry` upserts by media ID rather than always creating a fresh entry.
+  Unset fields (including `status`) keep their previous value on an existing entry, not a new-entry default.
+- Document that `add_list_entry`/`update_list_entry`'s `customLists` replaces an entry's full set of enabled lists, not merges.
+  Naming only a subset silently un-tags every list left out.
+- Document a third `update_user` full-replace exception: `customLists`, alongside `notificationOptions`/`disabledListActivity`.
+- Document that reordering/renaming `advancedScoring` categories silently reinterprets already-stored per-category scores.
+- Document that `get_user_stats`/`get_full_user_info` statistics can lag behind an account's real list state (AniList's own aggregation).
+- Document that `post_message_activity` is always public — AniList's mutation accepts a `private` argument this tool doesn't expose.
+- Document `search_activity`'s asymmetric `user` validation: unknown username errors, unknown numeric ID silently returns empty.
+- Document that `search_thread`'s `categoryId`/`mediaCategoryId` silently filter to an empty result on an unknown ID.
+- Document that `search_media`'s `genres`/`tag_in` silently filter to no results on an unrecognized name, matching `format_in`.
+- Document that `get_user_recent_activity` returns full activity content, not just IDs.
+- Document that `update_user`'s `notificationOptions`/`disabledListActivity` entries require an explicit `enabled`/`disabled` value.
+  Omitting it writes `null` on `notificationOptions`, but fails the whole call with a `500` on `disabledListActivity` (confirmed live).
+- Document that `search_user` points to specific downstream tools (profile, stats, list, follow), not a generic "profile/list tools."
+- Document that `get_media_characters`/`get_media_staff` request no explicit ordering, unlike `get_character`/`get_staff`'s popularity sort.
+- Document that `get_anime_schedule` returns results soonest-airing first.
+- Document `get_recommendations_for_media`'s `mediaListEntry` login-gating, and add its missing `pageInfo.hasNextPage` to the output schema.
+
 ## [0.3.0] - 2026-07-26
 
 ### Added

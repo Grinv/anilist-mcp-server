@@ -10,8 +10,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - Correct `idempotentHint` to `false` on `delete_activity`/`delete_thread`/`delete_thread_comment`/`remove_list_entry` — each one errors, not silently succeeds, when retried on an already-deleted id. [fc4fc5e](https://github.com/Grinv/anilist-mcp-server/commit/fc4fc5e)
 - Document that `update_list_entry`'s `customLists` replaces the entry's full set of enabled lists, not merges — the same warning `add_list_entry`'s identical field already had. [53f8351](https://github.com/Grinv/anilist-mcp-server/commit/53f8351)
-- Document that `update_list_entry`'s `hiddenFromStatusLists` still counts the entry in statistics — the same clause `add_list_entry`'s identical field already had.
-- Document that `post_thread`'s `sticky` is confirmed live to silently no-op for a non-mod account, matching `locked`'s existing wording (both were verified together).
+- Document that `update_list_entry`'s `hiddenFromStatusLists` still counts the entry in statistics — the same clause `add_list_entry`'s identical field already had. [eceace6](https://github.com/Grinv/anilist-mcp-server/commit/eceace6)
+- Document that `post_thread`'s `sticky` is confirmed live to silently no-op for a non-mod account, matching `locked`'s existing wording (both were verified together). [eceace6](https://github.com/Grinv/anilist-mcp-server/commit/eceace6)
+- Document that `search_media`'s `onList` silently no-ops when not logged in, matching `get_recommendations_for_media`'s `excludeInList`. [ad6d8a7](https://github.com/Grinv/anilist-mcp-server/commit/ad6d8a7)
 
 ### Security
 

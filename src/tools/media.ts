@@ -12,6 +12,7 @@ import {
   fuzzyDateOut,
   anilistId,
   paginationFields,
+  mediaTitleOut,
 } from "./outputSchemas.js";
 
 const mediaType = z.enum(MEDIA_TYPES).describe("Whether `id` refers to anime or manga.");
@@ -298,7 +299,7 @@ const scheduleItem = z
     media: z
       .object({
         id: z.number().int(),
-        title: z.object({ romaji: z.string().nullish(), english: z.string().nullish() }).nullish(),
+        title: mediaTitleOut.nullish(),
         siteUrl: z.string().nullish(),
       })
       .passthrough()

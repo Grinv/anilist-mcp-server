@@ -75,6 +75,15 @@ export const idOnly = z
       "type), so only the field common to every variant is declared.",
   );
 
+/** A media title as most tools echo it back — just `romaji`/`english`, not
+ *  the full `native`/`userPreferred` set `get_media`'s own title needs.
+ *  Always paired with `.nullish()` at the call site (the field itself, not
+ *  its sub-fields, can be absent depending on what AniList has). */
+export const mediaTitleOut = z.object({
+  romaji: z.string().nullish(),
+  english: z.string().nullish(),
+});
+
 /** A FuzzyDate in AniList's *output* shape (all fields nullable — unlike the
  *  input variant, which is a plain optional {year,month,day}). */
 export const fuzzyDateOut = z

@@ -10,6 +10,7 @@ import {
   fuzzyDateOut,
   anilistId,
   userIdOrName,
+  mediaTitleOut,
 } from "./outputSchemas.js";
 
 const STATUSES = ["CURRENT", "PLANNING", "COMPLETED", "DROPPED", "PAUSED", "REPEATING"] as const;
@@ -26,7 +27,7 @@ const listEntryMediaLite = z
   .object({
     id: z.number().int(),
     idMal: z.number().int().nullish(),
-    title: z.object({ romaji: z.string().nullish(), english: z.string().nullish() }).nullish(),
+    title: mediaTitleOut.nullish(),
     episodes: z.number().int().nullish(),
     chapters: z.number().int().nullish(),
     siteUrl: z.string().nullish(),

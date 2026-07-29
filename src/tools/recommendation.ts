@@ -4,12 +4,12 @@ import type { AniListClient } from "../clients/anilist.js";
 import * as recommendation from "../clients/anilist/recommendation.js";
 import { jsonResult } from "../lib/result.js";
 import { guard } from "./guard.js";
-import { anilistId, paginationFields } from "./outputSchemas.js";
+import { anilistId, paginationFields, mediaTitleOut } from "./outputSchemas.js";
 
 const mediaRefLite = z
   .object({
     id: z.number().int(),
-    title: z.object({ romaji: z.string().nullish(), english: z.string().nullish() }).nullish(),
+    title: mediaTitleOut.nullish(),
   })
   .passthrough();
 
@@ -31,7 +31,7 @@ const recommendationNode = z
     mediaRecommendation: z
       .object({
         id: z.number().int(),
-        title: z.object({ romaji: z.string().nullish(), english: z.string().nullish() }).nullish(),
+        title: mediaTitleOut.nullish(),
         siteUrl: z.string().nullish(),
         mediaListEntry: z
           .object({ id: z.number().int(), status: z.string().nullish() })

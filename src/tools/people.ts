@@ -4,14 +4,14 @@ import type { AniListClient } from "../clients/anilist.js";
 import * as people from "../clients/anilist/people.js";
 import { jsonResult } from "../lib/result.js";
 import { guard } from "./guard.js";
-import { anilistId } from "./outputSchemas.js";
+import { anilistId, mediaTitleOut } from "./outputSchemas.js";
 
 const mediaCredit = z
   .object({
     node: z
       .object({
         id: z.number().int(),
-        title: z.object({ romaji: z.string().nullish(), english: z.string().nullish() }).nullish(),
+        title: mediaTitleOut.nullish(),
         type: z.string().nullish(),
         format: z.string().nullish(),
       })

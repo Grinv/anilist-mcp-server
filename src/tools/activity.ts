@@ -10,6 +10,7 @@ import {
   anilistId,
   userIdOrName,
   paginationFields,
+  mediaTitleOut,
 } from "./outputSchemas.js";
 
 /** Matches the ACTIVITY_FRAGMENT union (TextActivity/ListActivity/MessageActivity) —
@@ -32,7 +33,7 @@ export const activityItem = z
     media: z
       .object({
         id: z.number().int(),
-        title: z.object({ romaji: z.string().nullish(), english: z.string().nullish() }).nullish(),
+        title: mediaTitleOut.nullish(),
       })
       .passthrough()
       .nullish(),

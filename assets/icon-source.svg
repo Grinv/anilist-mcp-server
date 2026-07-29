@@ -1,0 +1,41 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <!-- anilist-mcp-server icon — original vector design source.
+
+       IMPORTANT: rendering this file through a naive SVG->PNG pipeline (a
+       browser screenshot, macOS Quick Look's SVG thumbnailer, etc.) loses
+       the transparent background — both silently composite against opaque
+       white regardless of this file's lack of a background rect, even
+       though the official MCPB icon spec requires "PNG with transparency".
+       The actual rasterization to assets/icon.png happens in
+       generate-icon.py, which draws the same shape directly with Pillow
+       (supersampled + downsampled for anti-aliasing) and produces real
+       per-pixel alpha. Keep this file and generate-icon.py's VERTS/STOPS in
+       sync by hand if you ever edit one — there is no automated link.
+
+       Shape: a bookmark/ribbon — a tall rectangle with a triangular notch
+       cut from the bottom edge — the universal "saved to my list" glyph,
+       chosen because that's exactly what AniList (Anime List) tracking is:
+       one bold shape only, no secondary stripes/lines, so it stays legible
+       down to a 16px favicon (a past icon attempt with thin interior lines
+       "blended into mush" at that size).
+
+       Gradient stops are AniList's own real brand blues, not guessed:
+       `--color-blue-500` / `--color-blue-600` (== `--color-blue`, their
+       primary accent) / `--color-blue-900`, read live via
+       getComputedStyle(document.documentElement) on the rendered
+       anilist.co site (2026-07-29) — `--color-blue-600` was cross-checked
+       against the actual rendered color of an on-site link, confirming the
+       token is live CSS, not dead/unused. Corners are rounded via a
+       same-gradient stroke with a round linejoin (the same trick tmdb-mcp's
+       icon uses), since <path>/<polygon> has no native corner radius. -->
+  <defs>
+    <linearGradient id="anilistGradient" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#6fc8ff"/>
+      <stop offset="0.45" stop-color="#3db4f2"/>
+      <stop offset="1" stop-color="#0b4671"/>
+    </linearGradient>
+  </defs>
+  <polygon points="176,90 336,90 336,422 256,350 176,422"
+           fill="url(#anilistGradient)" stroke="url(#anilistGradient)" stroke-width="30"
+           stroke-linejoin="round" stroke-linecap="round"/>
+</svg>

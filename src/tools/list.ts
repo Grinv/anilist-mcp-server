@@ -274,8 +274,9 @@ export function registerListTools(server: McpServer, client: AniListClient): voi
           .boolean()
           .optional()
           .describe(
-            "Hide/unhide this entry from the public status-grouped list views — distinct from " +
-              "`private`, which hides the entry entirely.",
+            "Hide/unhide this entry from the public status-grouped list views (e.g. 'Watching') " +
+              "while still counting it in statistics — distinct from `private`, which hides the " +
+              "entry entirely.",
           ),
         startedAt: fuzzyDate.optional().describe("New start date."),
         completedAt: fuzzyDate.optional().describe("New completion date."),

@@ -166,7 +166,10 @@ export function registerThreadTools(server: McpServer, client: AniListClient): v
         sticky: z
           .boolean()
           .optional()
-          .describe("Pin this thread (only takes effect if you have moderator permission)."),
+          .describe(
+            "Pin this thread (only takes effect if you have moderator permission — confirmed " +
+              "live that a non-mod account's own thread silently stays unpinned).",
+          ),
         locked: z
           .boolean()
           .optional()

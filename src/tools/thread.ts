@@ -4,7 +4,13 @@ import type { AniListClient } from "../clients/anilist.js";
 import * as thread from "../clients/anilist/thread.js";
 import { jsonResult } from "../lib/result.js";
 import { guard } from "./guard.js";
-import { pageInfoSchema, deleteResult, anilistId, paginationFields } from "./outputSchemas.js";
+import {
+  pageInfoSchema,
+  deleteResult,
+  anilistId,
+  paginationFields,
+  deleteToolAnnotations,
+} from "./outputSchemas.js";
 
 const savedThread = z
   .object({
@@ -258,16 +264,7 @@ export function registerThreadTools(server: McpServer, client: AniListClient): v
         "silently succeeding.",
       inputSchema: z.object({ id: anilistId.describe("AniList thread ID to delete.") }),
       outputSchema: z.object({ result: deleteResult }),
-      annotations: {
-        readOnlyHint: false,
-        destructiveHint: true,
-        // Not idempotent: per this tool's own description, calling it again on
-        // an already-deleted id errors rather than silently succeeding a
-        // second time, so a retry-blind client can't safely treat it as a
-        // no-op repeat.
-        idempotentHint: false,
-        openWorldHint: true,
-      },
+      annotations: deleteToolAnnotations,
     },
     ({ id }) =>
       guard(async () => jsonResult({ result: await thread.deleteThread(client.ctx(), id) })),
@@ -284,16 +281,7 @@ export function registerThreadTools(server: McpServer, client: AniListClient): v
         "succeeding.",
       inputSchema: z.object({ id: anilistId.describe("AniList comment ID to delete.") }),
       outputSchema: z.object({ result: deleteResult }),
-      annotations: {
-        readOnlyHint: false,
-        destructiveHint: true,
-        // Not idempotent: per this tool's own description, calling it again on
-        // an already-deleted id errors rather than silently succeeding a
-        // second time, so a retry-blind client can't safely treat it as a
-        // no-op repeat.
-        idempotentHint: false,
-        openWorldHint: true,
-      },
+      annotations: deleteToolAnnotations,
     },
     ({ id }) =>
       guard(async () => jsonResult({ result: await thread.deleteThreadComment(client.ctx(), id) })),

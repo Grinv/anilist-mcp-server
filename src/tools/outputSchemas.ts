@@ -14,6 +14,18 @@ import { z } from "zod";
  *  "not found"; this only guards the range GraphQL can carry at all. */
 export const anilistId = z.number().int().min(-2147483648).max(2147483647);
 
+/** MCP annotations shared by every "delete this real thing by id" tool
+ *  (delete_activity, delete_thread, delete_thread_comment, remove_list_entry)
+ *  — not idempotent because each one's own description confirms retrying on
+ *  an already-deleted id errors instead of silently succeeding a second time,
+ *  so a retry-blind client can't safely treat it as a no-op repeat. */
+export const deleteToolAnnotations = {
+  readOnlyHint: false,
+  destructiveHint: true,
+  idempotentHint: false,
+  openWorldHint: true,
+} as const;
+
 /** The `page`/`perPage` pair every `Page`-based tool takes, spread into that
  *  tool's own `inputSchema` object (e.g. `z.object({ ...paginationFields(10),
  *  otherField: ... })`) — only `perPage`'s default varies per tool. Not used

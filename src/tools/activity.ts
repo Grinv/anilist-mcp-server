@@ -11,6 +11,7 @@ import {
   userIdOrName,
   paginationFields,
   mediaTitleOut,
+  deleteToolAnnotations,
 } from "./outputSchemas.js";
 
 /** Matches the ACTIVITY_FRAGMENT union (TextActivity/ListActivity/MessageActivity) —
@@ -191,16 +192,7 @@ export function registerActivityTools(server: McpServer, client: AniListClient):
         ),
       }),
       outputSchema: z.object({ result: deleteResult }),
-      annotations: {
-        readOnlyHint: false,
-        destructiveHint: true,
-        // Not idempotent: per this tool's own description, calling it again on
-        // an already-deleted id errors rather than silently succeeding a
-        // second time, so a retry-blind client can't safely treat it as a
-        // no-op repeat.
-        idempotentHint: false,
-        openWorldHint: true,
-      },
+      annotations: deleteToolAnnotations,
     },
     ({ id }) =>
       guard(async () => jsonResult({ result: await activity.deleteActivity(client.ctx(), id) })),

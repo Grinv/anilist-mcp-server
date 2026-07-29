@@ -11,6 +11,7 @@ import {
   anilistId,
   userIdOrName,
   mediaTitleOut,
+  deleteToolAnnotations,
 } from "./outputSchemas.js";
 
 const STATUSES = ["CURRENT", "PLANNING", "COMPLETED", "DROPPED", "PAUSED", "REPEATING"] as const;
@@ -29,12 +30,18 @@ const fuzzyDate = z
 // Each call site still chains its own `.describe()`: add/update's prose for
 // several of these fields differs in more than a "New " prefix (e.g.
 // `status`'s CURRENT-default note only applies to add), so only the Zod
-// bounds are shared here, not the full field definition.
+// bounds are shared here, not the full field definition. The cap numbers
+// themselves are named constants, interpolated into each site's describe()
+// text, so a future limit change can't silently desync the prose from the
+// schema the way the raw bound alone doesn't prevent.
+const REPEAT_MAX = 1000;
+const PRIORITY_MAX = 255;
+const NOTES_MAX = 6000;
 const scoreBounds = z.number().min(0).max(10).optional();
 const nonNegativeInt = z.number().int().min(0).optional();
-const repeatBounds = z.number().int().min(0).max(1000).optional();
-const priorityBounds = z.number().int().min(0).max(255).optional();
-const notesBounds = z.string().max(6000).optional();
+const repeatBounds = z.number().int().min(0).max(REPEAT_MAX).optional();
+const priorityBounds = z.number().int().min(0).max(PRIORITY_MAX).optional();
+const notesBounds = z.string().max(NOTES_MAX).optional();
 const advancedScoresBounds = z.record(z.string(), z.number().min(0).max(10)).optional();
 
 const listEntryMediaLite = z
@@ -192,14 +199,16 @@ export function registerListTools(server: McpServer, client: AniListClient): voi
         progress: nonNegativeInt.describe("Episodes watched / chapters read."),
         progressVolumes: nonNegativeInt.describe("Volumes read (manga only)."),
         repeat: repeatBounds.describe(
-          "Number of times rewatched/reread (per AniList's own schema, capped at 1000).",
+          `Number of times rewatched/reread (per AniList's own schema, capped at ${REPEAT_MAX}).`,
         ),
         priority: priorityBounds.describe(
-          "List priority (higher = more important; per AniList's own schema, capped at 255).",
+          "List priority (higher = more important; per AniList's own schema, capped at " +
+            `${PRIORITY_MAX}).`,
         ),
         private: z.boolean().optional().describe("Hide this entry from your public list."),
         notes: notesBounds.describe(
-          "Free-text notes for this entry (per AniList's own schema, capped at 6000 characters).",
+          `Free-text notes for this entry (per AniList's own schema, capped at ${NOTES_MAX} ` +
+            "characters).",
         ),
         hiddenFromStatusLists: z
           .boolean()
@@ -261,14 +270,15 @@ export function registerListTools(server: McpServer, client: AniListClient): voi
         progress: nonNegativeInt.describe("New episodes watched / chapters read."),
         progressVolumes: nonNegativeInt.describe("New volumes read (manga only)."),
         repeat: repeatBounds.describe(
-          "New rewatch/reread count (per AniList's own schema, capped at 1000).",
+          `New rewatch/reread count (per AniList's own schema, capped at ${REPEAT_MAX}).`,
         ),
         priority: priorityBounds.describe(
-          "New list priority (higher = more important; per AniList's own schema, capped at 255).",
+          "New list priority (higher = more important; per AniList's own schema, capped at " +
+            `${PRIORITY_MAX}).`,
         ),
         private: z.boolean().optional().describe("Hide/unhide this entry from your public list."),
         notes: notesBounds.describe(
-          "New free-text notes (per AniList's own schema, capped at 6000 characters).",
+          `New free-text notes (per AniList's own schema, capped at ${NOTES_MAX} characters).`,
         ),
         hiddenFromStatusLists: z
           .boolean()
@@ -328,16 +338,7 @@ export function registerListTools(server: McpServer, client: AniListClient): voi
         listEntryId: anilistId.describe("The list ENTRY id to delete (not the media id)."),
       }),
       outputSchema: z.object({ result: deleteResult }),
-      annotations: {
-        readOnlyHint: false,
-        destructiveHint: true,
-        // Not idempotent: per this tool's own description, calling it again on
-        // an already-deleted id errors rather than silently succeeding a
-        // second time, so a retry-blind client can't safely treat it as a
-        // no-op repeat.
-        idempotentHint: false,
-        openWorldHint: true,
-      },
+      annotations: deleteToolAnnotations,
     },
     ({ listEntryId }) =>
       guard(async () =>

@@ -14,6 +14,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Document that `post_thread`'s `sticky` is confirmed live to silently no-op for a non-mod account, matching `locked`'s existing wording (both were verified together). [eceace6](https://github.com/Grinv/anilist-mcp-server/commit/eceace6)
 - Document that `search_media`'s `onList` silently no-ops when not logged in, matching `get_recommendations_for_media`'s `excludeInList`. [ad6d8a7](https://github.com/Grinv/anilist-mcp-server/commit/ad6d8a7)
 - Fix `update_user`'s `notificationOptions`/`disabledListActivity` to actually reject a duplicated type — the old check only verified full coverage, not array length, so a duplicate-plus-full-coverage array silently passed despite both fields' "exactly once" description. [2cfa0fe](https://github.com/Grinv/anilist-mcp-server/commit/2cfa0fe)
+- Document that `get_studio`'s `name` already does AniList's own fuzzy search, so a partial name resolves directly without needing `search_studio` first. [995e071](https://github.com/Grinv/anilist-mcp-server/commit/995e071)
 
 ### Security
 

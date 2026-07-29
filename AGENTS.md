@@ -37,7 +37,8 @@ src/
                   # (shared output-schema fragments)
   prompts.ts      # MCP Prompts: multi-step plans that orchestrate the read tools
   __tests__/      # node:test (*.test.ts) + helpers.ts
-scripts/          # build-tests.mjs, run-tests.mjs, check-api.mjs, sync-version.mjs
+scripts/          # build-tests.mjs, run-tests.mjs, check-api.mjs, sync-version.mjs,
+                  # preversion-check.mjs (npm `preversion` gate — see the `release` skill)
 skills/           # reusable agent workflows for this repo (e.g. live-audit/) —
                   # plain Markdown with a YAML frontmatter name/description,
                   # not tied to any one tool's orchestration features, per

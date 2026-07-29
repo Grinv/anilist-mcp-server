@@ -226,11 +226,14 @@ Sweep every file under `src/tools/`, `src/clients/anilist/`, and `src/lib/`
   returns an empty-but-successful page for a nonexistent parent ID instead
   of erroring, indistinguishable from "genuinely zero results". Also flag a
   function that's already correctness-safe via a _separate_ existence-check
-  request instead of an aliased one (found in `get_thread_comments`, unlike
-  already-fixed siblings `getSchedule`/`getUserActivity`) — same inefficiency
-  this bullet targets, just not a correctness bug. Fix by aliasing a cheap
-  singular existence check (e.g. `exists:Media(id:$id){id}`) into the _same_
-  request as the real query, not a separate round-trip —
+  request instead of an aliased one — `getThreadComments`/`getSchedule`/
+  `getUserActivity` all share this pattern via `fields.ts`'s
+  `existsFragment()` helper as of a later refactor, so check any _new_
+  function with this shape against that helper instead of hand-rolling the
+  fragment again — same inefficiency this bullet targets, just not a
+  correctness bug. Fix by aliasing a cheap singular existence check (e.g.
+  `exists:Media(id:$id){id}`) into the _same_ request as the real query, not
+  a separate round-trip —
   confirmed live (`docs/api-references.md`) that AniList 404s the _entire_
   response when one aliased root field fails to resolve, even combined with
   unrelated fields in the same query, so this costs no extra request and
@@ -245,6 +248,11 @@ Sweep every file under `src/tools/`, `src/clients/anilist/`, and `src/lib/`
   something the MCP tools' pre-built queries let you probe directly.
 - Missing bounds on a numeric field whose `.describe()` promises a range
   (e.g. "0-10 scale") but whose Zod schema has no `.min()/.max()`.
+- A `.refine()` that promises "every one of N values exactly once" but only
+  checks `new Set(arr.map(...)).size === N` — that passes for an array
+  _longer_ than N with one value duplicated and none omitted, since it never
+  checks `arr.length === N` too. Confirmed live in exactly this shape on
+  `update_user`'s `notificationOptions`/`disabledListActivity`.
 - A union/required field with no custom Zod error message, falling back to
   a generic "Invalid input" instead of something actionable. Also check the
   inverse: a custom error given as a plain _string_ (`z.union([...], {error:

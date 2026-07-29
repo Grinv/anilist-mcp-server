@@ -8,16 +8,37 @@ dist-tests/
 docs/
 coverage/
 
+# Contributor-only instructions and agent/skill tooling — not needed by an
+# installed extension. .claude/ and .agents/ are symlinks to skills/, but
+# `mcpb pack` resolves symlinks to real file copies instead of skipping them,
+# so each must be excluded explicitly or every skill ships three times over.
+AGENTS.md
+CLAUDE.md
+skills/
+.claude/
+.agents/
+
 # Tooling / config
 tsconfig.json
+tsconfig.scripts.json
 tsup.config.ts
 eslint.config.js
+eslint.config.mjs
 .nvmrc
+.npmrc
 .gitignore
+.gitattributes
 .mcpbignore
 .editorconfig
+.prettierrc.json
+.prettierignore
 .env
 .env.*
+
+# Icon regeneration source — dev-only (needs Python/Pillow), not a runtime
+# asset; only assets/icon.png is referenced by manifest.json.
+assets/icon-source.svg
+assets/generate-icon.py
 
 # Tests & sourcemaps
 **/*.test.*

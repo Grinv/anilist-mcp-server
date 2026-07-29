@@ -147,7 +147,10 @@ const mediaSearchInput = z.object({
     .optional()
     .describe(
       "[Requires login] Restrict to (true) or exclude (false) entries already on the " +
-        "authenticated user's own list. Omit to ignore list status entirely.",
+        "authenticated user's own list. Omit to ignore list status entirely. Confirmed live: " +
+        "silently no-ops (identical results for true/false/omitted) if not logged in, since " +
+        "there's no list to check against — same behavior as " +
+        "get_recommendations_for_media's `excludeInList`.",
     ),
   averageScore_greater: z
     .number()

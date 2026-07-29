@@ -1,6 +1,6 @@
 ---
 name: release
-description: Cut a release of anilist-mcp-server — draft CHANGELOG entries, then bump/tag/push. Use when asked to release, cut a version, or publish a new version of this package.
+description: Cut a release of anilist-mcp-server — draft CHANGELOG entries, check docs/metadata consistency, then bump/tag/push. Use when asked to release, cut a version, or publish a new version of this package.
 ---
 
 # Releasing
@@ -12,15 +12,23 @@ URL), and also renames `CHANGELOG.md`'s `## [Unreleased]` heading to
 `## [X.Y.Z] - <today>` (adding a fresh empty `## [Unreleased]` above it) —
 `version.test.ts` guards that version.ts/manifest.json/server.json never drift.
 
-A `preversion` hook (`scripts/preversion-check.mjs`) runs first — it's a
-presence-only safety net, not a substitute for actually running the skill
-below as a real judgment step. It blocks `npm version` if `CHANGELOG.md`'s
-`[Unreleased]` section is empty at that point: run the `changelog-style` skill
-against the commits since the last tag first — it's what actually makes the
-entries short, self-describing, free of implementation detail, and linked to
-their commits; the hook only confirms _something_ is there, not that it
-follows that style. (Or re-run with `CONFIRM_EMPTY_CHANGELOG=1` if this
-release genuinely has no user-facing changes, e.g. a pure dependency bump.)
+A `preversion` hook (`scripts/preversion-check.mjs`) runs first, with two checks:
+
+- **Unpushed-tag race**: if the current `package.json` version already has a
+  local git tag, it blocks unless that tag is also on `origin` — this is the
+  exact race that orphaned this repo's own v0.1.2 (two `npm version` runs six
+  minutes apart, the first tag/commit never pushed — see CHANGELOG.md's note
+  on that version). Push the dangling tag (`git push origin vX.Y.Z`) or delete
+  it if it was a mistake (`git tag -d vX.Y.Z`), then retry.
+- **Empty `[Unreleased]`**: presence-only safety net, not a substitute for
+  actually running the skill below as a real judgment step. It blocks
+  `npm version` if `CHANGELOG.md`'s `[Unreleased]` section is empty at that
+  point: run the `changelog-style` skill against the commits since the last
+  tag first — it's what actually makes the entries short, self-describing,
+  free of implementation detail, and linked to their commits; the hook only
+  confirms _something_ is there, not that it follows that style. (Or re-run
+  with `CONFIRM_EMPTY_CHANGELOG=1` if this release genuinely has no
+  user-facing changes, e.g. a pure dependency bump.)
 
 **Do NOT rename `## [Unreleased]` to a dated heading yourself before running
 `npm version`.** That used to be this skill's documented step 1 and it's a
@@ -41,16 +49,41 @@ don't rely on the `preversion` hook alone to catch a skipped one:
 1. Invoke the `changelog-style` skill against the commits since the last tag;
    write/fix the `[Unreleased]` entries per its style rules and leave them
    under `[Unreleased]` — don't rename the heading (see above).
-2. Commit it.
-3. `npm version <patch|minor|major>` — preversion gate, then bumps + syncs
+2. Run the `docs-consistency-check` skill — none of this is version-bump
+   mechanics, so `sync-version.mjs`/`version.test.ts` don't catch drift here,
+   and it accumulates silently across several PRs (`manifest.json`'s and
+   `server.json`'s `tools` arrays, `server.json`'s `environmentVariables`,
+   README's tool table, AGENTS.md's `src/` tree).
+3. Commit all of the above.
+4. `npm version <patch|minor|major>` — preversion gate, then bumps + syncs
    every file (including the CHANGELOG rename) + commits + tags `vX.Y.Z`.
-4. `git push --follow-tags` — pushing the tag triggers `.github/workflows/release.yml`.
+5. `git push --follow-tags` — pushing the tag triggers `.github/workflows/release.yml`.
 
 The tag push (`v*`) runs the **Release** workflow: `check:api` gate → build → test
-→ pack `.mcpb` → GitHub Release → `npm publish` (OIDC trusted publishing, with
-provenance — no token) → **publish to the official MCP Registry** (`mcp-publisher`,
-GitHub OIDC). Never hand-edit the version in the derived files; bump `package.json`
-via `npm version` and let the hook sync the rest.
+→ pack `.mcpb` → extract `CHANGELOG.md`'s section for this version (fails loudly,
+not silently, if that section is empty — the workflow's own safety net for
+whatever slipped past `sync-version.mjs`/`preversion-check.mjs`) → GitHub Release
+→ `npm publish` (OIDC trusted publishing, with provenance, pinned to an exact
+verified-good npm version — no token; skipped without failing the job if this
+version is already on npm, so a re-run after a partial failure doesn't abort) →
+inject the just-packed `.mcpb`'s SHA-256 into `server.json` (fails loudly if the
+injection didn't actually match a package, instead of silently leaving a stale
+hash) → **publish to the official MCP Registry** (`mcp-publisher`, GitHub OIDC).
+Never hand-edit the version in the derived files; bump `package.json` via
+`npm version` and let the hook sync the rest.
+
+## Fixing a mistake before pushing
+
+If something's wrong after `npm version` but before step 5 (e.g. a fixup commit
+needs to land under the same release), it's safe to amend history and move the
+tag — nothing's been pushed yet. One footgun when moving a tag:
+`git tag -f <name>` **without** `-a`/`-m` silently downgrades an existing
+annotated tag to a lightweight one, and `git push --follow-tags` silently skips
+lightweight tags — the push reports success but the tag never leaves your
+machine. Always move a tag with `git tag -f -a <name> -m "<name>"` (matching
+what `npm version` itself creates), then verify before pushing:
+`git cat-file -t <name>` must print `tag`, not `commit`. If you already
+force-pushed a lightweight tag, push it explicitly: `git push origin <name>`.
 
 ## MCP Registry
 

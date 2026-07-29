@@ -105,6 +105,8 @@ Everything below is one commit: [48049f6](https://github.com/Grinv/anilist-mcp-s
 
 ## [0.2.0] - 2026-07-22
 
+Everything below is one commit: [0a537f7](https://github.com/Grinv/anilist-mcp-server/commit/0a537f7).
+
 ### Added
 
 - Add `tag_in`, `onList`, `averageScore`/`popularity`/`episodes` range filters, `startDate`/`endDate` range filters, and `source_in` to `search_media`.

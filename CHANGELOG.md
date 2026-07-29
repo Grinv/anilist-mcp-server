@@ -176,6 +176,8 @@ Everything below is one commit: [194c7d3](https://github.com/Grinv/anilist-mcp-s
 
 ## [0.1.2] - 2026-07-21
 
+_Note: this version was bumped locally via `npm version` but its tag was never pushed — superseded minutes later by v0.1.3, so it was never published to npm and has no git tag or GitHub Release. The changes below still shipped: they're part of v0.1.3 and every release since. Left as-is rather than retroactively tagging/publishing it now, since `npm publish` would move the `latest` dist-tag backward to this old version._
+
 ### Fixed
 
 - Reject a malformed `access_token` in AniList's OAuth token response with a clear error, instead of silently storing it. ([38c193c](https://github.com/Grinv/anilist-mcp-server/commit/38c193c))

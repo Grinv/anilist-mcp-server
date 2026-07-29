@@ -149,8 +149,8 @@ To enable them, set `ANILIST_CLIENT_ID` + `ANILIST_CLIENT_SECRET` and run the
 **`login_anilist`** tool once (a one-time browser authorization; the token is
 then stored and reused). The server does not read a `.env` file, so pass
 config via this `env` block (or your shell environment). See
-[docs/auth.md](docs/auth.md) for the full login walkthrough and
-[docs/clients.md](docs/clients.md) for more clients.
+[docs/auth.md](https://github.com/Grinv/anilist-mcp-server/blob/main/docs/auth.md) for the full login walkthrough and
+[docs/clients.md](https://github.com/Grinv/anilist-mcp-server/blob/main/docs/clients.md) for more clients.
 
 ## Connect your AniList account
 
@@ -196,34 +196,34 @@ That's it. The token is saved locally (`~/.config/anilist-mcp-server/tokens.json
 refresh mechanism — you'll need to run `login_anilist` again once it does.
 
 > **Prefer no interactive step?** Pre-set a standalone `ANILIST_ACCESS_TOKEN`
-> instead. See [docs/auth.md](docs/auth.md).
+> instead. See [docs/auth.md](https://github.com/Grinv/anilist-mcp-server/blob/main/docs/auth.md).
 
 ## Configuration
 
 All configuration is via environment variables, all optional — without
 credentials the read tools still work.
 
-| Variable                | Purpose                                                                                                                |
-| ----------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| `ANILIST_CLIENT_ID`     | Your AniList app's Client ID — see [Connect your AniList account](#connect-your-anilist-account).                      |
-| `ANILIST_CLIENT_SECRET` | Your AniList app's Client Secret, paired with the Client ID above.                                                     |
-| `ANILIST_ACCESS_TOKEN`  | _Advanced, optional._ Pre-supply a token instead of running `login_anilist`. See [docs/auth.md](docs/auth.md).         |
-| `ANILIST_TOKEN_STORE`   | Override where the login token is saved on disk (default: your OS's config folder).                                    |
-| `ANILIST_OAUTH_PORT`    | Only needed if port `8082` is already in use — see step 1 of the [account walkthrough](#connect-your-anilist-account). |
-| `LOG_LEVEL`             | How much the server logs: `debug` \| `info` \| `warn` \| `error` \| `silent` (default `info`).                         |
+| Variable                | Purpose                                                                                                                                                              |
+| ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ANILIST_CLIENT_ID`     | Your AniList app's Client ID — see [Connect your AniList account](#connect-your-anilist-account).                                                                    |
+| `ANILIST_CLIENT_SECRET` | Your AniList app's Client Secret, paired with the Client ID above.                                                                                                   |
+| `ANILIST_ACCESS_TOKEN`  | _Advanced, optional._ Pre-supply a token instead of running `login_anilist`. See [docs/auth.md](https://github.com/Grinv/anilist-mcp-server/blob/main/docs/auth.md). |
+| `ANILIST_TOKEN_STORE`   | Override where the login token is saved on disk (default: your OS's config folder).                                                                                  |
+| `ANILIST_OAUTH_PORT`    | Only needed if port `8082` is already in use — see step 1 of the [account walkthrough](#connect-your-anilist-account).                                               |
+| `LOG_LEVEL`             | How much the server logs: `debug` \| `info` \| `warn` \| `error` \| `silent` (default `info`).                                                                       |
 
 ### Tuning (rarely needed)
 
-| Variable                                        | Purpose                                                                                                                                                                                                                           |
-| ----------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ANILIST_MIN_INTERVAL_MS`                       | Min spacing between AniList calls (default `2100`, i.e. ~30/min — AniList's API is currently in a documented degraded state; see [docs/api-references.md](docs/api-references.md)). Set to `0` to disable client-side throttling. |
-| `CACHE_TTL_MS`                                  | TTL for the in-memory read cache (default `300000` = 5 min).                                                                                                                                                                      |
-| `HTTP_TIMEOUT_MS`, `HTTP_RETRIES`               | Per-request timeout (default `15000`) and retry attempts for transient failures (default `2`).                                                                                                                                    |
-| `ANILIST_GRAPHQL_URL`, `ANILIST_OAUTH_BASE_URL` | Override upstream base URLs.                                                                                                                                                                                                      |
+| Variable                                        | Purpose                                                                                                                                                                                                                                                                                 |
+| ----------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ANILIST_MIN_INTERVAL_MS`                       | Min spacing between AniList calls (default `2100`, i.e. ~30/min — AniList's API is currently in a documented degraded state; see [docs/api-references.md](https://github.com/Grinv/anilist-mcp-server/blob/main/docs/api-references.md)). Set to `0` to disable client-side throttling. |
+| `CACHE_TTL_MS`                                  | TTL for the in-memory read cache (default `300000` = 5 min).                                                                                                                                                                                                                            |
+| `HTTP_TIMEOUT_MS`, `HTTP_RETRIES`               | Per-request timeout (default `15000`) and retry attempts for transient failures (default `2`).                                                                                                                                                                                          |
+| `ANILIST_GRAPHQL_URL`, `ANILIST_OAUTH_BASE_URL` | Override upstream base URLs.                                                                                                                                                                                                                                                            |
 
 Provide these in your MCP client config's `env` block (the server does **not**
-read a `.env` file). See [docs/auth.md](docs/auth.md) for how to obtain the
-credentials, and [docs/clients.md](docs/clients.md) for client configuration
+read a `.env` file). See [docs/auth.md](https://github.com/Grinv/anilist-mcp-server/blob/main/docs/auth.md) for how to obtain the
+credentials, and [docs/clients.md](https://github.com/Grinv/anilist-mcp-server/blob/main/docs/clients.md) for client configuration
 snippets.
 
 ## NSFW content

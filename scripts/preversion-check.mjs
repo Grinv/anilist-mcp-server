@@ -11,6 +11,7 @@ import { readFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
+import { unreleasedHasBullets } from "./sync-version.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -27,14 +28,22 @@ const root = join(dirname(fileURLToPath(import.meta.url)), "..");
  * @returns {string | undefined}
  */
 function remoteTagCommitSha(tag, root) {
-  const tmpRef = `refs/tmp-preversion-check/${tag}`;
+  const tmpRef = `refs/tmp-preversion-check/${process.pid}-${tag}`;
   try {
     execFileSync("git", ["fetch", "--quiet", "origin", `refs/tags/${tag}:${tmpRef}`], {
       cwd: root,
       stdio: ["ignore", "ignore", "pipe"],
     });
-  } catch {
-    return undefined; // No such tag on origin.
+  } catch (err) {
+    // Only a missing remote ref means "not pushed yet" — anything else
+    // (network down, DNS failure, auth failure) is a real problem the
+    // caller needs to know about, not silently treated the same way.
+    const stderr =
+      err && typeof err === "object" && "stderr" in err && err.stderr ? String(err.stderr) : "";
+    if (/couldn't find remote ref/i.test(stderr)) {
+      return undefined;
+    }
+    throw err;
   }
   try {
     return execFileSync("git", ["rev-parse", `${tmpRef}^{commit}`], { cwd: root })
@@ -70,10 +79,10 @@ function checkUnpushedTagRace() {
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error(
-      `preversion-check: git tag ${tag} exists locally for the current package.json version, ` +
-        `but checking whether it's on origin failed (${message}).\n` +
-        `Push it first (git push origin ${tag}) or delete it deliberately (git tag -d ${tag}) ` +
-        "if it was a mistake, then retry.",
+      `preversion-check: could not verify whether git tag ${tag} is on origin (${message}) — this\n` +
+        "looks like a network/auth problem, not necessarily an unpushed tag. Check connectivity to\n" +
+        `origin and retry; if the tag turns out to genuinely be unpushed, push it (git push origin\n` +
+        `${tag}) or delete it (git tag -d ${tag}) if it was a mistake.`,
     );
     process.exit(1);
   }
@@ -104,9 +113,13 @@ function checkUnpushedTagRace() {
 
 function checkChangelog() {
   const changelog = readFileSync(join(root, "CHANGELOG.md"), "utf8");
-  const match = changelog.match(/## \[Unreleased\]\n([\s\S]*?)(?=\n## \[|$)/);
-  const body = (match?.[1] ?? "").trim();
-  const hasBullets = /^-\s/m.test(body);
+  let hasBullets;
+  try {
+    hasBullets = unreleasedHasBullets(changelog);
+  } catch (err) {
+    console.error(`preversion-check: ${err instanceof Error ? err.message : String(err)}`);
+    process.exit(1);
+  }
   if (hasBullets) {
     console.log("preversion-check: CHANGELOG.md's [Unreleased] section has entries — OK.");
     return;

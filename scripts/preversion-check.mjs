@@ -16,6 +16,27 @@ import { unreleasedHasBullets } from "./sync-version.mjs";
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 
 /**
+ * Sweeps any `refs/tmp-preversion-check/*` left behind by a run that never
+ * reached its own `finally` cleanup (e.g. killed mid-fetch) — the pid-keyed
+ * ref name has no other listing/pruning mechanism, so without this an
+ * orphaned ref from a crashed run persists in .git/refs forever.
+ * @param {string} root
+ */
+function pruneStaleTmpRefs(root) {
+  const output = execFileSync(
+    "git",
+    ["for-each-ref", "--format=%(refname)", "refs/tmp-preversion-check/"],
+    { cwd: root },
+  ).toString();
+  for (const ref of output
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)) {
+    execFileSync("git", ["update-ref", "-d", ref], { cwd: root });
+  }
+}
+
+/**
  * `git ls-remote --tags` is *supposed* to also emit a peeled
  * "<commit-sha>\trefs/tags/<tag>^{}" line for an annotated tag, pointing at
  * the underlying commit — but GitHub's smart-HTTP response doesn't always
@@ -28,6 +49,7 @@ const root = join(dirname(fileURLToPath(import.meta.url)), "..");
  * @returns {string | undefined}
  */
 function remoteTagCommitSha(tag, root) {
+  pruneStaleTmpRefs(root);
   const tmpRef = `refs/tmp-preversion-check/${process.pid}-${tag}`;
   try {
     execFileSync("git", ["fetch", "--quiet", "origin", `refs/tags/${tag}:${tmpRef}`], {

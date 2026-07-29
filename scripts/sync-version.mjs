@@ -39,3 +39,36 @@ patch("server.json", [
 ]);
 
 console.log(`sync-version: set ${version} in version.ts, manifest.json, server.json`);
+
+// File CHANGELOG.md's [Unreleased] entries under a dated version heading.
+// Runs here (the npm `version` lifecycle script), not as a manual pre-step —
+// `preversion-check.mjs` gates on [Unreleased] being non-empty, and by
+// design that check runs BEFORE npm bumps package.json/runs this script, so
+// this rename must happen AFTER the gate, not before it. Doing it manually
+// beforehand (as this project's own `release` skill used to instruct)
+// leaves [Unreleased] empty right when the gate inspects it — a real,
+// confirmed self-inflicted failure, not a hypothetical one.
+function syncChangelog() {
+  const file = join(root, "CHANGELOG.md");
+  const text = readFileSync(file, "utf8");
+  const match = text.match(/## \[Unreleased\]\n([\s\S]*?)(?=\n## \[|$)/);
+  if (!match) {
+    throw new Error("sync-version: CHANGELOG.md has no [Unreleased] heading — update the script");
+  }
+  if (!/^-\s/m.test(match[1].trim())) {
+    // Already renamed (re-run), or a genuinely no-user-facing-change release
+    // that used CONFIRM_EMPTY_CHANGELOG=1 — nothing to file, leave as-is.
+    console.log("sync-version: CHANGELOG.md's [Unreleased] is already empty, leaving it as-is");
+    return;
+  }
+  const today = new Date().toISOString().slice(0, 10);
+  writeFileSync(
+    file,
+    text.replace("## [Unreleased]\n", `## [Unreleased]\n\n## [${version}] - ${today}\n`),
+  );
+  console.log(
+    `sync-version: filed CHANGELOG.md's [Unreleased] entries under [${version}] - ${today}`,
+  );
+}
+
+syncChangelog();

@@ -155,7 +155,15 @@ typecheck:scripts`, folded into `npm run lint`) instead of the main
 - Cross-platform: macOS, Linux and Windows. Avoid POSIX-only shell in npm
   scripts (use the Node helper scripts).
 - **Commits:** author/committer `Grinv <4070730+Grinv@users.noreply.github.com>`;
-  do **not** add a `Co-Authored-By` trailer.
+  do **not** add a `Co-Authored-By` trailer. This repo has no local/global git
+  `user.name`/`user.email` configured, so a bare `git commit` silently falls
+  back to whatever the OS/environment auto-detects (confirmed: has produced a
+  wrong-author commit before) — before your **first** commit each session,
+  check `git log -1 --format='%an <%ae>'`, and if it isn't the identity above,
+  pass `GIT_AUTHOR_NAME`/`GIT_AUTHOR_EMAIL`/`GIT_COMMITTER_NAME`/
+  `GIT_COMMITTER_EMAIL` as env vars on every `git commit`/`npm version`
+  invocation rather than relying on ambient config. Don't fix this by running
+  `git config` yourself — that's a standing instruction outside this file.
 - **CodeQL** (`.github/workflows/codeql.yml`) scans `javascript-typescript` on
   push/PR to main plus a weekly cron — no local equivalent command; findings
   surface under the repo's **Security → Code scanning** tab.

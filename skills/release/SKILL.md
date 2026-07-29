@@ -8,30 +8,42 @@ description: Cut a release of anilist-mcp-server — draft CHANGELOG entries, th
 `package.json` is the **single source of truth** for the version. The npm
 `version` lifecycle hook runs `scripts/sync-version.mjs`, which propagates it to
 `src/version.ts`, `manifest.json` and `server.json` (incl. the `.mcpb` release-asset
-URL); `version.test.ts` guards that they never drift.
+URL), and also renames `CHANGELOG.md`'s `## [Unreleased]` heading to
+`## [X.Y.Z] - <today>` (adding a fresh empty `## [Unreleased]` above it) —
+`version.test.ts` guards that version.ts/manifest.json/server.json never drift.
 
 A `preversion` hook (`scripts/preversion-check.mjs`) runs first — it's a
 presence-only safety net, not a substitute for actually running the skill
 below as a real judgment step. It blocks `npm version` if `CHANGELOG.md`'s
-`[Unreleased]` section is empty: run the `changelog-style` skill against the
-commits since the last tag first — it's what actually makes the entries
-short, self-describing, free of implementation detail, and linked to their
-commits; the hook only confirms _something_ is there, not that it follows
-that style. (Or re-run with `CONFIRM_EMPTY_CHANGELOG=1` if this release
-genuinely has no user-facing changes, e.g. a pure dependency bump.)
+`[Unreleased]` section is empty at that point: run the `changelog-style` skill
+against the commits since the last tag first — it's what actually makes the
+entries short, self-describing, free of implementation detail, and linked to
+their commits; the hook only confirms _something_ is there, not that it
+follows that style. (Or re-run with `CONFIRM_EMPTY_CHANGELOG=1` if this
+release genuinely has no user-facing changes, e.g. a pure dependency bump.)
+
+**Do NOT rename `## [Unreleased]` to a dated heading yourself before running
+`npm version`.** That used to be this skill's documented step 1 and it's a
+confirmed, self-inflicted failure mode: the `preversion` gate checks whether
+`[Unreleased]` is populated, and by definition it's empty right after you've
+already moved its entries into a dated section — so a manual pre-rename
+guarantees the gate blocks, forcing an awkward `CONFIRM_EMPTY_CHANGELOG=1`
+override for a release that isn't actually empty. `sync-version.mjs` now does
+this rename itself, from inside the `version` lifecycle script, which runs
+strictly _after_ the `preversion` gate has already passed — so the entries
+are still under `[Unreleased]` (and thus visible to the gate) at exactly the
+moment it matters, and get filed under the right dated heading automatically
+right after.
 
 **When invoked as this skill**, run these as explicit steps, not optional —
 don't rely on the `preversion` hook alone to catch a skipped one:
 
 1. Invoke the `changelog-style` skill against the commits since the last tag;
-   write/fix the `[Unreleased]` entries per its style rules, then rename
-   `## [Unreleased]` to `## [X.Y.Z] - <today>` (add a fresh empty
-   `## [Unreleased]` above it) yourself — `npm version`/`sync-version.mjs`
-   never touch `CHANGELOG.md`'s heading, so skipping this step ships a
-   release whose own changelog still calls its entries "Unreleased".
+   write/fix the `[Unreleased]` entries per its style rules and leave them
+   under `[Unreleased]` — don't rename the heading (see above).
 2. Commit it.
 3. `npm version <patch|minor|major>` — preversion gate, then bumps + syncs
-   every file + commits + tags `vX.Y.Z`.
+   every file (including the CHANGELOG rename) + commits + tags `vX.Y.Z`.
 4. `git push --follow-tags` — pushing the tag triggers `.github/workflows/release.yml`.
 
 The tag push (`v*`) runs the **Release** workflow: `check:api` gate → build → test

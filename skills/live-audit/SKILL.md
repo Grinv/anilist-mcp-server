@@ -207,6 +207,12 @@ Sweep every file under `src/tools/`, `src/clients/anilist/`, and `src/lib/`
   already know what the correctly-filtered result should look like. Confirmed
   live: `search_activity({user: <id>})` silently returned the global feed
   instead of erroring or filtering, because the real field is `userId`.
+  Same diff-don't-review-in-isolation method applies to describe-TEXT depth,
+  not just field names: two tools independently duplicating a same-named
+  field (e.g. `add_list_entry`/`update_list_entry`'s `customLists`) can drift
+  when a behavioral disclosure is added to one and not the other — see the
+  `tool-description-check` skill's full-replace-vs-partial-merge bullet for
+  the confirmed case.
 - A GraphQL query whose single-resource lookup returns AniList's `null`
   instead of erroring — check whether the client function dereferences it
   unguarded (`data.Media.stats` with no null check) instead of using

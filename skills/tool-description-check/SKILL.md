@@ -119,7 +119,12 @@ Purpose — double-check those two first on any new or edited tool.
   set — confirmed for `update_user`'s `customLists` (account level) and for
   `add_list_entry`/`update_list_entry`'s `customLists` (entry level):
   omitting a previously-set list silently drops or disables it, it isn't
-  left alone.
+  left alone. When two tools independently duplicate the same field with no
+  cross-reference between them (not just ones that explicitly reference each
+  other), a disclosure added to one doesn't imply the other has it — grep the
+  sibling and check, don't assume: confirmed drifted once already
+  (`add_list_entry`'s `customLists` got this warning, `update_list_entry`'s
+  identical field didn't, in the same commit that added it to the first).
 - If the mutation upserts (create-or-update by some key), say so plainly.
   "Everything else is left at defaults" is only true for a genuinely new
   record — on an existing one, omitted fields keep their _previous_ value.

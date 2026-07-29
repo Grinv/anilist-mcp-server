@@ -21,6 +21,7 @@ src/
   index.ts        # bin entry — calls start()
   server.ts       # buildServer() + start(); registers everything
   config.ts       # env → validated Config (zod)
+  version.ts      # VERSION constant, kept in sync with package.json (checked by a test)
   lib/            # http, rateLimit, cache, tokenStore, oauthLogin, errors, logger,
                   # result, graphql (the GraphQL request/error-mapping layer)
   clients/        # anilist.ts — thin AniListClient facade (auth/config/login,

@@ -142,50 +142,55 @@ export function registerThreadTools(server: McpServer, client: AniListClient): v
         "[Requires login] Post a new forum thread to the authenticated user's own AniList " +
         "account, or update an existing one by passing its `id`. Use search_thread first if " +
         "you want to check whether a similar thread already exists before posting a new one.",
-      inputSchema: z.object({
-        title: z
-          .string()
-          .min(6)
-          .max(120)
-          .describe("Thread title (per AniList's own schema: 6-120 characters)."),
-        body: z
-          .string()
-          .min(1)
-          .max(30000)
-          .describe("Thread body (markdown; per AniList's own schema, up to 30000 characters)."),
-        categories: z
-          .array(anilistId)
-          .optional()
-          .describe(
-            "Forum category IDs to post this thread under — needed when creating a new " +
-              "thread. Not independently listable by any tool; resolve one from a thread " +
-              "you've already read (get_thread's/search_thread's `categories` field) or from " +
-              "a forum URL like anilist.co/forum/recent?category=<id>.",
-          ),
-        mediaCategories: z
-          .array(anilistId)
-          .optional()
-          .describe(
-            "AniList anime/manga IDs to tag this thread with, for threads about a specific " +
-              "title (from search_media/get_media).",
-          ),
-        sticky: z
-          .boolean()
-          .optional()
-          .describe(
-            "Pin this thread (only takes effect if you have moderator permission — confirmed " +
-              "live that a non-mod account's own thread silently stays unpinned).",
-          ),
-        locked: z
-          .boolean()
-          .optional()
-          .describe(
-            "Lock this thread to prevent further replies (only takes effect if you have " +
-              "moderator permission — confirmed live that a non-mod account's own thread " +
-              "silently stays unlocked).",
-          ),
-        id: anilistId.optional().describe("Thread ID to update instead of creating a new one."),
-      }),
+      inputSchema: z
+        .object({
+          title: z
+            .string()
+            .min(6)
+            .max(120)
+            .describe("Thread title (per AniList's own schema: 6-120 characters)."),
+          body: z
+            .string()
+            .min(1)
+            .max(30000)
+            .describe("Thread body (markdown; per AniList's own schema, up to 30000 characters)."),
+          categories: z
+            .array(anilistId)
+            .optional()
+            .describe(
+              "Forum category IDs to post this thread under — REQUIRED when creating a new " +
+                "thread (AniList rejects the mutation otherwise), optional when updating one via " +
+                "`id`. Not independently listable by any tool; resolve one from a thread you've " +
+                "already read (get_thread's/search_thread's `categories` field) or from a forum " +
+                "URL like anilist.co/forum/recent?category=<id>.",
+            ),
+          mediaCategories: z
+            .array(anilistId)
+            .optional()
+            .describe(
+              "AniList anime/manga IDs to tag this thread with, for threads about a specific " +
+                "title (from search_media/get_media).",
+            ),
+          sticky: z
+            .boolean()
+            .optional()
+            .describe(
+              "Pin this thread (only takes effect if you have moderator permission — confirmed " +
+                "live that a non-mod account's own thread silently stays unpinned).",
+            ),
+          locked: z
+            .boolean()
+            .optional()
+            .describe(
+              "Lock this thread to prevent further replies (only takes effect if you have " +
+                "moderator permission — confirmed live that a non-mod account's own thread " +
+                "silently stays unlocked).",
+            ),
+          id: anilistId.optional().describe("Thread ID to update instead of creating a new one."),
+        })
+        .refine((v) => v.id !== undefined || v.categories !== undefined, {
+          message: "`categories` is required when creating a new thread (no `id` given).",
+        }),
       outputSchema: z.object({ thread: savedThread }),
       annotations: {
         readOnlyHint: false,

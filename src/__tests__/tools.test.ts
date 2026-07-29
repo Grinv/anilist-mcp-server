@@ -182,6 +182,30 @@ test("get_studio reports an actionable error (isError: true) when neither id nor
   assert.equal(mock.calls.length, 0, "must not call AniList at all without an id or name");
 });
 
+test("post_thread requires categories when creating (no id), but not when updating (id given)", async (t) => {
+  const badMock = mockFetch(() => {
+    throw new Error("must not be called — Zod should reject before any fetch");
+  });
+  installFetch(t, badMock);
+  const { client, close } = await connectServer({ ANILIST_ACCESS_TOKEN: "tok" });
+  t.after(close);
+
+  const createRes = await client.callTool({
+    name: "post_thread",
+    arguments: { title: "thread!", body: "b" },
+  });
+  assert.equal(createRes.isError, true, "creating without categories must be rejected");
+  assert.equal(badMock.calls.length, 0);
+
+  const okMock = mockFetch(() => jsonResponse({ data: { SaveThread: { id: 1 } } }));
+  installFetch(t, okMock);
+  const updateRes = await client.callTool({
+    name: "post_thread",
+    arguments: { title: "thread!", body: "b", id: 1 },
+  });
+  assert.notEqual(updateRes.isError, true, "updating via id must not require categories");
+});
+
 test("mutation tools reject text below AniList's own documented minimum length before any fetch", async (t) => {
   const mock = mockFetch(() => {
     throw new Error("must not be called — Zod should reject before any fetch");
@@ -373,7 +397,7 @@ test("personal/mutation tools without a token return an actionable error instead
     ["post_text_activity", { text: "hello" }],
     ["post_message_activity", { recipientId: 1, message: "hi" }],
     ["delete_activity", { id: 1 }],
-    ["post_thread", { title: "thread!", body: "b" }],
+    ["post_thread", { title: "thread!", body: "b", categories: [1] }],
     ["post_thread_comment", { threadId: 1, comment: "hi" }],
     ["delete_thread", { id: 1 }],
     ["delete_thread_comment", { id: 1 }],
@@ -462,7 +486,7 @@ test("every gated mutation tool succeeds end-to-end with a token, not just add_l
     ["post_text_activity", { text: "hello" }],
     ["post_message_activity", { recipientId: 1, message: "hi" }],
     ["delete_activity", { id: 1 }],
-    ["post_thread", { title: "thread!", body: "b" }],
+    ["post_thread", { title: "thread!", body: "b", categories: [1] }],
     ["post_thread_comment", { threadId: 1, comment: "hi" }],
     ["delete_thread", { id: 1 }],
     ["delete_thread_comment", { id: 1 }],

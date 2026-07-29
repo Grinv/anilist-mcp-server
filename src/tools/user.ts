@@ -5,7 +5,7 @@ import * as user from "../clients/anilist/user.js";
 import * as activity from "../clients/anilist/activity.js";
 import { jsonResult } from "../lib/result.js";
 import { guard } from "./guard.js";
-import { pageInfoSchema, anilistId, userIdOrName } from "./outputSchemas.js";
+import { pageInfoSchema, anilistId, userIdOrName, MEDIA_LIST_STATUSES } from "./outputSchemas.js";
 import { NOTIFICATION_TYPES } from "./notification.js";
 import { activityItem } from "./activity.js";
 
@@ -19,14 +19,6 @@ const TITLE_LANGUAGES = [
 ] as const;
 const SCORE_FORMATS = ["POINT_100", "POINT_10_DECIMAL", "POINT_10", "POINT_5", "POINT_3"] as const;
 const STAFF_NAME_LANGUAGES = ["ROMAJI_WESTERN", "ROMAJI", "NATIVE"] as const;
-const MEDIA_LIST_STATUSES = [
-  "CURRENT",
-  "PLANNING",
-  "COMPLETED",
-  "DROPPED",
-  "PAUSED",
-  "REPEATING",
-] as const;
 
 const mediaListOptionsInput = z
   .object({
@@ -426,7 +418,9 @@ export function registerUserTools(server: McpServer, client: AniListClient): voi
             }),
           )
           .refine(
-            (opts) => new Set(opts.map((o) => o.type)).size === NOTIFICATION_TYPES.length,
+            (opts) =>
+              opts.length === NOTIFICATION_TYPES.length &&
+              new Set(opts.map((o) => o.type)).size === NOTIFICATION_TYPES.length,
             `Must include every one of the ${NOTIFICATION_TYPES.length} notification types exactly once.`,
           )
           .optional()
@@ -488,7 +482,9 @@ export function registerUserTools(server: McpServer, client: AniListClient): voi
             }),
           )
           .refine(
-            (opts) => new Set(opts.map((o) => o.type)).size === MEDIA_LIST_STATUSES.length,
+            (opts) =>
+              opts.length === MEDIA_LIST_STATUSES.length &&
+              new Set(opts.map((o) => o.type)).size === MEDIA_LIST_STATUSES.length,
             `Must include every one of the ${MEDIA_LIST_STATUSES.length} list statuses exactly once — AniList rejects a partial list.`,
           )
           .optional()

@@ -202,6 +202,72 @@ test("mutation tools reject text below AniList's own documented minimum length b
   assert.equal(mock.calls.length, 0, "none of these should have reached AniList");
 });
 
+test("update_user's notificationOptions/disabledListActivity reject a duplicated type even when every type is still covered", async (t) => {
+  // Regression: the .refine() only checked Set(types).size === the full
+  // count, which passes for a 21-entry array that duplicates one type and
+  // omits none — it never checked the array's own length, so "exactly
+  // once" wasn't actually enforced despite both tools' descriptions
+  // promising it.
+  const NOTIFICATION_TYPES = [
+    "ACTIVITY_MESSAGE",
+    "ACTIVITY_REPLY",
+    "FOLLOWING",
+    "ACTIVITY_MENTION",
+    "THREAD_COMMENT_MENTION",
+    "THREAD_SUBSCRIBED",
+    "THREAD_COMMENT_REPLY",
+    "AIRING",
+    "ACTIVITY_LIKE",
+    "ACTIVITY_REPLY_LIKE",
+    "THREAD_LIKE",
+    "THREAD_COMMENT_LIKE",
+    "ACTIVITY_REPLY_SUBSCRIBED",
+    "RELATED_MEDIA_ADDITION",
+    "MEDIA_DATA_CHANGE",
+    "MEDIA_MERGE",
+    "MEDIA_DELETION",
+    "MEDIA_SUBMISSION_UPDATE",
+    "STAFF_SUBMISSION_UPDATE",
+    "CHARACTER_SUBMISSION_UPDATE",
+  ];
+  const MEDIA_LIST_STATUSES = [
+    "CURRENT",
+    "PLANNING",
+    "COMPLETED",
+    "DROPPED",
+    "PAUSED",
+    "REPEATING",
+  ];
+
+  const badMock = mockFetch(() => {
+    throw new Error("must not be called — Zod should reject before any fetch");
+  });
+  installFetch(t, badMock);
+  const { client, close } = await connectServer({ ANILIST_ACCESS_TOKEN: "tok" });
+  t.after(close);
+
+  const duplicatedNotificationOptions = [
+    ...NOTIFICATION_TYPES.map((type) => ({ type, enabled: true })),
+    { type: NOTIFICATION_TYPES[0], enabled: false }, // 21 entries, all 20 types still covered
+  ];
+  const res1 = await client.callTool({
+    name: "update_user",
+    arguments: { notificationOptions: duplicatedNotificationOptions },
+  });
+  assert.equal(res1.isError, true, "a duplicated notification type must be rejected");
+
+  const duplicatedDisabledListActivity = [
+    ...MEDIA_LIST_STATUSES.map((type) => ({ type, disabled: false })),
+    { type: MEDIA_LIST_STATUSES[0], disabled: true }, // 7 entries, all 6 statuses still covered
+  ];
+  const res2 = await client.callTool({
+    name: "update_user",
+    arguments: { disabledListActivity: duplicatedDisabledListActivity },
+  });
+  assert.equal(res2.isError, true, "a duplicated list status must be rejected");
+  assert.equal(badMock.calls.length, 0);
+});
+
 test("update_user's timezone regex accepts AniList's documented -?HH:MM format and rejects garbage", async (t) => {
   const okMock = mockFetch(() => jsonResponse({ data: { UpdateUser: { id: 1 } } }));
   installFetch(t, okMock);

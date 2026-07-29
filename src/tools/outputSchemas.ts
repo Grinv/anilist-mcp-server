@@ -124,6 +124,20 @@ export const toggleFavouriteResult = z
  *  an anime or a manga through one parameterized call. */
 export const MEDIA_TYPES = ["ANIME", "MANGA"] as const;
 
+/** AniList's `MediaListStatus` enum — was independently hand-duplicated in
+ *  src/tools/list.ts, src/tools/user.ts, and src/clients/anilist/list.ts;
+ *  centralized so a future AniList-side change can't update one copy and
+ *  silently leave the others (and whatever they gate, e.g. user.ts's
+ *  "every status exactly once" refine) stale. */
+export const MEDIA_LIST_STATUSES = [
+  "CURRENT",
+  "PLANNING",
+  "COMPLETED",
+  "DROPPED",
+  "PAUSED",
+  "REPEATING",
+] as const;
+
 /** A caller-supplied AniList user reference: either the numeric ID or an
  *  exact username. Shared across every user-scoped tool (activity/list/user
  *  domains) so the custom error message stays in one place instead of being

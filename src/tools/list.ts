@@ -7,14 +7,13 @@ import { guard } from "./guard.js";
 import {
   deleteResult,
   MEDIA_TYPES,
+  MEDIA_LIST_STATUSES,
   fuzzyDateOut,
   anilistId,
   userIdOrName,
   mediaTitleOut,
   deleteToolAnnotations,
 } from "./outputSchemas.js";
-
-const STATUSES = ["CURRENT", "PLANNING", "COMPLETED", "DROPPED", "PAUSED", "REPEATING"] as const;
 
 const fuzzyDate = z
   .object({
@@ -183,7 +182,7 @@ export function registerListTools(server: McpServer, client: AniListClient): voi
       inputSchema: z.object({
         mediaId: anilistId.describe("AniList anime/manga ID to add (from search_media)."),
         status: z
-          .enum(STATUSES)
+          .enum(MEDIA_LIST_STATUSES)
           .optional()
           .describe(
             "List status. If omitted on a genuinely NEW entry, AniList defaults to CURRENT " +
@@ -262,7 +261,7 @@ export function registerListTools(server: McpServer, client: AniListClient): voi
         "add_list_entry's response). Only set the fields you want to change.",
       inputSchema: z.object({
         listEntryId: anilistId.describe("The list ENTRY id to update (not the media id)."),
-        status: z.enum(STATUSES).optional().describe("New list status."),
+        status: z.enum(MEDIA_LIST_STATUSES).optional().describe("New list status."),
         score: scoreBounds.describe(
           "New score out of 10 (decimals allowed), always on this scale regardless of the " +
             "account's configured scoreFormat (set via update_user) — no conversion needed.",

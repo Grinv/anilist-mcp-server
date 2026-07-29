@@ -275,6 +275,14 @@ follows, posts, account settings) using a token you supply — see
 [PRIVACY.md](PRIVACY.md) for the full details on data collection, what gets
 sent where, caching/token storage and retention, and contact info.
 
+## Security
+
+This is the broadest write/social tool surface of this project's sibling
+servers — list mutations, favourites, follows, and posting/deleting activity,
+threads, and comments, all on your real AniList account. See
+[SECURITY.md](SECURITY.md) for the full mutating-tool inventory, token
+storage/handling, credential redaction, and how to report a vulnerability.
+
 ## License
 
 [MIT](LICENSE) © Grinv

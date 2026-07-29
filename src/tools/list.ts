@@ -23,6 +23,20 @@ const fuzzyDate = z
   })
   .describe("A partial date; omit fields you don't know (e.g. just {year: 2026}).");
 
+// Bounds shared by add_list_entry/update_list_entry — extracted so the two
+// near-duplicate schemas can't drift out of sync on a *limit* the way this
+// project already shipped once (the `priority` describe-text asymmetry).
+// Each call site still chains its own `.describe()`: add/update's prose for
+// several of these fields differs in more than a "New " prefix (e.g.
+// `status`'s CURRENT-default note only applies to add), so only the Zod
+// bounds are shared here, not the full field definition.
+const scoreBounds = z.number().min(0).max(10).optional();
+const nonNegativeInt = z.number().int().min(0).optional();
+const repeatBounds = z.number().int().min(0).max(1000).optional();
+const priorityBounds = z.number().int().min(0).max(255).optional();
+const notesBounds = z.string().max(6000).optional();
+const advancedScoresBounds = z.record(z.string(), z.number().min(0).max(10)).optional();
+
 const listEntryMediaLite = z
   .object({
     id: z.number().int(),
@@ -171,41 +185,22 @@ export function registerListTools(server: McpServer, client: AniListClient): voi
               "media is already on the list, this default does NOT apply — omitting `status` " +
               "on an update-in-place leaves the entry's existing status untouched.",
           ),
-        score: z
-          .number()
-          .min(0)
-          .max(10)
-          .optional()
-          .describe(
-            "Score out of 10 (decimals allowed, e.g. 8.5), always on this scale regardless of " +
-              "the account's configured scoreFormat (set via update_user) — no conversion needed.",
-          ),
-        progress: z.number().int().min(0).optional().describe("Episodes watched / chapters read."),
-        progressVolumes: z.number().int().min(0).optional().describe("Volumes read (manga only)."),
-        repeat: z
-          .number()
-          .int()
-          .min(0)
-          .max(1000)
-          .optional()
-          .describe("Number of times rewatched/reread (per AniList's own schema, capped at 1000)."),
-        priority: z
-          .number()
-          .int()
-          .min(0)
-          .max(255)
-          .optional()
-          .describe(
-            "List priority (higher = more important; per AniList's own schema, capped at 255).",
-          ),
+        score: scoreBounds.describe(
+          "Score out of 10 (decimals allowed, e.g. 8.5), always on this scale regardless of " +
+            "the account's configured scoreFormat (set via update_user) — no conversion needed.",
+        ),
+        progress: nonNegativeInt.describe("Episodes watched / chapters read."),
+        progressVolumes: nonNegativeInt.describe("Volumes read (manga only)."),
+        repeat: repeatBounds.describe(
+          "Number of times rewatched/reread (per AniList's own schema, capped at 1000).",
+        ),
+        priority: priorityBounds.describe(
+          "List priority (higher = more important; per AniList's own schema, capped at 255).",
+        ),
         private: z.boolean().optional().describe("Hide this entry from your public list."),
-        notes: z
-          .string()
-          .max(6000)
-          .optional()
-          .describe(
-            "Free-text notes for this entry (per AniList's own schema, capped at 6000 characters).",
-          ),
+        notes: notesBounds.describe(
+          "Free-text notes for this entry (per AniList's own schema, capped at 6000 characters).",
+        ),
         hiddenFromStatusLists: z
           .boolean()
           .optional()
@@ -228,16 +223,13 @@ export function registerListTools(server: McpServer, client: AniListClient): voi
               "account (update_user's `animeListOptions`/`mangaListOptions` `customLists`) — " +
               "naming one that doesn't exist yet is silently a no-op, not an error.",
           ),
-        advancedScores: z
-          .record(z.string(), z.number().min(0).max(10))
-          .optional()
-          .describe(
-            "Per-category scores, 0-10 scale (e.g. {Story: 8, Characters: 9}) — errors if " +
-              "advanced scoring isn't enabled for this media's type, or if a key doesn't match " +
-              "the account's configured category list for it (anime and manga have SEPARATELY " +
-              "configured lists). Any of that list's categories you omit here is set to 0, " +
-              "not left unchanged — include every category if you don't want the others zeroed.",
-          ),
+        advancedScores: advancedScoresBounds.describe(
+          "Per-category scores, 0-10 scale (e.g. {Story: 8, Characters: 9}) — errors if " +
+            "advanced scoring isn't enabled for this media's type, or if a key doesn't match " +
+            "the account's configured category list for it (anime and manga have SEPARATELY " +
+            "configured lists). Any of that list's categories you omit here is set to 0, " +
+            "not left unchanged — include every category if you don't want the others zeroed.",
+        ),
       }),
       outputSchema: z.object({ entry: savedListEntry }),
       annotations: {
@@ -262,49 +254,22 @@ export function registerListTools(server: McpServer, client: AniListClient): voi
       inputSchema: z.object({
         listEntryId: anilistId.describe("The list ENTRY id to update (not the media id)."),
         status: z.enum(STATUSES).optional().describe("New list status."),
-        score: z
-          .number()
-          .min(0)
-          .max(10)
-          .optional()
-          .describe(
-            "New score out of 10 (decimals allowed), always on this scale regardless of the " +
-              "account's configured scoreFormat (set via update_user) — no conversion needed.",
-          ),
-        progress: z
-          .number()
-          .int()
-          .min(0)
-          .optional()
-          .describe("New episodes watched / chapters read."),
-        progressVolumes: z
-          .number()
-          .int()
-          .min(0)
-          .optional()
-          .describe("New volumes read (manga only)."),
-        repeat: z
-          .number()
-          .int()
-          .min(0)
-          .max(1000)
-          .optional()
-          .describe("New rewatch/reread count (per AniList's own schema, capped at 1000)."),
-        priority: z
-          .number()
-          .int()
-          .min(0)
-          .max(255)
-          .optional()
-          .describe(
-            "New list priority (higher = more important; per AniList's own schema, capped at 255).",
-          ),
+        score: scoreBounds.describe(
+          "New score out of 10 (decimals allowed), always on this scale regardless of the " +
+            "account's configured scoreFormat (set via update_user) — no conversion needed.",
+        ),
+        progress: nonNegativeInt.describe("New episodes watched / chapters read."),
+        progressVolumes: nonNegativeInt.describe("New volumes read (manga only)."),
+        repeat: repeatBounds.describe(
+          "New rewatch/reread count (per AniList's own schema, capped at 1000).",
+        ),
+        priority: priorityBounds.describe(
+          "New list priority (higher = more important; per AniList's own schema, capped at 255).",
+        ),
         private: z.boolean().optional().describe("Hide/unhide this entry from your public list."),
-        notes: z
-          .string()
-          .max(6000)
-          .optional()
-          .describe("New free-text notes (per AniList's own schema, capped at 6000 characters)."),
+        notes: notesBounds.describe(
+          "New free-text notes (per AniList's own schema, capped at 6000 characters).",
+        ),
         hiddenFromStatusLists: z
           .boolean()
           .optional()
@@ -318,20 +283,22 @@ export function registerListTools(server: McpServer, client: AniListClient): voi
           .array(z.string())
           .optional()
           .describe(
-            "New set of custom lists for this entry. The list must already exist on the " +
-              "account (update_user's `animeListOptions`/`mangaListOptions` `customLists`) — " +
-              "naming one that doesn't exist yet is silently a no-op, not an error.",
+            "New set of custom lists for this entry — REPLACES this entry's full set of " +
+              "enabled lists, not merged: naming only a subset silently turns OFF every other " +
+              "list this entry was previously filed under (confirmed live for add_list_entry's " +
+              "identical field; this tool writes the same underlying value), it doesn't leave " +
+              "them alone. Include every list name you want this entry to stay tagged with, not " +
+              "just the one you're changing. Also, the list must already exist on the account " +
+              "(update_user's `animeListOptions`/`mangaListOptions` `customLists`) — naming one " +
+              "that doesn't exist yet is silently a no-op, not an error.",
           ),
-        advancedScores: z
-          .record(z.string(), z.number().min(0).max(10))
-          .optional()
-          .describe(
-            "New per-category scores, keyed and error-checked the same way as add_list_entry " +
-              "(errors if advanced scoring is disabled, or a key doesn't match a configured " +
-              "category). Unlike this tool's other fields, this one is NOT a true partial " +
-              "update: any configured category you omit is set to 0, not left at its previous " +
-              "value — pass every category if you're only changing one.",
-          ),
+        advancedScores: advancedScoresBounds.describe(
+          "New per-category scores, keyed and error-checked the same way as add_list_entry " +
+            "(errors if advanced scoring is disabled, or a key doesn't match a configured " +
+            "category). Unlike this tool's other fields, this one is NOT a true partial " +
+            "update: any configured category you omit is set to 0, not left at its previous " +
+            "value — pass every category if you're only changing one.",
+        ),
       }),
       outputSchema: z.object({ entry: savedListEntry }),
       annotations: {

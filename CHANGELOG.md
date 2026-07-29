@@ -6,6 +6,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- Correct `idempotentHint` to `false` on `delete_activity`/`delete_thread`/`delete_thread_comment`/`remove_list_entry` — each one errors, not silently succeeds, when retried on an already-deleted id. [fc4fc5e](https://github.com/Grinv/anilist-mcp-server/commit/fc4fc5e)
+
+### Security
+
+- Harden log redaction to also strip JSON-style credentials (`"client_secret":"..."`), matching the OAuth token exchange's actual request body shape. [0a70a08](https://github.com/Grinv/anilist-mcp-server/commit/0a70a08)
+
 ## [0.5.0] - 2026-07-29
 
 ### Added

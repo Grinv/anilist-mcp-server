@@ -22,3 +22,12 @@ test("redact removes bearer tokens and credential params", () => {
   assert.ok(!redact("client_secret=zzz999").includes("zzz999"));
   assert.ok(!redact("access_token=TOK").includes("TOK"));
 });
+
+test("redact removes JSON-style credentials (the OAuth token exchange body's shape)", () => {
+  const body = '{"client_secret":"SUPERSECRET","client_id":"abc123"}';
+  const result = redact(body);
+  assert.ok(!result.includes("SUPERSECRET"));
+  assert.ok(!result.includes("abc123"));
+  assert.match(result, /"client_secret":"\*\*\*"/);
+  assert.match(result, /"client_id":"\*\*\*"/);
+});

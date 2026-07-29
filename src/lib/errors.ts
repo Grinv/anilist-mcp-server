@@ -72,5 +72,9 @@ export function assertFound<T>(value: T | null | undefined, message: string): T 
 export function redact(input: string): string {
   return input
     .replace(/Bearer\s+[A-Za-z0-9._~+/-]+=*/gi, "Bearer ***")
-    .replace(/\b(access_token|refresh_token|client_secret|client_id)=([^&\s"]+)/gi, "$1=***");
+    .replace(/\b(access_token|refresh_token|client_secret|client_id)=([^&\s"]+)/gi, "$1=***")
+    .replace(
+      /"(access_token|refresh_token|client_secret|client_id)"\s*:\s*"[^"]*"/gi,
+      '"$1":"***"',
+    );
 }

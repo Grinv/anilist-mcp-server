@@ -37,6 +37,16 @@ jobs:
             flag {print}
           ' CHANGELOG.md > RELEASE_NOTES.md
           echo "----- release notes for $VERSION -----"; cat RELEASE_NOTES.md
+          # Fail loudly instead of shipping an empty GitHub Release body — the
+          # release workflow's CHANGELOG extraction step matches `## [$VERSION]`
+          # verbatim; sync-version.mjs renames the heading itself, but this is
+          # the safety net for whatever slips past that (this exact failure
+          # happened in 3 sibling repos on 2026-07-29 before that automation
+          # existed everywhere).
+          if [ ! -s RELEASE_NOTES.md ] || ! grep -q '[^[:space:]]' RELEASE_NOTES.md; then
+            echo "::error::No CHANGELOG.md section found for '## [$VERSION]' — RELEASE_NOTES.md is empty. Check that CHANGELOG.md's heading was renamed from '## [Unreleased]'."
+            exit 1
+          fi
       - name: Create GitHub Release
         uses: softprops/action-gh-release@718ea10b132b3b2eba29c1007bb80653f286566b # v3.0.1
         with:
@@ -56,7 +66,16 @@ jobs:
             echo "already_published=false" >> "$GITHUB_OUTPUT"
           fi
       # Trusted Publishing (OIDC): no token. Requires npm >= 11.5.1 and a
-      # trusted publisher configured for this package on npmjs.com.
+      # trusted publisher configured for this package on npmjs.com. Pin an
+      # exact, verified-good version rather than relying on whatever ships
+      # bundled with actions/setup-node — matches every other tool in this
+      # workflow being pinned to an exact commit/tag (checkout/setup-node/
+      # gh-release above). npm 12.0.0 shipped a broken provenance path
+      # ("Cannot find module 'sigstore'", npm/cli#9722); fixed in 12.0.1
+      # (npm/cli#9740, released 2026-07-10) — verified live via
+      # `npm view npm version` that 12.0.1 is the current `latest` dist-tag.
+      - name: Install npm for trusted publishing
+        run: npm install -g npm@12.0.1
       - name: Publish to npm (trusted publishing + provenance)
         if: steps.npm_check.outputs.already_published != 'true'
         run: npm publish --provenance --access public

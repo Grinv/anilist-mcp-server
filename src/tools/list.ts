@@ -362,7 +362,11 @@ export function registerListTools(server: McpServer, client: AniListClient): voi
       annotations: {
         readOnlyHint: false,
         destructiveHint: true,
-        idempotentHint: true,
+        // Not idempotent: per this tool's own description, calling it again on
+        // an already-deleted id errors rather than silently succeeding a
+        // second time, so a retry-blind client can't safely treat it as a
+        // no-op repeat.
+        idempotentHint: false,
         openWorldHint: true,
       },
     },

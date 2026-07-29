@@ -1,5 +1,5 @@
 import type { AniListContext } from "./context.js";
-import { ACTIVITY_FRAGMENT } from "./fields.js";
+import { ACTIVITY_FRAGMENT, existsFragment } from "./fields.js";
 import { ApiError, assertFound } from "../../lib/errors.js";
 
 export async function getActivity(ctx: AniListContext, id: number): Promise<unknown> {
@@ -17,19 +17,19 @@ export async function getUserActivity(
   // AniList's `activities` field only accepts a numeric `userId` — there is
   // no `userName` argument (confirmed live: "Unknown argument userName on
   // field activities of type Page"), unlike most other user-scoped fields in
-  // this API. A numeric id can be confirmed in the SAME request as the real
-  // query, aliased alongside it — confirmed live that AniList 404s the
-  // *entire* response when User(id) doesn't resolve, same as getSchedule's
-  // mediaId check, so that path costs one round trip. A username has a
-  // genuine data dependency (the numeric id it resolves to must be known
-  // before `activities(userId:...)` can even be built), so it still needs a
-  // separate resolution request first — leaving it unresolved would make
-  // AniList treat the `userId` filter as absent and silently return the
-  // *global* activity feed instead of erroring.
+  // this API. A numeric id doesn't error on a bad value either (see
+  // docs/api-references.md's "Page connection filtered by a parent id"
+  // section) — existsFragment() aliases it into this same request instead
+  // of a separate round trip. A username has a genuine data dependency (the
+  // numeric id it resolves to must be known before `activities(userId:...)`
+  // can even be built), so it still needs a separate resolution request
+  // first — leaving it unresolved would make AniList treat the `userId`
+  // filter as absent and silently return the *global* activity feed instead
+  // of erroring.
   const header = ctx.authHeader();
   if (typeof user === "number") {
     const query = `query($userId:Int,$page:Int,$perPage:Int){
-      exists:User(id:$userId){id}
+      ${existsFragment("User", "userId")}
       feed:Page(page:$page,perPage:$perPage){
         pageInfo{total currentPage lastPage hasNextPage}
         activities(userId:$userId,sort:ID_DESC){${ACTIVITY_FRAGMENT}}

@@ -379,12 +379,13 @@ recommendations, likes`.
 - **A `Page(...)` connection filtered by a parent id doesn't error for a
   nonexistent id** — it just returns an empty-but-successful page,
   indistinguishable from "this parent genuinely has none of these". Confirmed
-  live for three fields so far, same shape each time:
+  live for three fields so far, same shape each time — all three now alias a
+  same-request existence check via `fields.ts`'s `existsFragment()` helper,
+  not a hand-built fragment or separate request per call site:
   - `threadComments(threadId)` — an empty page (`nodes: []`, all `pageInfo`
-    fields `null`) for a bad `threadId`. `getThreadComments()` does a cheap
-    `Thread(id){id}` existence check first, as a separate request (costs one
-    extra request per cold call — cached like any other query, so repeat
-    calls for the same thread are free within the TTL window).
+    fields `null`) for a bad `threadId`. `getThreadComments()` aliases a
+    `Thread(id){id}` existence check into the _same_ request as the real
+    query — no extra request.
   - `activities(userId)` — an empty page for a bad numeric `userId` (the same
     call with a bad _username_ instead silently returns the _global_ feed,
     not even an empty page). For a numeric id, `getUserActivity()` aliases a
@@ -401,10 +402,17 @@ recommendations, likes`.
     `airingSchedules(...)` (same no-extra-request combined-query approach as
     `getUserActivity`'s numeric path above), only when `mediaId` is given.
 
-  Other `Page` connections filtered by a parent id (`mediaList`,
-  `notifications`, `followers`/`following`, `activityReplies`, `reviews`) are
-  NOT yet confirmed either way — check for this exact shape before assuming
-  they're fine, since this pattern has now recurred three times.
+  **`mediaList` does NOT share this shape — confirmed live it needs no alias
+  trick at all.** `MediaListCollection(userId/userName)` 404s the entire
+  response itself for a nonexistent user (both a bad numeric id and a bad
+  username), the same as a singular lookup, not a filtered-Page's
+  empty-but-successful result — `getUserList()` correctly has no existence
+  check of its own.
+
+  Other `Page` connections filtered by a parent id (`notifications`,
+  `followers`/`following`, `activityReplies`, `reviews`) are still NOT
+  confirmed either way — check for this exact shape (or `mediaList`'s
+  "actually just 404s" shape) before assuming either applies.
 
 - **`ToggleFavourite` does not validate that `id` actually belongs to the
   given `kind`** — confirmed live: `ToggleFavourite(characterId: <a real

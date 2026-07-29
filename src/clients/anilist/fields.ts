@@ -1,6 +1,20 @@
 // Shared GraphQL field-selection fragments, reused across multiple domain
 // modules (e.g. MEDIA_FIELDS in both media.ts and search.ts).
 
+/** Builds the alias fragment for a same-request existence check, e.g.
+ *  `existsFragment("Media", "mediaId")` → `exists:Media(id:$mediaId){id}`.
+ *  For a `Page` connection filtered by a parent id that doesn't itself error
+ *  on a bad id (see docs/api-references.md's "Page connection filtered by a
+ *  parent id" section) — combine this into the SAME request as the real
+ *  query rather than a separate round trip: AniList 404s the entire
+ *  response when an aliased root field fails to resolve, so a bad id still
+ *  surfaces as a clean not_found error at no extra request cost. Callers
+ *  still need `assertFound(data.exists, message)` afterward — this only
+ *  builds the query fragment, not the check itself. */
+export function existsFragment(typeName: string, idVar: string): string {
+  return `exists:${typeName}(id:$${idVar}){id}`;
+}
+
 // Kept lean on purpose: search.ts/recommendation.ts return many media items
 // per call, so MEDIA_FIELDS excludes variable-length/rarely-needed fields
 // (tags can run 20-30 entries per title). get_media (single or few items)

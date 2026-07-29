@@ -1,5 +1,6 @@
 import type { AniListContext } from "./context.js";
 import { ApiError, assertFound } from "../../lib/errors.js";
+import { existsFragment } from "./fields.js";
 
 export async function getThread(ctx: AniListContext, id: number): Promise<unknown> {
   const query = `query($id:Int){Thread(id:$id){id title body(asHtml:false) siteUrl replyCommentId
@@ -16,20 +17,15 @@ export async function getThreadComments(
   perPage = 25,
 ): Promise<unknown> {
   // threadComments' Page connection doesn't error for a nonexistent threadId
-  // — it just returns an empty page, indistinguishable from "this thread
-  // really has zero comments" (confirmed live). Alias a Thread(id){id}
-  // existence check into the SAME request as the real query (as getSchedule/
-  // getUserActivity do) rather than a separate round trip — AniList 404s the
-  // entire response when Thread(id) doesn't resolve, so a bad ID still
-  // surfaces as a clean not_found error from one request. assertFound()
-  // below is defense-in-depth for the unobserved case where AniList instead
-  // returns 200 with `exists: null`.
+  // (see docs/api-references.md's "Page connection filtered by a parent id"
+  // section) — existsFragment() aliases the existence check into this same
+  // request instead of a separate round trip.
   // threadComments only returns TOP-LEVEL comments — a reply posted via
   // post_thread_comment's parentCommentId doesn't appear in this array at
   // all; it's nested under its parent's own childComments (an untyped
   // AniList `Json` blob, not a further-queryable ThreadComment list).
   const query = `query($threadId:Int,$page:Int,$perPage:Int){
-    exists:Thread(id:$threadId){id}
+    ${existsFragment("Thread", "threadId")}
     Page(page:$page,perPage:$perPage){
       pageInfo{total currentPage lastPage hasNextPage}
       threadComments(threadId:$threadId){id comment(asHtml:false) siteUrl likeCount isLiked user{id name} childComments}

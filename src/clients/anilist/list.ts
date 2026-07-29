@@ -32,6 +32,12 @@ export async function getUserList(
   perChunk = 25,
 ): Promise<{ lists: unknown; hasNextChunk: boolean | null }> {
   const byId = typeof user === "number";
+  // No existence check needed here — confirmed live (see docs/api-references.md's
+  // "Page connection filtered by a parent id" section) that MediaListCollection
+  // itself 404s the entire response for a nonexistent user, unlike
+  // threadComments/activities/airingSchedules, which need the existsFragment()
+  // alias trick because their underlying Page connections silently return an
+  // empty-but-successful result instead.
   // AniList paginates MediaListCollection by `chunk`/`perChunk` (entry count
   // across ALL statuses), not the `page`/`perPage`-over-a-Page convention
   // used elsewhere in this API — a chunk boundary can therefore fall in the

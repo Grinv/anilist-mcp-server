@@ -5,6 +5,7 @@ import {
   MEDIA_DESCRIPTION_FIELD,
   MEDIA_DETAIL_FIELDS,
   MEDIA_STREAMING_EPISODES_FIELD,
+  existsFragment,
 } from "./fields.js";
 
 export async function getMedia(
@@ -155,17 +156,11 @@ export async function getSchedule(
   page = 1,
   perPage = 25,
 ): Promise<unknown> {
-  // airingSchedules(mediaId:...) is a Page connection filter, not a singular
-  // lookup — a nonexistent mediaId just filters down to an empty-but-successful
-  // page, indistinguishable from "this real anime has no upcoming episodes".
-  // When a mediaId is given, alias a Media(id){id} existence check into the
-  // SAME request as the real query, rather than a separate round trip —
-  // confirmed live that AniList 404s the *entire* response (not just the
-  // aliased field) when Media(id) doesn't resolve, so a bad id still
-  // surfaces as a clean not_found error from one request. assertFound()
-  // below is defense-in-depth for the unobserved case where AniList instead
-  // returns 200 with `exists: null`.
-  const existsField = mediaId !== undefined ? "exists:Media(id:$mediaId){id}" : "";
+  // airingSchedules(mediaId) doesn't error on a bad mediaId (see
+  // docs/api-references.md's "Page connection filtered by a parent id"
+  // section) — existsFragment() aliases the existence check into this same
+  // request instead of a separate round trip when mediaId is given.
+  const existsField = mediaId !== undefined ? existsFragment("Media", "mediaId") : "";
   const query = `query($mediaId:Int,$notYetAired:Boolean,$page:Int,$perPage:Int){
     ${existsField}
     schedule:Page(page:$page,perPage:$perPage){

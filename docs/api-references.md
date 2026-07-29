@@ -376,6 +376,14 @@ recommendations, likes`.
   `getUserStats()`/`getFullUserInfo()`, which guard the same way as a
   defensive-consistency measure even though `User` itself hasn't been
   observed returning the null-instead-of-404 shape live.
+- **`Studio(search:$search)` (the by-name path `get_studio`'s `name` param
+  takes) does AniList's own fuzzy search, not an exact-name lookup** —
+  confirmed live: `Studio(search:"Kyoto Anim")` resolved directly to Kyoto
+  Animation, the same fuzzy-match mechanism `search_studio`'s `studios(
+search:...)` connection uses. `get_studio`'s own description used to imply
+  `search_studio` was needed first for any partial name; only true when you
+  actually want to browse multiple candidates rather than take the closest
+  match.
 - **A `Page(...)` connection filtered by a parent id doesn't error for a
   nonexistent id** — it just returns an empty-but-successful page,
   indistinguishable from "this parent genuinely has none of these". Confirmed

@@ -267,6 +267,14 @@ AniList. All data comes from the public [AniList GraphQL API](https://docs.anili
 personal-account operations use your own AniList account and token. Use is
 subject to [AniList's Terms of Service](https://anilist.co/terms).
 
+## Privacy Policy
+
+This server runs locally on your machine and has no telemetry of its own.
+Personal/mutation tools act on your real AniList account (list, favourites,
+follows, posts, account settings) using a token you supply — see
+[PRIVACY.md](PRIVACY.md) for the full details on data collection, what gets
+sent where, caching/token storage and retention, and contact info.
+
 ## License
 
 [MIT](LICENSE) © Grinv

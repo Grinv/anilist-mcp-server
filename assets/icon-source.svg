@@ -9,33 +9,43 @@
        The actual rasterization to assets/icon.png happens in
        generate-icon.py, which draws the same shape directly with Pillow
        (supersampled + downsampled for anti-aliasing) and produces real
-       per-pixel alpha. Keep this file and generate-icon.py's VERTS/STOPS in
-       sync by hand if you ever edit one — there is no automated link.
+       per-pixel alpha. Keep this file and generate-icon.py in sync by hand
+       if you ever edit one — there is no automated link.
 
-       Shape: a bookmark/ribbon — a tall rectangle with a triangular notch
-       cut from the bottom edge — the universal "saved to my list" glyph,
-       chosen because that's exactly what AniList (Anime List) tracking is:
-       one bold shape only, no secondary stripes/lines, so it stays legible
-       down to a 16px favicon (a past icon attempt with thin interior lines
-       "blended into mush" at that size).
+       Shape: an original, generic "kawaii creature" head — a round face
+       with two pointed (cat/fox-like) ears (navy inner-ear accent for
+       depth), a navy belly highlight, and simple dot eyes, evoking
+       anime-mascot cuteness in general, not any specific copyrighted
+       character (no belly *markings*/pattern, no whiskers, no
+       character-specific proportions). Deliberately distinct from the
+       sibling mal-mcp icon's round bear/mouse ears + flat single-tone color
+       — here the ears are pointed and there's a second accent color, so
+       the two read as different creatures even though both are anime-list
+       trackers.
 
-       Gradient stops are AniList's own real brand blues, not guessed:
-       `--color-blue-500` / `--color-blue-600` (== `--color-blue`, their
-       primary accent) / `--color-blue-900`, read live via
-       getComputedStyle(document.documentElement) on the rendered
-       anilist.co site (2026-07-29) — `--color-blue-600` was cross-checked
-       against the actual rendered color of an on-site link, confirming the
-       token is live CSS, not dead/unused. Corners are rounded via a
-       same-gradient stroke with a round linejoin (the same trick tmdb-mcp's
-       icon uses), since <path>/<polygon> has no native corner radius. -->
-  <defs>
-    <linearGradient id="anilistGradient" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#6fc8ff"/>
-      <stop offset="0.45" stop-color="#3db4f2"/>
-      <stop offset="1" stop-color="#0b4671"/>
-    </linearGradient>
-  </defs>
-  <polygon points="176,90 336,90 336,422 256,350 176,422"
-           fill="url(#anilistGradient)" stroke="url(#anilistGradient)" stroke-width="30"
+       Colors are AniList's own real brand colors, pulled directly from
+       their official logo SVG
+       (upload.wikimedia.org/wikipedia/commons/6/61/AniList_logo.svg) —
+       verified live 2026-07-29, not guessed from memory: #02a9ff (cyan,
+       their primary accent), #1e2630 (navy, their background tone — used
+       here as an inner-ear/belly accent, not a filled background tile),
+       #fefefe (off-white, their mark color). Ear corners are rounded via a
+       same-color stroke with a round linejoin (the same trick tmdb-mcp's
+       icon uses), since <polygon> has no native corner radius. -->
+  <polygon points="120,232 232,176 168,96"
+           fill="#02a9ff" stroke="#02a9ff" stroke-width="56"
            stroke-linejoin="round" stroke-linecap="round"/>
+  <polygon points="392,232 280,176 344,96"
+           fill="#02a9ff" stroke="#02a9ff" stroke-width="56"
+           stroke-linejoin="round" stroke-linecap="round"/>
+  <circle cx="256" cy="306" r="148" fill="#02a9ff"/>
+  <polygon points="148,214 222,178 178,128"
+           fill="#1e2630" stroke="#1e2630" stroke-width="26"
+           stroke-linejoin="round" stroke-linecap="round"/>
+  <polygon points="364,214 290,178 334,128"
+           fill="#1e2630" stroke="#1e2630" stroke-width="26"
+           stroke-linejoin="round" stroke-linecap="round"/>
+  <ellipse cx="256" cy="378" rx="84" ry="58" fill="#1e2630"/>
+  <circle cx="206" cy="296" r="20" fill="#fefefe"/>
+  <circle cx="306" cy="296" r="20" fill="#fefefe"/>
 </svg>

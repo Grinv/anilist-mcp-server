@@ -13,11 +13,25 @@ const mediaRefLite = z
   })
   .passthrough();
 
+/** Net up/down tally across every user who's rated this recommendation
+ *  pairing (confirmed via introspection: a plain `Int`, not an enum —
+ *  distinct from `userRating` below, which is the caller's OWN vote). */
+const ratingOut = z
+  .number()
+  .int()
+  .nullish()
+  .describe("Net rating (RATE_UP minus RATE_DOWN votes across all users), not the caller's own.");
+
+/** The caller's own vote on this recommendation, if logged in and voted —
+ *  confirmed via introspection: AniList's real `RecommendationRating` enum
+ *  has exactly these 3 values. */
+const userRatingOut = z.enum(["NO_RATING", "RATE_UP", "RATE_DOWN"]).nullish();
+
 const recommendationObject = z
   .object({
     id: z.number().int(),
-    rating: z.number().nullish(),
-    userRating: z.string().nullish(),
+    rating: ratingOut,
+    userRating: userRatingOut,
     media: mediaRefLite.nullish(),
     mediaRecommendation: mediaRefLite.nullish(),
   })
@@ -26,8 +40,8 @@ const recommendationObject = z
 const recommendationNode = z
   .object({
     id: z.number().int(),
-    rating: z.number().nullish(),
-    userRating: z.string().nullish(),
+    rating: ratingOut,
+    userRating: userRatingOut,
     mediaRecommendation: z
       .object({
         id: z.number().int(),

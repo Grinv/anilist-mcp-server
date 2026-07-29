@@ -6,6 +6,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- Add an hour-long public cache hint to `tools/list`/`prompts/list`/`server/discover` for 2026-07-28-era clients.
+  Safe because every tool/prompt here registers unconditionally, with no runtime/auth-dependent branching.
+
 ### Changed
 
 - Bump `@modelcontextprotocol/server`/`client` to the first stable `2.0.0` (from `2.0.0-beta.5`).

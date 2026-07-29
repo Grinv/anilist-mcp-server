@@ -69,6 +69,34 @@ const EXPECTED_TOOLS = [
   "submit_anilist_redirect",
 ];
 
+// Inherit the real env but force the optional AniList credentials unset, so a
+// spawned server always starts unauthenticated regardless of what's
+// configured on the machine actually running the tests (e.g. a dev machine
+// with a real token wired into its own MCP client config).
+//
+// This alone is NOT sufficient to guarantee an unauthenticated spawned
+// process: AniListClient falls back to the on-disk token store
+// (defaultTokenStorePath(), e.g. ~/.config/anilist-mcp-server/tokens.json)
+// whenever ANILIST_ACCESS_TOKEN isn't set, independent of the vars cleaned
+// here. This whole `npm test` process only stays unauthenticated because
+// scripts/run-tests.mjs separately points ANILIST_TOKEN_STORE at a tmp noop
+// path before any test file runs — a detail invisible from this file alone.
+// A standalone script that copies just this cleanEnv() (e.g. a throwaway
+// live-audit protocol-diff script run outside `npm test`) must set
+// ANILIST_TOKEN_STORE itself too, or it will silently authenticate as
+// whatever real account is configured on the machine.
+const ANILIST_ENV_VARS = new Set([
+  "ANILIST_ACCESS_TOKEN",
+  "ANILIST_CLIENT_ID",
+  "ANILIST_CLIENT_SECRET",
+]);
+function cleanEnv(): Record<string, string> {
+  const env: Record<string, string> = {};
+  for (const [k, v] of Object.entries(process.env))
+    if (v !== undefined && !ANILIST_ENV_VARS.has(k)) env[k] = v;
+  return env;
+}
+
 test("e2e: built bundle runs standalone, handshakes, and lists all tools", async (t) => {
   if (!existsSync(distPath)) {
     t.skip("dist/index.js not built — run `npm run build` first (CI builds before tests)");
@@ -86,21 +114,11 @@ test("e2e: built bundle runs standalone, handshakes, and lists all tools", async
   // with "Cannot use import statement outside a module".
   writeFileSync(join(sandbox, "package.json"), JSON.stringify({ type: "module" }));
 
-  // Inherit env but force the optional credentials unset, to test a clean start.
-  const ANILIST_ENV_VARS = new Set([
-    "ANILIST_ACCESS_TOKEN",
-    "ANILIST_CLIENT_ID",
-    "ANILIST_CLIENT_SECRET",
-  ]);
-  const env: Record<string, string> = {};
-  for (const [k, v] of Object.entries(process.env))
-    if (v !== undefined && !ANILIST_ENV_VARS.has(k)) env[k] = v;
-
   const client = new Client({ name: "e2e", version: "0" });
   const transport = new StdioClientTransport({
     command: process.execPath,
     args: [join(sandbox, "index.js")],
-    env,
+    env: cleanEnv(),
   });
 
   try {
@@ -124,6 +142,92 @@ test("e2e: built bundle runs standalone, handshakes, and lists all tools", async
   } finally {
     await client.close();
     rmSync(sandbox, { recursive: true, force: true });
+  }
+});
+
+test("e2e: negotiates the modern (2026-07-28) protocol era and still lists every tool", async (t) => {
+  if (!existsSync(distPath)) {
+    t.skip("dist/index.js not built — run `npm run build` first (CI builds before tests)");
+    return;
+  }
+
+  // Every other e2e/unit test connects with default (legacy-only) client
+  // options, so nothing here exercises serveStdio()'s modern-era path at
+  // all — this test is the one place that opts a client into it, to catch a
+  // regression where the server only actually works under the legacy wire
+  // format it happens to be tested with everywhere else. The unit suite
+  // (helpers.ts's connectServer) can't cover this itself: modern era needs a
+  // transport that implements the probe-then-pin handshake (serveStdio's
+  // real stdio transport), which InMemoryTransport doesn't — confirmed live
+  // by connecting a bare McpServer over InMemoryTransport with
+  // supportedProtocolVersions explicitly including 2026-07-28, which still
+  // negotiated legacy. So this one process-spawning e2e test is the only
+  // place any of this is reachable at all, and the cases below are picked
+  // for where the modern-era wire codec could plausibly diverge from
+  // legacy, not for tool coverage (that's the unit suite's job).
+  const client = new Client(
+    { name: "e2e-modern-era", version: "0" },
+    { versionNegotiation: { mode: "auto" } },
+  );
+  const transport = new StdioClientTransport({
+    command: process.execPath,
+    args: [distPath],
+    env: cleanEnv(),
+  });
+
+  try {
+    await client.connect(transport);
+    assert.equal(
+      client.getProtocolEra(),
+      "modern",
+      "client opted into 'auto' negotiation against a serveStdio() server — it should negotiate " +
+        "the modern era, not silently fall back to legacy",
+    );
+
+    // tools/list is one of the operations serveStdio()'s modern-era codec
+    // fills cache fields (ttlMs/cacheScope) on — this call exercises that
+    // encode path, not just the handshake. The TS result type omits these
+    // (wire-only, stripped from ListToolsResult), but they're still present
+    // on the actual runtime object the transport delivers.
+    const listResult = await client.listTools();
+    assert.equal(
+      listResult.tools.length,
+      EXPECTED_TOOLS.length,
+      "tool list should be unaffected by era",
+    );
+    const rawListResult = listResult as unknown as { ttlMs?: number; cacheScope?: string };
+    assert.equal(
+      rawListResult.ttlMs,
+      3_600_000,
+      "src/server.ts's tools/list cache hint should reach the wire under the modern era",
+    );
+    assert.equal(rawListResult.cacheScope, "public");
+
+    // Auth-gated tools reject in requireAuth() before any network call, with
+    // no fetch mock available to a spawned real process — a case the modern
+    // wire codec must still encode as a genuine tool error, not silently
+    // drop or reshape.
+    const noTokenResult = await client.callTool({ name: "get_notifications", arguments: {} });
+    assert.equal(
+      noTokenResult.isError,
+      true,
+      "an auth-gated tool without a token should still surface isError: true under the modern era",
+    );
+
+    // A Zod input-validation error (get_studio's id/name are each optional,
+    // but the object schema's own .refine() requires at least one) is another
+    // network-free, deterministic error path — same question: does the
+    // modern codec still encode it as isError: true, not something the SDK's
+    // 2026-era result vocabulary (e.g. input_required) could get confused with.
+    const validationResult = await client.callTool({ name: "get_studio", arguments: {} });
+    assert.equal(
+      validationResult.isError,
+      true,
+      "a Zod validation error (get_studio with neither id nor name) should still be isError: " +
+        "true under the modern era",
+    );
+  } finally {
+    await client.close();
   }
 });
 

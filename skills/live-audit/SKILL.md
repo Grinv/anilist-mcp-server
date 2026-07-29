@@ -65,7 +65,16 @@ given alone). `npm run test:coverage` (~80% gate) measures lines executed,
 not whether the assertions on those lines are meaningful. When reviewing or
 writing tests as part of this audit, ask: does a test exist that
 deliberately triggers this error path, and does it assert on the _specific_
-resulting message/shape (not just "an error was thrown")?
+resulting message/shape (not just "an error was thrown")? Same question for
+protocol era: every test/live probe defaults to the legacy (2025) wire
+unless it explicitly opts into `versionNegotiation: { mode: 'auto' }` —
+don't stop at one smoke test confirming `getProtocolEra() === 'modern'`
+negotiates; the audit's substantive checks (error-path assertions,
+edge-case responses, cache-hint fields) need re-running under **both**
+legacy and modern clients, since wire encoding differs by era and a
+regression can hide in either path alone (confirmed gap: this repo's whole
+suite was legacy-only until one e2e test added the opt-in, and even that
+test only checked tool count under modern era, not deep behavior).
 
 Anything red here is the actual finding — stop and report it before moving
 to live testing.
@@ -145,6 +154,17 @@ supports concurrent subagents/background tasks.
   unhandled exception/stack trace, a confusing validation message, or
   (worse) malformed input silently accepted and producing a wrong result. A
   clean, expected Zod validation error is correct behavior, not a finding.
+- **Protocol-era parity**: the session's own connected `mcp__anilist__*`
+  tools negotiate whatever era the host picked — you don't control it from
+  there. To actually compare legacy vs. modern wire behavior, spin up a
+  throwaway script against the built `dist/index.js` using
+  `@modelcontextprotocol/client`'s `Client`/`StdioClientTransport` directly:
+  one client with default options (legacy), one with
+  `versionNegotiation: { mode: 'auto' }` (modern); re-run the same
+  representative calls (a normal success, a not-found id, a validation
+  error) through both and diff the results, ignoring the expected wire-only
+  additions (`_meta`, `ttlMs`, `cacheScope` on cacheable list operations) —
+  any other divergence is a real finding.
 
 For anything that looks like a bug, **don't stop at the symptom** — grep the
 source for the actual mechanism (the query shape/const/regex that produced

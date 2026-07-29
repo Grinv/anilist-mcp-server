@@ -39,7 +39,22 @@ export function buildServer(config: Config, logger: Logger): McpServer {
   // building on a path already marked for removal.
   const server = new McpServer(
     { name: "anilist-mcp-server", title: "AniList MCP Server", version: VERSION },
-    { instructions: INSTRUCTIONS },
+    {
+      instructions: INSTRUCTIONS,
+      // 2026-07-28's cacheable-result hints (only read by 2026-era clients;
+      // 2025-era responses are untouched either way). Every tool/prompt here
+      // is registered unconditionally in this same function, with no
+      // runtime/auth-dependent branching — the list is identical for every
+      // caller and never changes without a server restart, so `public` +
+      // an hour-long ttl is safe. `resources/*` are omitted: this server
+      // registers no MCP resources. Revisit if tool/prompt registration
+      // ever becomes conditional (e.g. feature flags, account tier).
+      cacheHints: {
+        "tools/list": { ttlMs: 3_600_000, cacheScope: "public" },
+        "prompts/list": { ttlMs: 3_600_000, cacheScope: "public" },
+        "server/discover": { ttlMs: 3_600_000, cacheScope: "public" },
+      },
+    },
   );
 
   registerMiscTools(server, client);

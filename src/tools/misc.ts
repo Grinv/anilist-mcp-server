@@ -2,7 +2,7 @@ import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/server";
 import type { AniListClient } from "../clients/anilist.js";
 import * as misc from "../clients/anilist/misc.js";
-import { jsonResult, errorResult } from "../lib/result.js";
+import { jsonResult } from "../lib/result.js";
 import { guard } from "./guard.js";
 import { pageInfoSchema, anilistId } from "./outputSchemas.js";
 
@@ -171,23 +171,22 @@ export function registerMiscTools(server: McpServer, client: AniListClient): voi
         "more via this lookup), by AniList studio ID or by name. Use search_studio first if you " +
         "only have a partial name and need to resolve it to an ID. If both `id` and `name` are " +
         "given, `id` takes precedence and `name` is ignored.",
-      inputSchema: z.object({
-        id: anilistId.optional().describe("AniList studio ID. Provide this or `name`."),
-        name: z
-          .string()
-          .min(1)
-          .optional()
-          .describe("Studio name to look up. Provide this or `id`."),
-      }),
+      inputSchema: z
+        .object({
+          id: anilistId.optional().describe("AniList studio ID. Provide this or `name`."),
+          name: z
+            .string()
+            .min(1)
+            .optional()
+            .describe("Studio name to look up. Provide this or `id`."),
+        })
+        .refine((v) => v.id !== undefined || v.name !== undefined, {
+          message: "Provide either `id` or `name`.",
+        }),
       outputSchema: z.object({ studio: studioObject }),
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
     ({ id, name }) =>
-      guard(async () => {
-        if (id === undefined && name === undefined) {
-          return errorResult("Provide either `id` or `name`.");
-        }
-        return jsonResult({ studio: await misc.getStudio(client.ctx(), id ?? name!) });
-      }),
+      guard(async () => jsonResult({ studio: await misc.getStudio(client.ctx(), id ?? name!) })),
   );
 }

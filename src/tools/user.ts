@@ -388,13 +388,28 @@ export function registerUserTools(server: McpServer, client: AniListClient): voi
           .optional()
           .describe(
             "Internal list-table row ordering key — reads back from " +
-              "`mediaListOptions.rowOrder` in the profile tools/this tool's own response.",
+              "`mediaListOptions.rowOrder` in the profile tools/this tool's own response. " +
+              "Confirmed live: AniList validates this server-side and rejects an unrecognized " +
+              'value with a clear error ("The selected row order is invalid.") rather than ' +
+              "silently ignoring it — unlike `profileColor` below.",
           ),
-        profileColor: z.string().optional().describe("Profile accent color (name or hex)."),
-        donatorBadge: z
+        profileColor: z
           .string()
           .optional()
-          .describe("Custom donator badge text (only takes effect on a donator account)."),
+          .describe(
+            "Profile accent color (name or hex). Confirmed live: AniList silently ignores an " +
+              "unrecognized value instead of erroring — the account's existing color is left " +
+              "unchanged, with no error surfaced and no way to detect the value was rejected " +
+              "other than re-checking with get_authorized_user.",
+          ),
+        donatorBadge: z
+          .string()
+          .max(24)
+          .optional()
+          .describe(
+            "Custom donator badge text, up to 24 characters per AniList's own schema (only " +
+              "takes effect on a donator account).",
+          ),
         notificationOptions: z
           .array(
             z.object({
@@ -422,12 +437,32 @@ export function registerUserTools(server: McpServer, client: AniListClient): voi
               "list first (get_authorized_user's `options.notificationOptions`) and resend it " +
               "in full with just your changes applied.",
           ),
-        timezone: z.string().optional().describe('Display timezone (e.g. "+09:00").'),
+        timezone: z
+          .string()
+          .regex(
+            /^-?\d{2}:\d{2}$/,
+            'Must be a timezone offset in AniList\'s own documented "-?HH:MM" format, e.g. ' +
+              '"09:00" or "-05:00".',
+          )
+          .optional()
+          .describe(
+            'Display timezone as an offset, in AniList\'s own documented "-?HH:MM" format ' +
+              '(e.g. "09:00", "-05:00"). Confirmed live that AniList validates this ' +
+              'server-side and rejects a malformed value with a clear error ("The timezone ' +
+              'format is invalid.") — whether a leading "+" is also accepted wasn\'t tested ' +
+              "live (this tool has no way to explicitly clear timezone back to unset, so a " +
+              "wrong guess here risked an unrevertable change); this regex follows AniList's " +
+              "own literal grammar, which mentions only an optional leading minus.",
+          ),
         activityMergeTime: z
           .number()
           .int()
+          .min(0)
           .optional()
-          .describe("Minutes within which consecutive list activity posts get merged into one."),
+          .describe(
+            "Minutes within which consecutive list activity posts get merged into one. Per " +
+              "AniList's own schema: 0 = never merge, 20160+ (2 weeks) = always merge.",
+          ),
         staffNameLanguage: z
           .enum(STAFF_NAME_LANGUAGES)
           .optional()

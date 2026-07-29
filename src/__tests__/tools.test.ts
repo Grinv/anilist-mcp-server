@@ -182,6 +182,48 @@ test("get_studio reports an actionable error (isError: true) when neither id nor
   assert.equal(mock.calls.length, 0, "must not call AniList at all without an id or name");
 });
 
+test("mutation tools reject text below AniList's own documented minimum length before any fetch", async (t) => {
+  const mock = mockFetch(() => {
+    throw new Error("must not be called — Zod should reject before any fetch");
+  });
+  installFetch(t, mock);
+  const { client, close } = await connectServer({});
+  t.after(close);
+
+  const tooShort: [string, Record<string, unknown>][] = [
+    ["post_text_activity", { text: "hi" }], // AniList: Min 5
+    ["post_message_activity", { recipientId: 1, message: "h" }], // AniList: Min 2
+    ["post_thread", { title: "abcde", body: "b" }], // AniList: Min 6
+  ];
+  for (const [name, args] of tooShort) {
+    const res = await client.callTool({ name, arguments: args });
+    assert.equal(res.isError, true, `${name} with too-short text should be a validation error`);
+  }
+  assert.equal(mock.calls.length, 0, "none of these should have reached AniList");
+});
+
+test("update_user's timezone regex accepts AniList's documented -?HH:MM format and rejects garbage", async (t) => {
+  const okMock = mockFetch(() => jsonResponse({ data: { UpdateUser: { id: 1 } } }));
+  installFetch(t, okMock);
+  const { client, close } = await connectServer({ ANILIST_ACCESS_TOKEN: "tok" });
+  t.after(close);
+
+  for (const timezone of ["09:00", "-05:00"]) {
+    const res = await client.callTool({ name: "update_user", arguments: { timezone } });
+    assert.notEqual(res.isError, true, `"${timezone}" should be accepted`);
+  }
+
+  const badMock = mockFetch(() => {
+    throw new Error("must not be called — Zod should reject before any fetch");
+  });
+  installFetch(t, badMock);
+  for (const timezone of ["banana", "+09:00", "9:00", "09:0"]) {
+    const res = await client.callTool({ name: "update_user", arguments: { timezone } });
+    assert.equal(res.isError, true, `"${timezone}" should be rejected`);
+  }
+  assert.equal(badMock.calls.length, 0);
+});
+
 test("get_media's ids validation error distinguishes a missing value from a wrongly-typed one", async (t) => {
   // Regression: idsSchema's z.union used a single string `error`, which fires
   // for EVERY union-mismatch reason alike — so a wrongly-typed-but-present
@@ -262,10 +304,10 @@ test("personal/mutation tools without a token return an actionable error instead
     ["get_notifications", {}],
     ["toggle_follow_user", { id: 1 }],
     ["update_user", {}],
-    ["post_text_activity", { text: "hi" }],
+    ["post_text_activity", { text: "hello" }],
     ["post_message_activity", { recipientId: 1, message: "hi" }],
     ["delete_activity", { id: 1 }],
-    ["post_thread", { title: "t", body: "b" }],
+    ["post_thread", { title: "thread!", body: "b" }],
     ["post_thread_comment", { threadId: 1, comment: "hi" }],
     ["delete_thread", { id: 1 }],
     ["delete_thread_comment", { id: 1 }],
@@ -351,10 +393,10 @@ test("every gated mutation tool succeeds end-to-end with a token, not just add_l
     ["toggle_favourite", { kind: "STUDIO", id: 1 }],
     ["toggle_follow_user", { id: 1 }],
     ["update_user", {}],
-    ["post_text_activity", { text: "hi" }],
+    ["post_text_activity", { text: "hello" }],
     ["post_message_activity", { recipientId: 1, message: "hi" }],
     ["delete_activity", { id: 1 }],
-    ["post_thread", { title: "t", body: "b" }],
+    ["post_thread", { title: "thread!", body: "b" }],
     ["post_thread_comment", { threadId: 1, comment: "hi" }],
     ["delete_thread", { id: 1 }],
     ["delete_thread_comment", { id: 1 }],

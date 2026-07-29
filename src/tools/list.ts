@@ -181,15 +181,30 @@ export function registerListTools(server: McpServer, client: AniListClient): voi
           ),
         progress: z.number().int().min(0).optional().describe("Episodes watched / chapters read."),
         progressVolumes: z.number().int().min(0).optional().describe("Volumes read (manga only)."),
-        repeat: z.number().int().min(0).optional().describe("Number of times rewatched/reread."),
+        repeat: z
+          .number()
+          .int()
+          .min(0)
+          .max(1000)
+          .optional()
+          .describe("Number of times rewatched/reread (per AniList's own schema, capped at 1000)."),
         priority: z
           .number()
           .int()
           .min(0)
+          .max(255)
           .optional()
-          .describe("List priority (higher = more important)."),
+          .describe(
+            "List priority (higher = more important; per AniList's own schema, capped at 255).",
+          ),
         private: z.boolean().optional().describe("Hide this entry from your public list."),
-        notes: z.string().optional().describe("Free-text notes for this entry."),
+        notes: z
+          .string()
+          .max(6000)
+          .optional()
+          .describe(
+            "Free-text notes for this entry (per AniList's own schema, capped at 6000 characters).",
+          ),
         hiddenFromStatusLists: z
           .boolean()
           .optional()
@@ -267,10 +282,28 @@ export function registerListTools(server: McpServer, client: AniListClient): voi
           .min(0)
           .optional()
           .describe("New volumes read (manga only)."),
-        repeat: z.number().int().min(0).optional().describe("New rewatch/reread count."),
-        priority: z.number().int().min(0).optional().describe("New list priority."),
+        repeat: z
+          .number()
+          .int()
+          .min(0)
+          .max(1000)
+          .optional()
+          .describe("New rewatch/reread count (per AniList's own schema, capped at 1000)."),
+        priority: z
+          .number()
+          .int()
+          .min(0)
+          .max(255)
+          .optional()
+          .describe(
+            "New list priority (higher = more important; per AniList's own schema, capped at 255).",
+          ),
         private: z.boolean().optional().describe("Hide/unhide this entry from your public list."),
-        notes: z.string().optional().describe("New free-text notes."),
+        notes: z
+          .string()
+          .max(6000)
+          .optional()
+          .describe("New free-text notes (per AniList's own schema, capped at 6000 characters)."),
         hiddenFromStatusLists: z
           .boolean()
           .optional()

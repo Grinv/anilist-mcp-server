@@ -109,7 +109,11 @@ export function registerActivityTools(server: McpServer, client: AniListClient):
         "[Requires login] Post a new text-status update to the authenticated user's own " +
         "AniList profile, or update an existing one by passing its `id`.",
       inputSchema: z.object({
-        text: z.string().min(1).describe("The text to post."),
+        text: z
+          .string()
+          .min(5)
+          .max(10000)
+          .describe("The text to post (per AniList's own schema: 5-10000 characters)."),
         id: anilistId.optional().describe("Activity ID to update instead of creating a new post."),
       }),
       outputSchema: z.object({ activity: savedTextActivity }),
@@ -143,7 +147,11 @@ export function registerActivityTools(server: McpServer, client: AniListClient):
           "AniList numeric user ID of the message recipient (resolve a username via " +
             "search_user first).",
         ),
-        message: z.string().min(1).describe("The message text to post."),
+        message: z
+          .string()
+          .min(2)
+          .max(10000)
+          .describe("The message text to post (per AniList's own schema: 2-10000 characters)."),
         id: anilistId.optional().describe("Activity ID to update instead of creating a new post."),
       }),
       outputSchema: z.object({ activity: savedMessageActivity }),

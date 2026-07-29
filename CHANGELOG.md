@@ -10,11 +10,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - Add an hour-long public cache hint to `tools/list`/`prompts/list`/`server/discover` for 2026-07-28-era clients.
   Safe because every tool/prompt here registers unconditionally, with no runtime/auth-dependent branching.
+- Add AniList-schema-sourced length/format limits to mutation tool inputs, rejecting invalid values locally instead of an upstream round trip.
 
 ### Changed
 
 - Bump `@modelcontextprotocol/server`/`client` to the first stable `2.0.0` (from `2.0.0-beta.5`).
   No breaking changes — the only two behavior changes since beta.5 don't affect this stdio-only server.
+- Move `get_studio`'s id/name check into its Zod schema — same core message, now wrapped in the SDK's validation-error prefix.
+- Document that `update_user`'s `profileColor` silently ignores bad values, while `rowOrder`/`timezone` reject them with a clear error (confirmed live).
 
 ## [0.4.0] - 2026-07-28
 

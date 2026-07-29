@@ -214,6 +214,18 @@ restrictMessagesToFollowing, disabledListActivity` — all of these are wired
     — a sibling of `scoreFormat`, NOT nested under `animeList`/`mangaList`;
     an earlier pass at this file wrongly concluded it wasn't exposed anywhere,
     confirmed live to be wrong).
+  - **`profileColor`/`rowOrder`/`timezone` are all plain `String` args on
+    AniList's own schema (confirmed via introspection — none is a real GraphQL
+    enum), but AniList validates them very differently server-side, confirmed
+    live**: an unrecognized `profileColor` is silently ignored (the account's
+    existing value is left unchanged, no error, no way to detect the rejection
+    other than re-reading the account), while an invalid `rowOrder` or
+    `timezone` is rejected with a clear 400 (`"The selected row order is
+invalid."` / `"The timezone format is invalid."`). `timezone`'s accepted
+    format is documented by AniList's own schema as `-?HH:MM` (optional
+    leading minus only) — whether a leading `+` is also accepted wasn't tested
+    live, since `update_user` has no way to explicitly clear `timezone` back to
+    unset, so a wrong guess risked leaving the field permanently changed.
   - **`UpdateUser` is NOT atomic, and two of its list-valued args have
     dangerous non-partial-update behavior** — both confirmed live:
     - **`disabledListActivity` requires all 6 `MediaListStatus` values every

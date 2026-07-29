@@ -138,8 +138,16 @@ export function registerThreadTools(server: McpServer, client: AniListClient): v
         "account, or update an existing one by passing its `id`. Use search_thread first if " +
         "you want to check whether a similar thread already exists before posting a new one.",
       inputSchema: z.object({
-        title: z.string().min(1).describe("Thread title."),
-        body: z.string().min(1).describe("Thread body (markdown)."),
+        title: z
+          .string()
+          .min(6)
+          .max(120)
+          .describe("Thread title (per AniList's own schema: 6-120 characters)."),
+        body: z
+          .string()
+          .min(1)
+          .max(30000)
+          .describe("Thread body (markdown; per AniList's own schema, up to 30000 characters)."),
         categories: z
           .array(anilistId)
           .optional()
@@ -203,7 +211,13 @@ export function registerThreadTools(server: McpServer, client: AniListClient): v
         threadId: anilistId.describe(
           "AniList thread ID to comment on (from get_thread/search_thread).",
         ),
-        comment: z.string().min(1).describe("The comment text to post (markdown)."),
+        comment: z
+          .string()
+          .min(1)
+          .max(12000)
+          .describe(
+            "The comment text to post (markdown; per AniList's own schema, up to 12000 characters).",
+          ),
         parentCommentId: anilistId
           .optional()
           .describe(

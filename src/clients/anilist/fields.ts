@@ -10,9 +10,16 @@
  *  response when an aliased root field fails to resolve, so a bad id still
  *  surfaces as a clean not_found error at no extra request cost. Callers
  *  still need `assertFound(data.exists, message)` afterward — this only
- *  builds the query fragment, not the check itself. */
-export function existsFragment(typeName: string, idVar: string): string {
-  return `exists:${typeName}(id:$${idVar}){id}`;
+ *  builds the query fragment, not the check itself. `extraArgs` adds
+ *  literal (non-variable) GraphQL args, e.g. `"type:ANIME"` — needed when
+ *  the real query's Page connection has no type filter of its own, so an id
+ *  of the WRONG AniList type would otherwise pass this existence check and
+ *  the connection would just silently return empty results (confirmed live:
+ *  `get_anime_schedule` given a real manga id, before this parameter
+ *  existed). */
+export function existsFragment(typeName: string, idVar: string, extraArgs?: string): string {
+  const args = extraArgs ? `id:$${idVar},${extraArgs}` : `id:$${idVar}`;
+  return `exists:${typeName}(${args}){id}`;
 }
 
 // Kept lean on purpose: search.ts/recommendation.ts return many media items

@@ -41,16 +41,21 @@ test("getMedia(single id) queries Media(), getMedia(array) queries Page.media()"
 
 test("getSchedule aliases a mediaId existence check into the same request as the schedule query", async (t) => {
   const mock = mockFetch(() =>
-    jsonResponse({ data: { exists: { id: 1 }, schedule: { airingSchedules: [{ episode: 5 }] } } }),
+    jsonResponse({
+      data: {
+        exists: { id: 1 },
+        schedule: { pageInfo: { hasNextPage: false }, airingSchedules: [{ episode: 5 }] },
+      },
+    }),
   );
   installFetch(t, mock);
   const client = new AniListClient(testConfig({}), silentLogger());
 
   const result = await media.getSchedule(client.ctx(), 1);
-  assert.deepEqual(result, [{ episode: 5 }]);
+  assert.deepEqual(result, { schedule: [{ episode: 5 }], hasNextPage: false });
   assert.equal(mock.calls.length, 1, "the existence check and schedule query are one request");
   const query = JSON.parse(mock.calls[0]!.init?.body as string).query as string;
-  assert.match(query, /exists:Media\(id:\$mediaId\)/);
+  assert.match(query, /exists:Media\(id:\$mediaId,type:ANIME\)/);
 });
 
 test("getSchedule rejects with not_found for a nonexistent mediaId, instead of silently returning an empty schedule", async (t) => {
@@ -73,8 +78,32 @@ test("getSchedule rejects with not_found for a nonexistent mediaId, instead of s
   assert.equal(mock.calls.length, 1, "the not-found check costs no extra request");
 });
 
+test("getSchedule's exists check filters on type:ANIME, rejecting a real manga id instead of returning an empty schedule", async (t) => {
+  // Confirmed live: airingSchedules(mediaId) has no type filter of its own,
+  // so a real MANGA id used to pass the (untyped) existence check and just
+  // silently return an empty schedule, indistinguishable from "no upcoming
+  // episodes." exists:Media(id,type:ANIME) now rejects it up front.
+  const mock = mockFetch(() =>
+    jsonResponse(
+      { errors: [{ message: "Not Found.", status: 404 }], data: { exists: null, schedule: null } },
+      { status: 404 },
+    ),
+  );
+  installFetch(t, mock);
+  const client = new AniListClient(testConfig({}), silentLogger());
+
+  await assert.rejects(
+    () => media.getSchedule(client.ctx(), 30013), // a real manga id (One Piece manga)
+    (err: unknown) => err instanceof ApiError && err.code === "not_found",
+  );
+  const query = JSON.parse(mock.calls[0]!.init?.body as string).query as string;
+  assert.match(query, /exists:Media\(id:\$mediaId,type:ANIME\)/);
+});
+
 test("getSchedule with no mediaId skips the existence check and goes straight to the site-wide schedule", async (t) => {
-  const mock = mockFetch(() => jsonResponse({ data: { schedule: { airingSchedules: [] } } }));
+  const mock = mockFetch(() =>
+    jsonResponse({ data: { schedule: { pageInfo: { hasNextPage: false }, airingSchedules: [] } } }),
+  );
   installFetch(t, mock);
   const client = new AniListClient(testConfig({}), silentLogger());
 

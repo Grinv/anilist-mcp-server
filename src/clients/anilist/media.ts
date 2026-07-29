@@ -155,12 +155,16 @@ export async function getSchedule(
   notYetAired = true,
   page = 1,
   perPage = 25,
-): Promise<unknown> {
+): Promise<{ schedule: unknown; hasNextPage: boolean | null }> {
   // airingSchedules(mediaId) doesn't error on a bad mediaId (see
   // docs/api-references.md's "Page connection filtered by a parent id"
   // section) — existsFragment() aliases the existence check into this same
   // request instead of a separate round trip when mediaId is given.
-  const existsField = mediaId !== undefined ? existsFragment("Media", "mediaId") : "";
+  // type:ANIME on the exists check (not just id) — airingSchedules has no
+  // type filter of its own, so a real MANGA id would otherwise pass this
+  // check and just return an empty schedule instead of erroring (confirmed
+  // live).
+  const existsField = mediaId !== undefined ? existsFragment("Media", "mediaId", "type:ANIME") : "";
   const query = `query($mediaId:Int,$notYetAired:Boolean,$page:Int,$perPage:Int){
     ${existsField}
     schedule:Page(page:$page,perPage:$perPage){
@@ -172,8 +176,11 @@ export async function getSchedule(
   }`;
   const data = await ctx.gql.request<{
     exists?: { id: number } | null;
-    schedule: { airingSchedules: unknown };
+    schedule: { pageInfo: { hasNextPage: boolean | null }; airingSchedules: unknown };
   }>(query, { mediaId, notYetAired, page, perPage }, ctx.authHeader());
   if (mediaId !== undefined) assertFound(data.exists, `No anime found with ID ${mediaId}.`);
-  return data.schedule.airingSchedules;
+  return {
+    schedule: data.schedule.airingSchedules,
+    hasNextPage: data.schedule.pageInfo.hasNextPage,
+  };
 }

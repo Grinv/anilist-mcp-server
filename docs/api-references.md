@@ -409,6 +409,15 @@ search:...)` connection uses. `get_studio`'s own description used to imply
     aliases a `Media(id){id}` existence check into the same request as
     `airingSchedules(...)` (same no-extra-request combined-query approach as
     `getUserActivity`'s numeric path above), only when `mediaId` is given.
+    `airingSchedules` also has no `type` filter of its own, so a real MANGA id
+    used to pass this existence check and just return an empty schedule
+    (indistinguishable from a real anime past its air date) — confirmed live
+    with One Piece's manga id (30013). The exists check now adds
+    `type:ANIME` (`existsFragment("Media", "mediaId", "type:ANIME")`), so a
+    manga id is rejected with a clean `not_found` instead. Confirmed live
+    after the fix: the manga id now 404s, and a real anime id (21) returns
+    the schedule with `hasNextPage` correctly included — `getSchedule()`
+    previously discarded `pageInfo.hasNextPage` even though it fetched it.
 
   **`mediaList` does NOT share this shape — confirmed live it needs no alias
   trick at all.** `MediaListCollection(userId/userName)` 404s the entire

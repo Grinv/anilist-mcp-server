@@ -18,6 +18,10 @@ skills/
 .claude/
 .agents/
 
+# Glama.ai directory metadata — read by their crawler from the repo/npm page,
+# not needed by an installed extension.
+glama.json
+
 # Tooling / config
 tsconfig.json
 tsconfig.scripts.json

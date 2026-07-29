@@ -15,6 +15,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Document that `search_media`'s `onList` silently no-ops when not logged in, matching `get_recommendations_for_media`'s `excludeInList`. [ad6d8a7](https://github.com/Grinv/anilist-mcp-server/commit/ad6d8a7)
 - Fix `update_user`'s `notificationOptions`/`disabledListActivity` to actually reject a duplicated type — the old check only verified full coverage, not array length, so a duplicate-plus-full-coverage array silently passed despite both fields' "exactly once" description. [2cfa0fe](https://github.com/Grinv/anilist-mcp-server/commit/2cfa0fe)
 - Document that `get_studio`'s `name` already does AniList's own fuzzy search, so a partial name resolves directly without needing `search_studio` first. [995e071](https://github.com/Grinv/anilist-mcp-server/commit/995e071)
+- Reject a manga id in `get_anime_schedule` instead of silently returning an empty schedule; also stop discarding `hasNextPage` from its output. [a3c7664](https://github.com/Grinv/anilist-mcp-server/commit/a3c7664)
+- Type `get_recommendation`/`get_recommendations_for_media`'s `rating`/`userRating` fields per AniList's actual schema (a plain int and a real 3-value enum), not generic number/string. [9bf34b5](https://github.com/Grinv/anilist-mcp-server/commit/9bf34b5)
+- Reject `post_thread` calls that omit `categories` when creating a new thread, matching AniList's own mutation requirement, instead of surfacing an upstream error. [67ec0fc](https://github.com/Grinv/anilist-mcp-server/commit/67ec0fc)
 
 ### Security
 

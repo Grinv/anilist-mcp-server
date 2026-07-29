@@ -6,6 +6,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-07-29
+
 ### Added
 
 - Add an hour-long public cache hint to `tools/list`/`prompts/list`/`server/discover` for 2026-07-28-era clients.

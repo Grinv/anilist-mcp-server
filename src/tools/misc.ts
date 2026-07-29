@@ -4,7 +4,7 @@ import type { AniListClient } from "../clients/anilist.js";
 import * as misc from "../clients/anilist/misc.js";
 import { jsonResult } from "../lib/result.js";
 import { guard } from "./guard.js";
-import { pageInfoSchema, anilistId } from "./outputSchemas.js";
+import { pageInfoSchema, anilistId, paginationFields } from "./outputSchemas.js";
 
 const mediaTagItem = z
   .object({
@@ -119,8 +119,7 @@ export function registerMiscTools(server: McpServer, client: AniListClient): voi
         "passing it to search_media's `tag_in` — tag names are case-sensitive, and an " +
         "unrecognized name doesn't error, it just silently matches nothing (confirmed live).",
       inputSchema: z.object({
-        page: z.number().int().positive().default(1).describe("Page number for pagination."),
-        perPage: z.number().int().min(1).max(25).default(25).describe("Results per page (max 25)."),
+        ...paginationFields(25),
       }),
       outputSchema: z.object({
         tags: z.array(mediaTagItem),

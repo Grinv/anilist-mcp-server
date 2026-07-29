@@ -4,7 +4,7 @@ import type { AniListClient } from "../clients/anilist.js";
 import * as notification from "../clients/anilist/notification.js";
 import { jsonResult } from "../lib/result.js";
 import { guard } from "./guard.js";
-import { pageInfoSchema, idOnly } from "./outputSchemas.js";
+import { pageInfoSchema, idOnly, paginationFields } from "./outputSchemas.js";
 
 export const NOTIFICATION_TYPES = [
   "ACTIVITY_MESSAGE",
@@ -58,8 +58,7 @@ export function registerNotificationTools(server: McpServer, client: AniListClie
               "effect of this call (the same effect as opening the notifications page on the " +
               "site). Defaults to false so a routine check doesn't clear the badge.",
           ),
-        page: z.number().int().positive().default(1).describe("Page number for pagination."),
-        perPage: z.number().int().min(1).max(25).default(25).describe("Results per page (max 25)."),
+        ...paginationFields(25),
       }),
       outputSchema: z.object({
         results: z

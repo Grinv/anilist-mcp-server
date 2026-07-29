@@ -4,7 +4,13 @@ import type { AniListClient } from "../clients/anilist.js";
 import * as activity from "../clients/anilist/activity.js";
 import { jsonResult } from "../lib/result.js";
 import { guard } from "./guard.js";
-import { pageInfoSchema, deleteResult, anilistId, userIdOrName } from "./outputSchemas.js";
+import {
+  pageInfoSchema,
+  deleteResult,
+  anilistId,
+  userIdOrName,
+  paginationFields,
+} from "./outputSchemas.js";
 
 /** Matches the ACTIVITY_FRAGMENT union (TextActivity/ListActivity/MessageActivity) —
  *  `id` is the only field common to every branch; the rest are optional since
@@ -82,8 +88,7 @@ export function registerActivityTools(server: McpServer, client: AniListClient):
         "type (TEXT/ANIME_LIST/MANGA_LIST/MESSAGE) or browse without pinning to one user.",
       inputSchema: z.object({
         user: userIdOrName,
-        page: z.number().int().positive().default(1).describe("Page number for pagination."),
-        perPage: z.number().int().min(1).max(25).default(10).describe("Results per page (max 25)."),
+        ...paginationFields(10),
       }),
       outputSchema: z.object({
         results: z

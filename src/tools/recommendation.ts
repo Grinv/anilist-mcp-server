@@ -4,7 +4,7 @@ import type { AniListClient } from "../clients/anilist.js";
 import * as recommendation from "../clients/anilist/recommendation.js";
 import { jsonResult } from "../lib/result.js";
 import { guard } from "./guard.js";
-import { anilistId } from "./outputSchemas.js";
+import { anilistId, paginationFields } from "./outputSchemas.js";
 
 const mediaRefLite = z
   .object({
@@ -80,8 +80,7 @@ export function registerRecommendationTools(server: McpServer, client: AniListCl
         "checking each one yourself.",
       inputSchema: z.object({
         mediaId: anilistId.describe("AniList ID of the anime/manga to get recommendations for."),
-        page: z.number().int().positive().default(1).describe("Page number for pagination."),
-        perPage: z.number().int().min(1).max(25).default(10).describe("Results per page (max 25)."),
+        ...paginationFields(10),
         excludeInList: z
           .boolean()
           .default(false)

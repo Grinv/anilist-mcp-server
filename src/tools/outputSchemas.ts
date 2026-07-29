@@ -1,8 +1,8 @@
 // Schema fragments shared across multiple tools/*.ts files: output shapes
 // that describe the same upstream AniList GraphQL types (PageInfo, Deleted),
-// plus a couple of small input-side helpers (anilistId) — kept in one place
-// so a schema fix/addition doesn't have to be hand-applied identically
-// across every file that happens to need it.
+// plus a couple of small input-side helpers (anilistId, paginationFields) —
+// kept in one place so a schema fix/addition doesn't have to be hand-applied
+// identically across every file that happens to need it.
 import { z } from "zod";
 
 /** Bound for any caller-supplied AniList numeric ID (media, user, character,
@@ -13,6 +13,22 @@ import { z } from "zod";
  *  are still representable as `Int` and already fail cleanly upstream as
  *  "not found"; this only guards the range GraphQL can carry at all. */
 export const anilistId = z.number().int().min(-2147483648).max(2147483647);
+
+/** The `page`/`perPage` pair every `Page`-based tool takes, spread into that
+ *  tool's own `inputSchema` object (e.g. `z.object({ ...paginationFields(10),
+ *  otherField: ... })`) — only `perPage`'s default varies per tool. Not used
+ *  by `get_site_statistics`: its `perPage` describes a different cap
+ *  (AniList's own, not this schema's) and needs its own wording. */
+export const paginationFields = (defaultPerPage: number) => ({
+  page: z.number().int().positive().default(1).describe("Page number for pagination."),
+  perPage: z
+    .number()
+    .int()
+    .min(1)
+    .max(25)
+    .default(defaultPerPage)
+    .describe("Results per page (max 25)."),
+});
 
 // AniList sometimes returns explicit `null` (not just omitting the field) for
 // every one of these — confirmed live on a `threadComments` page that had

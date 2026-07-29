@@ -11,6 +11,7 @@ import {
   MEDIA_TYPES,
   fuzzyDateOut,
   anilistId,
+  paginationFields,
 } from "./outputSchemas.js";
 
 const mediaType = z.enum(MEDIA_TYPES).describe("Whether `id` refers to anime or manga.");
@@ -379,8 +380,7 @@ export function registerMediaTools(server: McpServer, client: AniListClient): vo
       inputSchema: z.object({
         type: mediaType,
         id: anilistId.describe("AniList ID."),
-        page: z.number().int().positive().default(1).describe("Page number for pagination."),
-        perPage: z.number().int().min(1).max(25).default(25).describe("Results per page (max 25)."),
+        ...paginationFields(25),
       }),
       outputSchema: z.object({ characters: charactersConnection }),
       annotations: { readOnlyHint: true, openWorldHint: true },
@@ -406,8 +406,7 @@ export function registerMediaTools(server: McpServer, client: AniListClient): vo
       inputSchema: z.object({
         type: mediaType,
         id: anilistId.describe("AniList ID."),
-        page: z.number().int().positive().default(1).describe("Page number for pagination."),
-        perPage: z.number().int().min(1).max(25).default(25).describe("Results per page (max 25)."),
+        ...paginationFields(25),
       }),
       outputSchema: z.object({ staff: staffConnection }),
       annotations: { readOnlyHint: true, openWorldHint: true },
@@ -430,8 +429,7 @@ export function registerMediaTools(server: McpServer, client: AniListClient): vo
       inputSchema: z.object({
         type: mediaType,
         id: anilistId.describe("AniList ID."),
-        page: z.number().int().positive().default(1).describe("Page number for pagination."),
-        perPage: z.number().int().min(1).max(25).default(10).describe("Results per page (max 25)."),
+        ...paginationFields(10),
         includeBody: z
           .boolean()
           .default(false)
@@ -484,8 +482,7 @@ export function registerMediaTools(server: McpServer, client: AniListClient): vo
           .boolean()
           .default(true)
           .describe("Set false to include already-aired episodes too."),
-        page: z.number().int().positive().default(1).describe("Page number for pagination."),
-        perPage: z.number().int().min(1).max(25).default(25).describe("Results per page (max 25)."),
+        ...paginationFields(25),
       }),
       outputSchema: z.object({ schedule: z.array(scheduleItem) }),
       annotations: { readOnlyHint: true, openWorldHint: true },

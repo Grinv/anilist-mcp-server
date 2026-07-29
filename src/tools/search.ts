@@ -4,7 +4,14 @@ import type { AniListClient } from "../clients/anilist.js";
 import * as search from "../clients/anilist/search.js";
 import { jsonResult } from "../lib/result.js";
 import { guard } from "./guard.js";
-import { pageInfoSchema, MEDIA_TYPES, idOnly, anilistId, userIdOrName } from "./outputSchemas.js";
+import {
+  pageInfoSchema,
+  MEDIA_TYPES,
+  idOnly,
+  anilistId,
+  userIdOrName,
+  paginationFields,
+} from "./outputSchemas.js";
 
 const FORMATS = [
   "TV",
@@ -219,8 +226,7 @@ const mediaSearchInput = z.object({
         "up to 25 results per call, always including it would burn tokens on text you may not " +
         "need; use get_media for a single title's full synopsis instead.",
     ),
-  page: z.number().int().positive().default(1).describe("Page number for pagination."),
-  perPage: z.number().int().min(1).max(25).default(10).describe("Results per page (max 25)."),
+  ...paginationFields(10),
 });
 
 // Search results are lists of AniList media/character/staff/etc. objects —
@@ -291,8 +297,7 @@ export function registerSearchTools(server: McpServer, client: AniListClient): v
         "Search AniList for characters by name. Returns AniList IDs to use with get_character.",
       inputSchema: z.object({
         term: z.string().min(1).describe("Character name (or part of it) to search for."),
-        page: z.number().int().positive().default(1).describe("Page number for pagination."),
-        perPage: z.number().int().min(1).max(25).default(10).describe("Results per page (max 25)."),
+        ...paginationFields(10),
       }),
       outputSchema: z.object({
         results: z
@@ -315,8 +320,7 @@ export function registerSearchTools(server: McpServer, client: AniListClient): v
         "Search AniList for staff members by name. Returns AniList IDs to use with get_staff.",
       inputSchema: z.object({
         term: z.string().min(1).describe("Staff member name (or part of it) to search for."),
-        page: z.number().int().positive().default(1).describe("Page number for pagination."),
-        perPage: z.number().int().min(1).max(25).default(10).describe("Results per page (max 25)."),
+        ...paginationFields(10),
       }),
       outputSchema: z.object({
         results: z
@@ -339,8 +343,7 @@ export function registerSearchTools(server: McpServer, client: AniListClient): v
         "Search AniList for animation/production studios by name. Returns AniList IDs to use with get_studio.",
       inputSchema: z.object({
         term: z.string().min(1).describe("Studio name (or part of it) to search for."),
-        page: z.number().int().positive().default(1).describe("Page number for pagination."),
-        perPage: z.number().int().min(1).max(25).default(10).describe("Results per page (max 25)."),
+        ...paginationFields(10),
       }),
       outputSchema: z.object({
         results: z
@@ -365,8 +368,7 @@ export function registerSearchTools(server: McpServer, client: AniListClient): v
         "get_user_list (their public list), or toggle_follow_user.",
       inputSchema: z.object({
         term: z.string().min(1).describe("Username (or part of it) to search for."),
-        page: z.number().int().positive().default(1).describe("Page number for pagination."),
-        perPage: z.number().int().min(1).max(25).default(10).describe("Results per page (max 25)."),
+        ...paginationFields(10),
       }),
       outputSchema: z.object({
         results: z
@@ -413,8 +415,7 @@ export function registerSearchTools(server: McpServer, client: AniListClient): v
               "error, it silently filters to an empty result — resolve the ID via search_media " +
               "first if you need to confirm the title actually exists.",
           ),
-        page: z.number().int().positive().default(1).describe("Page number for pagination."),
-        perPage: z.number().int().min(1).max(25).default(10).describe("Results per page (max 25)."),
+        ...paginationFields(10),
       }),
       outputSchema: z.object({
         results: z
@@ -467,8 +468,7 @@ export function registerSearchTools(server: McpServer, client: AniListClient): v
             "Restrict to this activity type. MEDIA_LIST matches both ANIME_LIST and MANGA_LIST " +
               "activities; use ANIME_LIST/MANGA_LIST to restrict to just one.",
           ),
-        page: z.number().int().positive().default(1).describe("Page number for pagination."),
-        perPage: z.number().int().min(1).max(25).default(10).describe("Results per page (max 25)."),
+        ...paginationFields(10),
       }),
       outputSchema: z.object({
         results: z

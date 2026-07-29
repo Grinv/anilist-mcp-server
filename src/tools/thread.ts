@@ -4,7 +4,7 @@ import type { AniListClient } from "../clients/anilist.js";
 import * as thread from "../clients/anilist/thread.js";
 import { jsonResult } from "../lib/result.js";
 import { guard } from "./guard.js";
-import { pageInfoSchema, deleteResult, anilistId } from "./outputSchemas.js";
+import { pageInfoSchema, deleteResult, anilistId, paginationFields } from "./outputSchemas.js";
 
 const savedThread = z
   .object({
@@ -108,8 +108,7 @@ export function registerThreadTools(server: McpServer, client: AniListClient): v
           "AniList thread ID — use search_thread to find one, or pass one already known " +
             "(e.g. from an AniList forum URL, or from get_thread).",
         ),
-        page: z.number().int().positive().default(1).describe("Page number for pagination."),
-        perPage: z.number().int().min(1).max(25).default(25).describe("Results per page (max 25)."),
+        ...paginationFields(25),
       }),
       outputSchema: z.object({
         comments: z

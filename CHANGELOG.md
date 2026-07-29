@@ -6,6 +6,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- Bump `@modelcontextprotocol/server`/`client` to the first stable `2.0.0` (from `2.0.0-beta.5`).
+  No breaking changes — the only two behavior changes since beta.5 don't affect this stdio-only server.
+
 ## [0.4.0] - 2026-07-28
 
 Everything below is one commit: [48049f6](https://github.com/Grinv/anilist-mcp-server/commit/48049f6).

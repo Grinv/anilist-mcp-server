@@ -40,16 +40,6 @@ provenance — no token) → **publish to the official MCP Registry** (`mcp-publ
 GitHub OIDC). Never hand-edit the version in the derived files; bump `package.json`
 via `npm version` and let the hook sync the rest.
 
-## Before the first release
-
-This repo currently pins `@modelcontextprotocol/server` (and its
-`@modelcontextprotocol/client` dev-dependency) to an **exact beta version**
-(`2.0.0-beta.x`) intentionally — see AGENTS.md's MCP SDK note. Bump to the
-first stable `2.0.0` (once the 2026-07-28 MCP
-spec/SDK ships GA) **before** the first public release if at all possible, to
-avoid shipping a beta dependency to end users. If a release must go out before
-GA, call this out clearly in the CHANGELOG entry.
-
 ## MCP Registry
 
 The server is intended to be listed at `registry.modelcontextprotocol.io` as

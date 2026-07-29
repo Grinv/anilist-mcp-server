@@ -138,14 +138,10 @@ typecheck:scripts`, folded into `npm run lint`) instead of the main
   every app (no "public vs confidential app type" pitfall) and does **not**
   support refresh tokens — access tokens are long-lived JWTs (~1 year);
   re-authentication via `login_anilist` is the only way to renew one.
-- **MCP SDK**: this project intentionally runs on **`@modelcontextprotocol/server`
-  v2 beta** (`2.0.0-beta.x`, pinned exact — not a `^range`) ahead of the sibling
-  servers (`mal-mcp`/`tmdb-mcp`/`steam-games-mcp`, all still on v1). Bump to
-  each new `2.0.0-beta.N` promptly (re-running the full test suite, including
-  `e2e.test.ts`, before merging), since the SDK is still shipping breaking
-  wire-format changes between betas as the 2026-07-28 MCP spec finalizes. Bump
-  to the first stable `2.0.0` once that spec/SDK ships GA — no schedule for
-  that yet as of `2.0.0-beta.5`.
+- **MCP SDK**: this project runs on stable **`@modelcontextprotocol/server` v2**
+  (`2.0.0`, pinned exact — not a `^range`) ahead of the sibling servers
+  (`mal-mcp`/`tmdb-mcp`/`steam-games-mcp`, all still on v1). Re-run the full
+  test suite, including `e2e.test.ts`, before merging any future SDK bump.
 - **No `logging` MCP capability.** `notifications/message`/`logging/setLevel`
   were deprecated in protocol version 2026-07-28 (SEP-2577) in favor of
   stderr/OpenTelemetry — which `lib/logger.ts` already does (stderr-only,

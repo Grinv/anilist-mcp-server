@@ -12,6 +12,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- Cap `get_media`'s `ids` array at 25 entries — it previously had no upper bound, and a batch of hundreds succeeded live against AniList with no cap, each entry carrying the full synopsis/tags/rankings. [8d9eba7](https://github.com/Grinv/anilist-mcp-server/commit/8d9eba7)
+- Disclose that a majority of ids from `get_recommendations_for_media` 404 on `get_recommendation`'s own lookup — a confirmed AniList-side inconsistency, not a bug in this server. [35a6226](https://github.com/Grinv/anilist-mcp-server/commit/35a6226)
+- Correct `PRIVACY.md`'s claim that `get_notifications` "does not write anything" — its `markAsRead: true` option resets AniList's real unread-notification badge count. [c9485a4](https://github.com/Grinv/anilist-mcp-server/commit/c9485a4)
 - Correct `idempotentHint` to `false` on `delete_activity`/`delete_thread`/`delete_thread_comment`/`remove_list_entry` — each one errors, not silently succeeds, when retried on an already-deleted id. [fc4fc5e](https://github.com/Grinv/anilist-mcp-server/commit/fc4fc5e)
 - Document that `update_list_entry`'s `customLists` replaces the entry's full set of enabled lists, not merges — the same warning `add_list_entry`'s identical field already had. [53f8351](https://github.com/Grinv/anilist-mcp-server/commit/53f8351)
 - Document that `update_list_entry`'s `hiddenFromStatusLists` still counts the entry in statistics — the same clause `add_list_entry`'s identical field already had. [eceace6](https://github.com/Grinv/anilist-mcp-server/commit/eceace6)

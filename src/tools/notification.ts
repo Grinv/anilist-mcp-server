@@ -4,7 +4,7 @@ import type { AniListClient } from "../clients/anilist.js";
 import * as notification from "../clients/anilist/notification.js";
 import { jsonResult } from "../lib/result.js";
 import { guard } from "./guard.js";
-import { pageInfoSchema, idOnly, paginationFields } from "./outputSchemas.js";
+import { idOnly, paginationFields } from "./outputSchemas.js";
 
 export const NOTIFICATION_TYPES = [
   "ACTIVITY_MESSAGE",
@@ -49,7 +49,12 @@ export function registerNotificationTools(server: McpServer, client: AniListClie
         type_in: z
           .array(z.enum(NOTIFICATION_TYPES))
           .optional()
-          .describe("Restrict to these notification types. Omit to get every type."),
+          .describe(
+            "Restrict to these notification types. Omit to get every type. This only filters " +
+              "what's returned here — whether a type is generated at all is controlled " +
+              "separately by the account's own notificationOptions (update_user); a type " +
+              "disabled there simply never appears, regardless of this filter.",
+          ),
         markAsRead: z
           .boolean()
           .default(false)
@@ -63,7 +68,14 @@ export function registerNotificationTools(server: McpServer, client: AniListClie
       outputSchema: z.object({
         results: z
           .object({
-            pageInfo: pageInfoSchema.optional(),
+            pageInfo: z
+              .object({ hasNextPage: z.boolean().nullish() })
+              .passthrough()
+              .optional()
+              .describe(
+                "Whether another page exists — this query only ever requests hasNextPage, " +
+                  "not total/currentPage/lastPage (unlike some sibling paginated tools).",
+              ),
             notifications: z.array(idOnly).optional(),
           })
           .passthrough(),

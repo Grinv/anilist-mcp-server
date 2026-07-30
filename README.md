@@ -244,7 +244,7 @@ npm run check:api    # live health-check of the AniList GraphQL endpoint
 npm run inspector    # run under the MCP Inspector
 ```
 
-Runtime requires Node ≥ 20.9. See [AGENTS.md](AGENTS.md) for contributor/agent
+Runtime requires Node ≥ 20.11. See [AGENTS.md](AGENTS.md) for contributor/agent
 guidance, including why this server exists and how it avoids the upstream bug
 that motivated building it.
 

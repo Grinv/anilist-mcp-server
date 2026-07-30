@@ -9,11 +9,10 @@
 // real judgment step before releasing.
 import { readFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
-import { fileURLToPath } from "node:url";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
 import { unreleasedHasBullets } from "./sync-version.mjs";
 
-const root = join(dirname(fileURLToPath(import.meta.url)), "..");
+const root = join(import.meta.dirname, "..");
 
 /**
  * Sweeps any `refs/tmp-preversion-check/*` left behind by a run that never

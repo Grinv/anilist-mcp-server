@@ -13,10 +13,10 @@
 // [Unreleased] empty right when the gate inspects it — a real, confirmed
 // self-inflicted failure, not a hypothetical one.
 import { readFileSync, writeFileSync } from "node:fs";
-import { fileURLToPath, pathToFileURL } from "node:url";
-import { dirname, join } from "node:path";
+import { pathToFileURL } from "node:url";
+import { join } from "node:path";
 
-const root = join(dirname(fileURLToPath(import.meta.url)), "..");
+const root = join(import.meta.dirname, "..");
 
 /**
  * @param {string} rel

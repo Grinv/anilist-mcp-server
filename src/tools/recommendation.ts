@@ -76,7 +76,8 @@ export function registerRecommendationTools(server: McpServer, client: AniListCl
       description:
         "Get a single AniList recommendation pairing (media + the media users recommend " +
         "alongside it) by its AniList recommendation ID — useful for re-checking one specific " +
-        "pairing's current `rating`/`userRating` (e.g. after voting on it) without " +
+        "pairing's current `rating`/`userRating` (e.g. after voting on it directly on " +
+        "anilist.co — this server has no tool to cast that vote itself) without " +
         "re-paginating the whole list. Use get_recommendations_for_media instead to discover " +
         "recommendation IDs for a title in the first place, or to browse/list them. Confirmed " +
         "live (raw GraphQL, independent of this server): this is an AniList-side inconsistency, " +
@@ -100,10 +101,10 @@ export function registerRecommendationTools(server: McpServer, client: AniListCl
       title: "Get recommendations for a title",
       description:
         "List anime/manga AniList users recommend as similar to a given title, ranked by " +
-        "rating. Use search_media first to resolve the title to its AniList ID. Each " +
-        "recommendation's `mediaListEntry` (requires login) shows whether it's already on " +
-        "your own list — set `excludeInList: true` to filter those out server-side instead of " +
-        "checking each one yourself.",
+        "rating (highest first). Use search_media first to resolve the title to its AniList " +
+        "ID. Each result's `mediaRecommendation.mediaListEntry` (requires login) shows whether " +
+        "it's already on your own list — set `excludeInList: true` to filter those out " +
+        "server-side instead of checking each one yourself.",
       inputSchema: z.object({
         mediaId: mediaId.describe("AniList ID of the anime/manga to get recommendations for."),
         ...paginationFields(10),

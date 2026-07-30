@@ -6,6 +6,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-07-30
+
 ### Added
 
 - Add `PRIVACY.md` and `SECURITY.md`, linked from `README.md`. [768c458](https://github.com/Grinv/anilist-mcp-server/commit/768c458) [3b961fe](https://github.com/Grinv/anilist-mcp-server/commit/3b961fe)

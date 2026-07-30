@@ -131,9 +131,12 @@ supports concurrent subagents/background tasks.
 - **Payload-size risk**: anything that aggregates a variable-size collection
   — `get_media_tags` (fetches AniList's full ~425-tag list per call even
   though only a page is returned), `streamingEpisodes`, a very active
-  account's `get_user_list`/`get_user_activity`. Check the actual response
-  size/token count for the largest realistic case, not just that it returns
-  _something_.
+  account's `get_user_list`/`get_user_activity`, or a batch-`ids`-style array
+  param with `.min()` but no `.max()` (grep for `${...length}`/`${...size}`
+  interpolated into a query — a live check with a 100+-item array once found
+  `get_media`'s `ids` had no server-side or client-side cap either). Check the
+  actual response size/token count for the largest realistic case, not just
+  that it returns _something_.
 - **Documented vs. actual shape**: for anything that looks surprising live,
   grep the field back to its `.describe()` text — does the tool's own
   description promise what you just saw (or promise something you didn't)?
@@ -224,7 +227,12 @@ Sweep every file under `src/tools/`, `src/clients/anilist/`, and `src/lib/`
   previous pass of this same audit).
 - A `Page`-based connection (`Page(...) { someConnection(parentId) }`) that
   returns an empty-but-successful page for a nonexistent parent ID instead
-  of erroring, indistinguishable from "genuinely zero results". Also flag a
+  of erroring, indistinguishable from "genuinely zero results". Separately,
+  a connection's own node id isn't guaranteed to resolve via that node
+  type's equivalent root lookup — confirmed live (raw `curl`, no auth) that
+  most `Media(id){recommendations{nodes{id}}}` ids 404 on root
+  `Recommendation(id)`; verify any "use tool A's output as tool B's input"
+  workflow actually round-trips before documenting it as reliable. Also flag a
   function that's already correctness-safe via a _separate_ existence-check
   request instead of an aliased one — `getThreadComments`/`getSchedule`/
   `getUserActivity` all share this pattern via `fields.ts`'s

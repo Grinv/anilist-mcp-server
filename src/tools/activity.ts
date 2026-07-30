@@ -83,11 +83,14 @@ export function registerActivityTools(server: McpServer, client: AniListClient):
     {
       title: "Get a user's activity feed",
       description:
-        "List recent AniList activity posts from a specific user (list updates, text posts). " +
-        "Accepts an exact AniList username directly (it's resolved to an id with one extra " +
-        "internal lookup) — no need to call search_user first unless you only have a " +
-        "partial/fuzzy name. Use search_activity instead if you also want to filter by activity " +
-        "type (TEXT/ANIME_LIST/MANGA_LIST/MESSAGE) or browse without pinning to one user.",
+        "List recent AniList activity posts from a specific user — every activity type " +
+        "(list updates, text posts, and message activity they received), the underlying query " +
+        "applies no type filter of its own. Accepts an exact AniList username directly " +
+        "(it's resolved to an id with one extra internal lookup) — no need to call search_user " +
+        "first unless you only have a partial/fuzzy name. Use search_activity instead if you " +
+        "want to restrict to one activity type (TEXT/ANIME_LIST/MANGA_LIST/MEDIA_LIST/MESSAGE) " +
+        "or browse without pinning to one user. Use get_user_recent_activity instead if you " +
+        "just want a quick, fixed-size (5-item) recent snapshot without paginating.",
       inputSchema: z.object({
         user: userIdOrName,
         ...paginationFields(10),

@@ -260,9 +260,25 @@ const reviewsConnection = z
             id: anilistId,
             summary: z.string().nullish(),
             body: z.string().nullish(),
-            rating: z.number().nonnegative().nullish(),
-            ratingAmount: z.number().nonnegative().nullish(),
-            score: z.number().nonnegative().nullish(),
+            rating: z
+              .number()
+              .nonnegative()
+              .nullish()
+              .describe(
+                "Net helpful votes this review received from other users (community " +
+                  "helpfulness, confirmed live this is what results are sorted by) — not the " +
+                  "reviewer's own opinion of the title, that's `score`.",
+              ),
+            ratingAmount: z
+              .number()
+              .nonnegative()
+              .nullish()
+              .describe("Total votes cast on this review's helpfulness (helpful + unhelpful)."),
+            score: z
+              .number()
+              .nonnegative()
+              .nullish()
+              .describe("The reviewer's own 0-100 rating of the title itself, not a vote count."),
             siteUrl: z.httpUrl().nullish(),
             user: z.object({ id: anilistId, name: z.string().nullish() }).loose().nullish(),
           })
@@ -430,10 +446,11 @@ export function registerMediaTools(server: McpServer, client: AniListClient): vo
     {
       title: "Get an anime/manga's reviews",
       description:
-        "List user-written reviews for an anime or manga, highest-rated first. Always includes " +
-        "`summary` (a short excerpt); set `includeBody` to also fetch each review's full text " +
-        "(can be long — leave it off unless you actually need the full text). Use search_media " +
-        "first to resolve a title to its AniList ID.",
+        "List user-written reviews for an anime or manga, most-helpful-voted first " +
+        "(confirmed live: ordered by `rating`, not `score` — see those fields' own " +
+        "descriptions). Always includes `summary` (a short excerpt); set `includeBody` to also " +
+        "fetch each review's full text (can be long — leave it off unless you actually need " +
+        "the full text). Use search_media first to resolve a title to its AniList ID.",
       inputSchema: z.object({
         type: mediaType,
         id: mediaId.describe("AniList ID."),
@@ -463,8 +480,8 @@ export function registerMediaTools(server: McpServer, client: AniListClient): vo
         "adaptations, spin-offs) with the relation type. Use search_media first to resolve a " +
         "title to its AniList ID.",
       inputSchema: z.object({
+        type: mediaType,
         id: mediaId.describe("AniList anime/manga ID."),
-        type: z.enum(["ANIME", "MANGA"]).describe("Whether `id` refers to an anime or a manga."),
       }),
       outputSchema: z.object({ relations: relationsObject }),
       annotations: { readOnlyHint: true, openWorldHint: true },
@@ -490,7 +507,11 @@ export function registerMediaTools(server: McpServer, client: AniListClient): vo
         notYetAired: z
           .boolean()
           .default(true)
-          .describe("Set false to include already-aired episodes too."),
+          .describe(
+            "Set false to instead list only already-aired episodes (confirmed live: this " +
+              "swaps to a past-only result set, it doesn't add past episodes to the " +
+              "still-upcoming ones).",
+          ),
         ...paginationFields(25),
       }),
       outputSchema: z.object({

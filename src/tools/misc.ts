@@ -22,6 +22,29 @@ const mediaTagItem = z
   })
   .loose();
 
+// Confirmed live: unlike the generic pageInfoSchema caveat (accurate for
+// AniList's degraded search/list connections), this field's total/lastPage
+// held steady (500) and lastPage scaled correctly across different perPage
+// values for the same query — so, unlike that shared caveat, they're safe to
+// rely on here.
+const siteStatsPageInfo = pageInfoSchema.extend({
+  total: z
+    .int()
+    .nullish()
+    .describe(
+      "Total number of daily data points AniList has for this series — confirmed live " +
+        "accurate for this field (unlike this schema's usual meaning elsewhere in this " +
+        "server), safe to rely on.",
+    ),
+  lastPage: z
+    .int()
+    .nullish()
+    .describe(
+      "Final page number for the requested `perPage` size — confirmed live accurate for " +
+        "this field, safe to rely on to know when you've paged through everything.",
+    ),
+});
+
 const statSeries = z
   .object({
     nodes: z
@@ -35,7 +58,7 @@ const statSeries = z
           .loose(),
       )
       .nullish(),
-    pageInfo: pageInfoSchema.optional(),
+    pageInfo: siteStatsPageInfo.optional(),
   })
   .loose();
 

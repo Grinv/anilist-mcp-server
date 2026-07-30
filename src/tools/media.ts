@@ -19,16 +19,20 @@ import {
 const mediaType = z.enum(MEDIA_TYPES).describe("Whether `id` refers to anime or manga.");
 
 const idsSchema = z
-  .union([anilistId, z.array(anilistId).min(1)], {
+  .union([anilistId, z.array(anilistId).min(1).max(25)], {
     // A plain string `error` fires for every union-mismatch reason alike, so a
     // wrong-but-present value (e.g. a decimal) would get told "is required" —
     // misleading when something WAS passed. Branch on `issue.input` instead.
     error: (issue) =>
       issue.input === undefined
         ? "ids is required — pass a single AniList ID (number), or a non-empty array of IDs."
-        : "ids must be a single AniList ID (number), or a non-empty array of IDs.",
+        : "ids must be a single AniList ID (number), or a non-empty array of up to 25 IDs.",
   })
-  .describe("A single AniList anime/manga ID, or an array of IDs to fetch in one call.");
+  .describe(
+    "A single AniList anime/manga ID, or an array of up to 25 IDs to fetch in one call " +
+      "(same cap as this codebase's paginated list tools — each entry returned here includes " +
+      "the full synopsis/tags/rankings, so an uncapped batch could return a very large response).",
+  );
 
 /** MEDIA_FIELDS(+MEDIA_DETAIL_FIELDS) — only `id` is guaranteed; every other
  *  AniList field is nullable, so it's modeled as `.nullish()` here. */

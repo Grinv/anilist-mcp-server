@@ -344,6 +344,26 @@ test("get_media's ids validation error distinguishes a missing value from a wron
   );
 });
 
+test("get_media's ids array rejects a batch larger than 25", async (t) => {
+  // Regression: idsSchema's array branch had .min(1) but no upper bound —
+  // confirmed live an unbounded batch (up to at least 1000 ids) succeeds
+  // against AniList with no server-side rejection, so nothing but this
+  // client-side cap protects a caller from an unboundedly large response
+  // (each entry includes the full synopsis/tags/rankings).
+  const { client, close } = await connectServer({});
+  t.after(close);
+
+  const tooMany = await client.callTool({
+    name: "get_media",
+    arguments: { type: "ANIME", ids: Array.from({ length: 26 }, (_, i) => i + 1) },
+  });
+  assert.equal(tooMany.isError, true);
+  assert.match(
+    (tooMany.content as { type: "text"; text: string }[])[0]!.text,
+    /ids: Too big: expected array to have <=25 items/,
+  );
+});
+
 test("get_user_profile's user validation error distinguishes a missing value from a wrongly-typed one", async (t) => {
   // Same fix/regression as idsSchema above, applied to the shared
   // userIdOrName union used by every user-scoped tool.

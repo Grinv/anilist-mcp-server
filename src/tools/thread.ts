@@ -148,12 +148,22 @@ export function registerThreadTools(server: McpServer, client: AniListClient): v
             .string()
             .min(6)
             .max(120)
-            .describe("Thread title (per AniList's own schema: 6-120 characters)."),
+            .optional()
+            .describe(
+              "Thread title (per AniList's own schema: 6-120 characters) — REQUIRED when " +
+                "creating a new thread, optional when updating one via `id` (confirmed live: " +
+                "omitting it on an update leaves the existing title unchanged, it isn't cleared).",
+            ),
           body: z
             .string()
             .min(1)
             .max(30000)
-            .describe("Thread body (markdown; per AniList's own schema, up to 30000 characters)."),
+            .optional()
+            .describe(
+              "Thread body (markdown; per AniList's own schema, up to 30000 characters) — " +
+                "REQUIRED when creating a new thread, optional when updating one via `id` " +
+                "(confirmed live: omitting it on an update leaves the existing body unchanged).",
+            ),
           categories: z
             .array(anilistId)
             .optional()
@@ -173,7 +183,12 @@ export function registerThreadTools(server: McpServer, client: AniListClient): v
             .optional()
             .describe(
               "AniList anime/manga IDs to tag this thread with, for threads about a specific " +
-                "title (from search_media/get_media).",
+                "title (from search_media/get_media). Optional on both create and update. When " +
+                "updating and you DO set this, it's a full replace, not a merge — confirmed " +
+                "live: an existing thread tagged with [A] updated with just [B] ended up with " +
+                "[B] only, A silently dropped (same behavior as `categories` above). Fetch the " +
+                "thread's current `mediaCategories` first (get_thread) if you need to keep an " +
+                "existing tag alongside a new one.",
             ),
           sticky: z
             .boolean()
@@ -191,6 +206,12 @@ export function registerThreadTools(server: McpServer, client: AniListClient): v
                 "silently stays unlocked).",
             ),
           id: anilistId.optional().describe("Thread ID to update instead of creating a new one."),
+        })
+        .refine((v) => v.id !== undefined || v.title !== undefined, {
+          message: "`title` is required when creating a new thread (no `id` given).",
+        })
+        .refine((v) => v.id !== undefined || v.body !== undefined, {
+          message: "`body` is required when creating a new thread (no `id` given).",
         })
         .refine((v) => v.id !== undefined || v.categories !== undefined, {
           message: "`categories` is required when creating a new thread (no `id` given).",

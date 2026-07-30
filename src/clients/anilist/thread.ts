@@ -50,8 +50,8 @@ export interface SaveThreadOptions {
 
 export async function postThread(
   ctx: AniListContext,
-  title: string,
-  body: string,
+  title: string | undefined,
+  body: string | undefined,
   opts: SaveThreadOptions = {},
 ): Promise<unknown> {
   const header = ctx.requireAuth();

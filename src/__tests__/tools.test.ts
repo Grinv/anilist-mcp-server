@@ -206,6 +206,40 @@ test("post_thread requires categories when creating (no id), but not when updati
   assert.notEqual(updateRes.isError, true, "updating via id must not require categories");
 });
 
+test("post_thread requires title/body when creating (no id), but not when updating (id given)", async (t) => {
+  // Confirmed live via raw GraphQL: SaveThread's title/body args are nullable,
+  // and an update omitting them leaves the thread's existing title/body
+  // unchanged rather than clearing or rejecting them — same "required only
+  // on create" shape as categories above.
+  const badMock = mockFetch(() => {
+    throw new Error("must not be called — Zod should reject before any fetch");
+  });
+  installFetch(t, badMock);
+  const { client, close } = await connectServer({ ANILIST_ACCESS_TOKEN: "tok" });
+  t.after(close);
+
+  const missingTitle = await client.callTool({
+    name: "post_thread",
+    arguments: { body: "b", categories: [1] },
+  });
+  assert.equal(missingTitle.isError, true, "creating without title must be rejected");
+
+  const missingBody = await client.callTool({
+    name: "post_thread",
+    arguments: { title: "thread!", categories: [1] },
+  });
+  assert.equal(missingBody.isError, true, "creating without body must be rejected");
+  assert.equal(badMock.calls.length, 0);
+
+  const okMock = mockFetch(() => jsonResponse({ data: { SaveThread: { id: 1 } } }));
+  installFetch(t, okMock);
+  const updateRes = await client.callTool({
+    name: "post_thread",
+    arguments: { id: 1, sticky: true },
+  });
+  assert.notEqual(updateRes.isError, true, "updating via id must not require title/body");
+});
+
 test("mutation tools reject text below AniList's own documented minimum length before any fetch", async (t) => {
   const mock = mockFetch(() => {
     throw new Error("must not be called — Zod should reject before any fetch");

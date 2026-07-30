@@ -28,7 +28,10 @@ Check every one of these, not just a sample:
 - `docs/api-references.md`'s "confirmed live" claims still match the current
   client code, especially any claim this pass's own fixes just invalidated.
 - `AGENTS.md`'s `src/` tree (and this `skills/` entry) still matches the
-  filesystem.
+  filesystem, and its convention _prose_ doesn't name an API/pattern this
+  pass just renamed everywhere in code (confirmed case: a `.passthrough()`/
+  `z.unknown()` mention survived a rename to `.loose()`/`z.json()` — grep
+  the old name in `AGENTS.md` whenever a rename touches ≥3 files).
 - `docs/clients.md` and any other `docs/*.md` for stale phrasing (e.g.
   describing something as "once published"/"upcoming" that already
   shipped).

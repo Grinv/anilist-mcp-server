@@ -255,7 +255,15 @@ Sweep every file under `src/tools/`, `src/clients/anilist/`, and `src/lib/`
   relying on it (no auth needed for public data) — this behavior isn't
   something the MCP tools' pre-built queries let you probe directly.
 - Missing bounds on a numeric field whose `.describe()` promises a range
-  (e.g. "0-10 scale") but whose Zod schema has no `.min()/.max()`.
+  (e.g. "0-10 scale") but whose Zod schema has no `.min()/.max()`. Same
+  scrutiny in the other direction for a bound just _added_: a
+  plausible-sounding one (`.positive()` on "an episode number") can be
+  live-verified wrong — confirmed case: AniList's `AiringSchedule.episode`
+  returns `0` — and a URL/config field tightened for one AniList-owned
+  case (`z.httpUrl()`'s hostname check) can break a _user-configurable_
+  override meant to accept `localhost`/an IP (`ANILIST_GRAPHQL_URL`).
+  Check every new bound against real data/the documented use case, not
+  just that it "sounds right."
 - A `.refine()` that promises "every one of N values exactly once" but only
   checks `new Set(arr.map(...)).size === N` — that passes for an array
   _longer_ than N with one value duplicated and none omitted, since it never

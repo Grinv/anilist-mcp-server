@@ -558,6 +558,16 @@ CONTAINS`) lives on `MediaEdge.relationType`, again not on the node.
   selects `message { id message(asHtml: false) siteUrl }` to surface it;
   selecting bare `message` (as every other notification-type fragment does
   for its own distinguishing field) silently returns nothing useful.
+- **Messaging yourself generates no `ACTIVITY_MESSAGE` notification** —
+  confirmed live: `post_message_activity` with `recipientId` set to the
+  caller's own id succeeds and creates the message activity, but
+  `get_notifications` (filtered or not) shows nothing new for it, even after
+  a few seconds. AniList appears to suppress self-triggered notifications
+  entirely, independent of the account's `notificationOptions` — so a
+  self-message can't be used to test whether disabling a notification type
+  (via `update_user`) prevents that type from being _generated_; that claim
+  (on `get_notifications`' `type_in` field) remains unconfirmed, since every
+  other notification-generating action requires a second real account.
 
 ### Misc — genres/tags/studio/site statistics (`misc.ts`)
 

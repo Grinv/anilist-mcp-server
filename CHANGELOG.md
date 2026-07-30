@@ -6,16 +6,26 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- Add `PRIVACY.md` and `SECURITY.md`, linked from `README.md`. [768c458](https://github.com/Grinv/anilist-mcp-server/commit/768c458) [3b961fe](https://github.com/Grinv/anilist-mcp-server/commit/3b961fe)
+- Add an MCPB bundle icon using AniList's real brand colors. [4317281](https://github.com/Grinv/anilist-mcp-server/commit/4317281) [691f05d](https://github.com/Grinv/anilist-mcp-server/commit/691f05d)
+
 ### Changed
 
 - Raise the minimum supported Node.js version to ≥ 20.11.0 (was ≥ 20). [6adffb4](https://github.com/Grinv/anilist-mcp-server/commit/6adffb4) [90c540d](https://github.com/Grinv/anilist-mcp-server/commit/90c540d)
 
 ### Fixed
 
-- Relax `post_thread`'s `title`/`body` to required only when creating (no `id`) — confirmed live that AniList accepts an update omitting either, keeping the thread's existing value; also disclose `mediaCategories` is a full replace on update, same as `categories`. [c928316](https://github.com/Grinv/anilist-mcp-server/commit/c928316)
+- Ship `PRIVACY.md` in the published npm package — it was missing from `package.json`'s `files` allowlist. [3342e6c](https://github.com/Grinv/anilist-mcp-server/commit/3342e6c)
+- Ship `SECURITY.md` in the published npm package too — README links to it the same way it links to `PRIVACY.md`, but it was missing from the same `files` allowlist. [6cf0271](https://github.com/Grinv/anilist-mcp-server/commit/6cf0271)
+- Exclude dev-only contributor tooling and `glama.json` from the `.mcpb` bundle. [1fed97a](https://github.com/Grinv/anilist-mcp-server/commit/1fed97a) [dd29f14](https://github.com/Grinv/anilist-mcp-server/commit/dd29f14)
+- Point `README.md`'s `docs/` links at absolute GitHub URLs so they still resolve from inside an installed `.mcpb` extension, which excludes `docs/`. [a645d5b](https://github.com/Grinv/anilist-mcp-server/commit/a645d5b)
+- Relax `post_thread`'s `title`/`body` to required only when creating — omitting either on an update keeps its existing value. [c928316](https://github.com/Grinv/anilist-mcp-server/commit/c928316)
+- Disclose that `post_thread`'s `mediaCategories` is a full replace on update, same as `categories`. [c928316](https://github.com/Grinv/anilist-mcp-server/commit/c928316)
 - Fix `search_activity`'s description and `outputSchema`, both of which wrongly modeled results as bare IDs — the query already returns full activity content. [f1d0d61](https://github.com/Grinv/anilist-mcp-server/commit/f1d0d61)
 - Disclose that `get_user_activity`/`get_user_recent_activity` error on an unknown user, unlike `search_activity`'s own `user` filter, which silently returns empty. [4563fc0](https://github.com/Grinv/anilist-mcp-server/commit/4563fc0)
-- Cap `get_media`'s `ids` array at 25 entries — it previously had no upper bound, and a batch of hundreds succeeded live against AniList with no cap, each entry carrying the full synopsis/tags/rankings. [8d9eba7](https://github.com/Grinv/anilist-mcp-server/commit/8d9eba7)
+- Cap `get_media`'s `ids` array at 25 entries — previously unbounded, a batch of hundreds succeeded live with no cap, each entry returning full synopsis/tags/rankings. [8d9eba7](https://github.com/Grinv/anilist-mcp-server/commit/8d9eba7)
 - Disclose that a majority of ids from `get_recommendations_for_media` 404 on `get_recommendation`'s own lookup — a confirmed AniList-side inconsistency, not a bug in this server. [35a6226](https://github.com/Grinv/anilist-mcp-server/commit/35a6226)
 - Correct `PRIVACY.md`'s claim that `get_notifications` "does not write anything" — its `markAsRead: true` option resets AniList's real unread-notification badge count. [c9485a4](https://github.com/Grinv/anilist-mcp-server/commit/c9485a4)
 - Correct `idempotentHint` to `false` on `delete_activity`/`delete_thread`/`delete_thread_comment`/`remove_list_entry` — each one errors, not silently succeeds, when retried on an already-deleted id. [fc4fc5e](https://github.com/Grinv/anilist-mcp-server/commit/fc4fc5e)
@@ -23,18 +33,20 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Document that `update_list_entry`'s `hiddenFromStatusLists` still counts the entry in statistics — the same clause `add_list_entry`'s identical field already had. [eceace6](https://github.com/Grinv/anilist-mcp-server/commit/eceace6)
 - Document that `post_thread`'s `sticky` is confirmed live to silently no-op for a non-mod account, matching `locked`'s existing wording (both were verified together). [eceace6](https://github.com/Grinv/anilist-mcp-server/commit/eceace6)
 - Document that `search_media`'s `onList` silently no-ops when not logged in, matching `get_recommendations_for_media`'s `excludeInList`. [ad6d8a7](https://github.com/Grinv/anilist-mcp-server/commit/ad6d8a7)
-- Fix `update_user`'s `notificationOptions`/`disabledListActivity` to actually reject a duplicated type — the old check only verified full coverage, not array length, so a duplicate-plus-full-coverage array silently passed despite both fields' "exactly once" description. [2cfa0fe](https://github.com/Grinv/anilist-mcp-server/commit/2cfa0fe)
+- Fix `update_user`'s `notificationOptions`/`disabledListActivity` to reject a duplicated type, not just check full coverage — a duplicate-plus-full array previously passed silently. [2cfa0fe](https://github.com/Grinv/anilist-mcp-server/commit/2cfa0fe)
 - Document that `get_studio`'s `name` already does AniList's own fuzzy search, so a partial name resolves directly without needing `search_studio` first. [995e071](https://github.com/Grinv/anilist-mcp-server/commit/995e071)
 - Reject a manga id in `get_anime_schedule` instead of silently returning an empty schedule; also stop discarding `hasNextPage` from its output. [a3c7664](https://github.com/Grinv/anilist-mcp-server/commit/a3c7664)
 - Type `get_recommendation`/`get_recommendations_for_media`'s `rating`/`userRating` fields per AniList's actual schema (a plain int and a real 3-value enum), not generic number/string. [9bf34b5](https://github.com/Grinv/anilist-mcp-server/commit/9bf34b5)
 - Reject `post_thread` calls that omit `categories` when creating a new thread, matching AniList's own mutation requirement, instead of surfacing an upstream error. [67ec0fc](https://github.com/Grinv/anilist-mcp-server/commit/67ec0fc)
-- Correct `update_user`'s stale "not atomic" claim (its one confirmed trigger is now blocked client-side) and narrow `get_authorized_user`'s unconfirmed claim that `advancedScoring` is full-replace the same way `customLists` is. [3784af2](https://github.com/Grinv/anilist-mcp-server/commit/3784af2)
+- Correct `update_user`'s stale claim that `disabledListActivity` can leave a mutation non-atomic — that trigger is now blocked client-side before any request is sent. [3784af2](https://github.com/Grinv/anilist-mcp-server/commit/3784af2)
+- Narrow `get_authorized_user`'s claim that `advancedScoring` is full-replace like `customLists` — only `customLists` is confirmed that way. [3784af2](https://github.com/Grinv/anilist-mcp-server/commit/3784af2)
 - Clarify `login_anilist`'s `auto_capture` only reflects whether this server could bind a local port, not whether the browser is actually local. [6c48045](https://github.com/Grinv/anilist-mcp-server/commit/6c48045)
 - Document that `get_user_activity` returns every activity type (including received messages), not just list updates/text posts as previously stated. [39981cc](https://github.com/Grinv/anilist-mcp-server/commit/39981cc)
 - Fix `get_notifications`' `pageInfo` output to match its actual query (only `hasNextPage` is ever returned). [3594f1d](https://github.com/Grinv/anilist-mcp-server/commit/3594f1d)
 - Document `get_user_list`'s ~11,000-entry AniList-side cap. [902ccb1](https://github.com/Grinv/anilist-mcp-server/commit/902ccb1)
 - Confirm `post_thread`'s `categories` is a full replace (not a merge) when set on an update. [0554ff6](https://github.com/Grinv/anilist-mcp-server/commit/0554ff6)
-- Disclose `isFavourite`'s confirmed read-after-write staleness consistently across `get_media`/`get_character`/`get_staff`/`get_studio` (previously only documented for `get_media`), and add `get_media`'s missing `mediaListEntry` disclosure. [76196f0](https://github.com/Grinv/anilist-mcp-server/commit/76196f0)
+- Disclose `isFavourite`'s confirmed read-after-write staleness consistently across `get_media`/`get_character`/`get_staff`/`get_studio` — previously only `get_media` had it. [76196f0](https://github.com/Grinv/anilist-mcp-server/commit/76196f0)
+- Add `get_media`'s missing `mediaListEntry` output disclosure, matching `get_recommendations_for_media`'s existing one. [76196f0](https://github.com/Grinv/anilist-mcp-server/commit/76196f0)
 
 ### Security
 

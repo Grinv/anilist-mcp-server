@@ -164,7 +164,7 @@ already used for `voiceActors` — and the title-language enums above).
 per-locale variant. This is a hard platform limitation, not something our
 client can work around.
 
-## GraphQL schema facts (verified via live introspection, 2026-07-20 & 2026-07-22)
+## GraphQL schema facts (verified via live introspection; see git history/CHANGELOG.md for what's most recent)
 
 These are the exact names `src/clients/anilist/*.ts`'s query/mutation strings
 rely on — re-verify with an introspection query
@@ -661,7 +661,7 @@ client_, not AniList — recorded here anyway since it was discovered while
 live-testing against AniList and would otherwise look like a server bug.
 
 Calling a tool whose Zod input schema is a scalar/collection union — e.g.
-`get_media`'s `ids: z.union([anilistId, z.array(anilistId).min(1)])`
+`get_media`'s `ids: z.union([anilistId, z.array(anilistId).min(1).max(25)])`
 (JSON Schema `anyOf: [integer, array]`), or `userIdOrName`'s
 `z.union([anilistId, z.string().min(1)])` (`anyOf: [integer, string]`) —
 **with a bare scalar number** (`ids: 16498`, `user: 6933956`) reproducibly

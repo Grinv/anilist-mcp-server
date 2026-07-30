@@ -136,7 +136,7 @@ vendor, no logging service, no server operated by its maintainer.
 Material changes will be noted in [CHANGELOG.md](CHANGELOG.md) and reflected
 here, at the same URL, with the effective date below updated.
 
-_Last updated: 2026-07-29._
+_Last updated: 2026-07-30._
 
 ## Contact
 

@@ -4,7 +4,7 @@ import type { AniListClient } from "../clients/anilist.js";
 import * as people from "../clients/anilist/people.js";
 import { jsonResult } from "../lib/result.js";
 import { guard } from "./guard.js";
-import { anilistId, mediaTitleOut } from "./outputSchemas.js";
+import { anilistId, mediaTitleOut, favouriteOut } from "./outputSchemas.js";
 
 const mediaCredit = z
   .object({
@@ -27,7 +27,7 @@ const characterObject = z
     image: z.object({ large: z.string().nullish() }).nullish(),
     description: z.string().nullish(),
     favourites: z.number().int().nullish(),
-    isFavourite: z.boolean().nullish(),
+    isFavourite: favouriteOut("character"),
     siteUrl: z.string().nullish(),
     media: z
       .object({ edges: z.array(mediaCredit.extend({ characterRole: z.string().nullish() })) })
@@ -43,7 +43,7 @@ const staffObject = z
     description: z.string().nullish(),
     primaryOccupations: z.array(z.string()).nullish(),
     favourites: z.number().int().nullish(),
-    isFavourite: z.boolean().nullish(),
+    isFavourite: favouriteOut("staff member"),
     siteUrl: z.string().nullish(),
     staffMedia: z
       .object({ edges: z.array(mediaCredit.extend({ staffRole: z.string().nullish() })) })

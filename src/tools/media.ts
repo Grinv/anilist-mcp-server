@@ -13,6 +13,7 @@ import {
   anilistId,
   paginationFields,
   mediaTitleOut,
+  favouriteOut,
 } from "./outputSchemas.js";
 
 const mediaType = z.enum(MEDIA_TYPES).describe("Whether `id` refers to anime or manga.");
@@ -46,7 +47,7 @@ const mediaObject = z
     averageScore: z.number().nullish(),
     popularity: z.number().nullish(),
     isAdult: z.boolean().nullish(),
-    isFavourite: z.boolean().nullish(),
+    isFavourite: favouriteOut("title"),
     siteUrl: z.string().nullish(),
     season: z.string().nullish(),
     seasonYear: z.number().int().nullish(),
@@ -135,8 +136,6 @@ const mediaObject = z
           .passthrough(),
       )
       .nullish(),
-    // [Requires login] Resolves to null when no token is sent — the
-    // authenticated caller's own list entry for this media, if any.
     mediaListEntry: z
       .object({
         id: z.number().int(),
@@ -161,7 +160,12 @@ const mediaObject = z
         createdAt: z.number().nullish(),
       })
       .passthrough()
-      .nullish(),
+      .nullish()
+      .describe(
+        "Whether this title is on the caller's own list — viewer-relative, so it only " +
+          "resolves when logged in; null both when logged out and when the title just isn't " +
+          "on the list (the two cases aren't distinguishable from this field alone).",
+      ),
   })
   .passthrough();
 
@@ -513,7 +517,11 @@ export function registerMediaTools(server: McpServer, client: AniListClient): vo
         "matching `kind`. Confirmed live: AniList does NOT validate that `id` actually belongs " +
         "to the given `kind` — e.g. passing an anime's ID with `kind: CHARACTER` succeeds " +
         "silently instead of erroring, favouriting a nonexistent character. Always resolve " +
-        "`id` from the tool matching `kind` rather than reusing an ID you already have on hand.",
+        "`id` from the tool matching `kind` rather than reusing an ID you already have on hand. " +
+        "Note: immediately re-checking with get_media/get_character/get_staff/get_studio's own " +
+        "`isFavourite` can briefly still show the pre-toggle value — a confirmed AniList-side " +
+        "read-after-write lag, not a bug in this call; this tool's own response already " +
+        "reflects the new favourites list correctly.",
       inputSchema: z.object({
         kind: z.enum(FAVOURITE_KINDS).describe("Which kind of entity `id` refers to."),
         id: anilistId.describe("AniList ID of that anime/manga/character/staff/studio."),

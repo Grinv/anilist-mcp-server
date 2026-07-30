@@ -4,7 +4,7 @@ import type { AniListClient } from "../clients/anilist.js";
 import * as misc from "../clients/anilist/misc.js";
 import { jsonResult } from "../lib/result.js";
 import { guard } from "./guard.js";
-import { pageInfoSchema, anilistId, paginationFields } from "./outputSchemas.js";
+import { pageInfoSchema, anilistId, paginationFields, favouriteOut } from "./outputSchemas.js";
 
 const mediaTagItem = z
   .object({
@@ -48,7 +48,7 @@ const studioObject = z
     id: z.number().int().optional(),
     name: z.string().optional(),
     isAnimationStudio: z.boolean().nullish(),
-    isFavourite: z.boolean().nullish(),
+    isFavourite: favouriteOut("studio"),
     siteUrl: z.string().nullish(),
     media: z
       .object({

@@ -42,6 +42,23 @@ export const paginationFields = (defaultPerPage: number) => ({
     .describe("Results per page (max 25)."),
 });
 
+/** The `isFavourite` viewer field every favouritable domain object exposes
+ *  (media, character, staff, studio) — same shape, same confirmed-live
+ *  read-after-write lag on AniList's own backend (docs/api-references.md's
+ *  "viewer fields have a brief read-after-write lag" entry): a re-check via
+ *  the matching get_* tool right after toggle_favourite can briefly still
+ *  show the pre-toggle value. This server's own cache is correctly cleared;
+ *  the staleness comes from AniList itself. */
+export const favouriteOut = (kind: string) =>
+  z
+    .boolean()
+    .nullish()
+    .describe(
+      `[Requires login] Whether this ${kind} is in the caller's favourites. Has a brief ` +
+        "read-after-write lag on AniList's own backend — confirmed live, a re-check right " +
+        "after toggle_favourite can briefly still show the pre-toggle value.",
+    );
+
 // AniList sometimes returns explicit `null` (not just omitting the field) for
 // every one of these — confirmed live on a `threadComments` page that had
 // just been emptied out (total/currentPage/lastPage all came back `null`,

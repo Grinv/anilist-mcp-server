@@ -18,6 +18,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Reject a manga id in `get_anime_schedule` instead of silently returning an empty schedule; also stop discarding `hasNextPage` from its output. [a3c7664](https://github.com/Grinv/anilist-mcp-server/commit/a3c7664)
 - Type `get_recommendation`/`get_recommendations_for_media`'s `rating`/`userRating` fields per AniList's actual schema (a plain int and a real 3-value enum), not generic number/string. [9bf34b5](https://github.com/Grinv/anilist-mcp-server/commit/9bf34b5)
 - Reject `post_thread` calls that omit `categories` when creating a new thread, matching AniList's own mutation requirement, instead of surfacing an upstream error. [67ec0fc](https://github.com/Grinv/anilist-mcp-server/commit/67ec0fc)
+- Correct `update_user`'s stale "not atomic" claim (its one confirmed trigger is now blocked client-side) and narrow `get_authorized_user`'s unconfirmed claim that `advancedScoring` is full-replace the same way `customLists` is. [3784af2](https://github.com/Grinv/anilist-mcp-server/commit/3784af2)
+- Clarify `login_anilist`'s `auto_capture` only reflects whether this server could bind a local port, not whether the browser is actually local. [6c48045](https://github.com/Grinv/anilist-mcp-server/commit/6c48045)
+- Document that `get_user_activity` returns every activity type (including received messages), not just list updates/text posts as previously stated. [39981cc](https://github.com/Grinv/anilist-mcp-server/commit/39981cc)
+- Fix `get_notifications`' `pageInfo` output to match its actual query (only `hasNextPage` is ever returned). [3594f1d](https://github.com/Grinv/anilist-mcp-server/commit/3594f1d)
+- Document `get_user_list`'s ~11,000-entry AniList-side cap. [902ccb1](https://github.com/Grinv/anilist-mcp-server/commit/902ccb1)
+- Confirm `post_thread`'s `categories` is a full replace (not a merge) when set on an update. [0554ff6](https://github.com/Grinv/anilist-mcp-server/commit/0554ff6)
+- Disclose `isFavourite`'s confirmed read-after-write staleness consistently across `get_media`/`get_character`/`get_staff`/`get_studio` (previously only documented for `get_media`), and add `get_media`'s missing `mediaListEntry` disclosure. [76196f0](https://github.com/Grinv/anilist-mcp-server/commit/76196f0)
 
 ### Security
 

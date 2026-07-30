@@ -170,206 +170,46 @@ These are the exact names `src/clients/anilist/*.ts`'s query/mutation strings
 rely on — re-verify with an introspection query
 (`{ __type(name: "TypeName") { fields { name args { name type { name } } } } }`
 against `https://graphql.anilist.co`) before changing them, since AniList's
-schema isn't versioned the way a REST API would be.
+schema isn't versioned the way a REST API would be. Grouped below by the same
+domain split as `src/clients/anilist/*.ts` — a fact affecting more than one
+domain (or the schema as a whole) lives in "Cross-cutting patterns" at the end
+instead of being duplicated.
 
 - **Mutations** (<https://docs.anilist.co/guide/graphql/mutations>): `Save*`
   prefix = upsert (create if no `id` arg given, update if given); `Delete*`
   returns a `Deleted` object; `Toggle*` flips a boolean.
-  - `SaveMediaListEntry(id, mediaId, status, score, scoreRaw, progress,
+
+### List entries (`list.ts`)
+
+- `SaveMediaListEntry(id, mediaId, status, score, scoreRaw, progress,
 progressVolumes, repeat, priority, private, notes, hiddenFromStatusLists,
 customLists: [String], advancedScores: [Float], startedAt: FuzzyDateInput,
 completedAt: FuzzyDateInput)` — note **`advancedScores`** is plural (a
-    third-party wrapper library shipped a mismatched singular `advancedScore`
-    in its own hand-written mutation string, which is part of why its writes
-    never worked — see AGENTS.md's "Why this server exists").
-  - **`repeat`/`priority`/`notes`'s 1000/255/6000 caps are AniList's own
-    documented schema constraints, not this project's guess** — confirmed via
-    introspection of `SaveMediaListEntry`'s arg descriptions: `repeat`: "...
-    (Min: 0, Max: 1000)"; `priority`: "Priority of planning (Min: 0, Max:
-    255)"; `notes`: "Text notes (Min: 0, Max: 6000)".
-  - **Omitting `status` on create does NOT default to `PLANNING`** — confirmed
-    live twice (a completely bare `SaveMediaListEntry(mediaId)` call) — the
-    API defaults to **`CURRENT`**, with `startedAt` auto-set to today. AniList's
-    own website UI defaults a new entry to Planning, but that's a client-side
-    choice, not the API's actual behavior when the arg is truly absent.
-  - **Read-side `customLists`/`advancedScores` are untyped `Json`, not the
-    input side's `[String]`/`[Float]`** — `customLists`'s default shape is an
-    object keyed by every one of the account's configured custom list names
-    (`{listName: boolean}`); pass `customLists(asArray: true)` instead for a
-    predictable `[{name, enabled}]` array (confirmed live). `advancedScores`
-    reads back as `{categoryName: score}` on the same raw 0-100 scale as
-    `scoreRaw` (confirmed live: writing `{Story: 8}` read back as `{Story:
+  third-party wrapper library shipped a mismatched singular `advancedScore`
+  in its own hand-written mutation string, which is part of why its writes
+  never worked — see AGENTS.md's "Why this server exists").
+- **`repeat`/`priority`/`notes`'s 1000/255/6000 caps are AniList's own
+  documented schema constraints, not this project's guess** — confirmed via
+  introspection of `SaveMediaListEntry`'s arg descriptions: `repeat`: "...
+  (Min: 0, Max: 1000)"; `priority`: "Priority of planning (Min: 0, Max:
+  255)"; `notes`: "Text notes (Min: 0, Max: 6000)".
+- **Omitting `status` on create does NOT default to `PLANNING`** — confirmed
+  live twice (a completely bare `SaveMediaListEntry(mediaId)` call) — the
+  API defaults to **`CURRENT`**, with `startedAt` auto-set to today. AniList's
+  own website UI defaults a new entry to Planning, but that's a client-side
+  choice, not the API's actual behavior when the arg is truly absent.
+- **Read-side `customLists`/`advancedScores` are untyped `Json`, not the
+  input side's `[String]`/`[Float]`** — `customLists`'s default shape is an
+  object keyed by every one of the account's configured custom list names
+  (`{listName: boolean}`); pass `customLists(asArray: true)` instead for a
+  predictable `[{name, enabled}]` array (confirmed live). `advancedScores`
+  reads back as `{categoryName: score}` on the same raw 0-100 scale as
+  `scoreRaw` (confirmed live: writing `{Story: 8}` read back as `{Story:
 80, ...other configured categories: 0}`). Also confirmed live: naming a
-    custom list on an entry that doesn't already exist in the account's own
-    `animeListOptions`/`mangaListOptions` `customLists` (see `UpdateUser`
-    below) is silently a no-op — the list must be created account-side first.
-  - `ToggleFavourite(animeId, mangaId, characterId, staffId, studioId)` →
-    `Favourites { anime: MediaConnection, manga: MediaConnection, characters:
-CharacterConnection, staff: StaffConnection, studios: StudioConnection }`
-    (each a `{nodes: [...]}` connection).
-  - `DeleteMediaListEntry(id)`, `DeleteActivity(id)`, `DeleteThread(id)`,
-    `DeleteThreadComment(id)` each return `Deleted { deleted: Boolean }`.
-  - `SaveTextActivity(id, text, locked)`, `SaveMessageActivity(id, message,
-recipientId, private, locked, asMod)`, `ToggleFollow(userId)`.
-  - **`UpdateUser`'s full arg list** (confirmed via introspection): `about,
-titleLanguage, displayAdultContent, airingNotifications, scoreFormat,
-rowOrder, profileColor, donatorBadge, notificationOptions, timezone,
-activityMergeTime, animeListOptions, mangaListOptions, staffNameLanguage,
-restrictMessagesToFollowing, disabledListActivity` — all of these are wired
-    up in `update_user`. Every one is readable back via `User.options`/
-    `User.donatorBadge`, including `rowOrder` (`User.mediaListOptions.rowOrder`
-    — a sibling of `scoreFormat`, NOT nested under `animeList`/`mangaList`;
-    an earlier pass at this file wrongly concluded it wasn't exposed anywhere,
-    confirmed live to be wrong).
-  - **`donatorBadge`'s 24-char cap and `activityMergeTime`'s 0/20160 bounds
-    are AniList's own documented schema constraints, not this project's
-    guess** — confirmed via introspection of `UpdateUser`'s arg descriptions:
-    `donatorBadge`: "Profile highlight color (Max: 24)"; `activityMergeTime`:
-    "Minutes between activity for them to be merged together. 0 is Never,
-    Above 2 weeks (20160 mins) is Always. (Min: 0)".
-  - **`profileColor`/`rowOrder`/`timezone` are all plain `String` args on
-    AniList's own schema (confirmed via introspection — none is a real GraphQL
-    enum), but AniList validates them very differently server-side, confirmed
-    live**: an unrecognized `profileColor` is silently ignored (the account's
-    existing value is left unchanged, no error, no way to detect the rejection
-    other than re-reading the account), while an invalid `rowOrder` or
-    `timezone` is rejected with a clear 400 (`"The selected row order is
-invalid."` / `"The timezone format is invalid."`). `timezone`'s accepted
-    format is documented by AniList's own schema as `-?HH:MM` (optional
-    leading minus only) — whether a leading `+` is also accepted wasn't tested
-    live, since `update_user` has no way to explicitly clear `timezone` back to
-    unset, so a wrong guess risked leaving the field permanently changed.
-  - **`UpdateUser`'s atomicity is inconsistent across validation layers, and
-    the one confirmed non-atomic path is now blocked client-side anyway** —
-    the tool's own description used to claim "not atomic, e.g. an incomplete
-    `disabledListActivity`", but that specific trigger is unreachable through
-    this client since the `.refine()` below rejects it before any request is
-    sent. A fresh live re-test through a currently-reachable path — an
-    invalid `rowOrder` ("bogus_order") plus a valid `activityMergeTime`
-    change in the same call — showed the OPPOSITE: the whole mutation was
-    rejected atomically (`activityMergeTime` stayed at its prior value,
-    confirmed via a follow-up `get_authorized_user`), unlike the historical
-    `disabledListActivity` case below. `rowOrder`/`timezone`-style plain-
-    string args appear to validate in an earlier pass that blocks the whole
-    mutation; the list-valued args below validate later, after some fields
-    already commit. The description no longer makes a general atomicity
-    claim as a result — both of the following remain historically true and
-    are why the client-side `.refine()`s exist, even though neither is
-    reachable live anymore:
-    - **`disabledListActivity` requires all 6 `MediaListStatus` values every
-      call**; a shorter array is rejected with `400 Incorrect number of
-disabled list activity options (6 required)`. Worse: that rejection
-      does **not** roll back other fields sent in the same `UpdateUser`
-      call — a live test setting `staffNameLanguage`/`activityMergeTime`/
-      `restrictMessagesToFollowing` alongside an invalid (5-entry)
-      `disabledListActivity` saw the first three fields commit to the
-      account despite the overall mutation returning an error. `update_user`
-      now client-side validates this array's length/coverage before ever
-      sending, specifically to avoid triggering this failure mode.
-    - **`notificationOptions` is a full-array replace, not a partial
-      merge, and AniList does not error on a short list** — confirmed live:
-      sending a single `{type: THREAD_LIKE, enabled: false}` entry silently
-      dropped all 19 other notification types from the account's real,
-      persisted `options.notificationOptions` (verified via a follow-up
-      `get_authorized_user` call, not just the mutation's own echo) — they
-      don't reset to a default, they disappear outright. `update_user` now
-      client-side requires all 20 `NotificationType` values whenever this
-      arg is set at all, specifically to prevent this silent data loss.
-    - **Omitting the per-entry `enabled`/`disabled` boolean behaves
-      differently on these two otherwise-parallel array args** — confirmed
-      live: a `notificationOptions` entry missing `enabled` (e.g.
-      `{type: THREAD_LIKE}`) is accepted and persists as `enabled: null`
-      (verified via `get_authorized_user`), no error. The same shape of
-      omission on `disabledListActivity` (e.g. `{type: PAUSED}`, with the
-      other 5 statuses complete) instead fails the **entire** mutation with
-      a bare `500 Internal Server Error` — not the structured 400
-      validation shape described above, and confirmed to leave the account
-      completely unchanged (not a partial-apply case). Always send an
-      explicit `true`/`false` for every entry of both arrays.
-  - **`animeListOptions`/`mangaListOptions` (`MediaListOptionsInput`: `{
-sectionOrder, splitCompletedSectionByFormat, customLists, advancedScoring,
-advancedScoringEnabled, theme }`) is a true partial merge, not full-replace**
-    — confirmed live: sending only `{customLists: [...]}` left
-    `advancedScoring`/`advancedScoringEnabled`/`sectionOrder` and the other
-    list type (`mangaList`) completely untouched. This is the opposite
-    convention from `SaveMediaListEntry`'s `advancedScores`, which zeros any
-    omitted category — don't assume one behavior implies the other.
-  - **But `customLists` itself is full-replace, not merged by name** —
-    confirmed live: an account with `customLists: [A, B]`, sent
-    `{customLists: [A]}`, ended up with `customLists: [A]` — `B` was
-    silently deleted, not preserved. So while sibling _fields_ merge
-    (previous bullet), the _array value_ of a field you do set is taken
-    verbatim as the new complete value. Fetch the current array via
-    `get_authorized_user` first and include every name you want to keep,
-    not just the one being added or removed.
-  - **`advancedScoring` was NOT put through this same before/after
-    full-replace test** — its own confirmed-live risk is different (see the
-    next bullet: reordering/renaming silently reinterprets already-scored
-    entries, a positional hazard). Deliberately not tested with a real
-    account that has stored `advancedScores` values, since a wrong write
-    there is the one genuinely hard-to-detect corruption case this file
-    warns against elsewhere. Treat "fetch first, resend in full" as a safe
-    default for it too (same field mechanism as `customLists`), not as an
-    equally-confirmed fact.
-  - **A non-empty `advancedScoring` category list does NOT mean advanced
-    scoring is enabled** — confirmed live: an account with
-    `advancedScoringEnabled: false` still had `advancedScoring: [Story,
-Characters, Visuals, Audio, Enjoyment]` populated (disabling the feature on
-    the site doesn't clear the category list). `saveListEntry`'s
-    `orderAdvancedScores` must check `advancedScoringEnabled` explicitly, not
-    infer it from `categories.length`.
-  - **`SaveMediaListEntry` does not itself validate `advancedScores` against
-    the account's settings at all** — it accepted a write while
-    `advancedScoringEnabled` was `false`, storing the raw positional array
-    unconditionally. The name↔position mapping (and any enforcement of it)
-    exists only client-side, in whichever client sent the write — AniList's
-    read path re-zips the stored array against whatever `advancedScoring`
-    category order happens to be configured _at read time_, so reordering or
-    renaming categories later would silently reinterpret old scores under
-    the new names/positions.
-  - `SaveThread(id, title, body, categories: [Int], mediaCategories: [Int],
-sticky, locked)` and `SaveThreadComment(id, threadId, parentCommentId,
-comment)` — same upsert convention as `SaveMediaListEntry`. There is no
-    query to list `ThreadCategory` values independently; the only way to
-    discover one is to already have a `Thread` (its `categories`/
-    `mediaCategories` fields) or a forum URL
-    (`anilist.co/forum/recent?category=<id>`) — `post_thread`/`search_thread`
-    document this limitation rather than pretending categories are
-    discoverable some other way. `categories` is required when creating (no
-    `id`) — confirmed live: AniList rejects it with `validation (categories:
-The categories field is required when id is not present.)`.
-    `SaveThread`'s **`sticky` and `locked` args are silently no-ops without
-    moderator permission** — confirmed live on a non-mod account's own
-    thread: both args were accepted with no error, but `isSticky`/`isLocked`
-    stayed `false` afterward. `get_thread`'s query includes `isSticky`,
-    `isLocked`, and `mediaCategories` specifically so a caller can check
-    whether a `post_thread` call actually took effect, not just that it
-    didn't error.
-  - **`categories`, when set on an update, is a full replace, not a
-    merge** — confirmed live with a real self-created/self-deleted test
-    thread: created with `categories:[7]` (General), then updated with
-    `categories:[1]` (Anime) alone — the thread ended up with `categories:
-[{id:1,name:"Anime"}]` only, category 7 silently dropped rather than
-    both being present. **`mediaCategories` behaves identically when set on
-    an update** — confirmed live the same way (created with `[21]`, updated
-    with `[16498]` alone, ended up with `[16498]` only).
-  - **Omitting `title`/`body`/`categories` entirely on an update (as opposed
-    to setting them) leaves the existing value untouched** — confirmed live
-    via a raw `SaveThread(id:$id, mediaCategories:$mc)` call passing no
-    `title`/`body`/`categories` at all: the thread's title, body, and
-    category stayed exactly as created. `post_thread`'s `title`/`body` are
-    accordingly required only when creating (no `id`), same as
-    `categories` — not required on every call the way the tool originally
-    (incorrectly) enforced.
-- **`Media` query/filter args** (also valid on `Page.media(...)`, same
-  arg set): `search, type, sort: [MediaSort], isAdult, genre_in: [String],
-format_in: [MediaFormat], status_in: [MediaStatus], season: MediaSeason,
-seasonYear`, plus many more (`averageScore_greater`, `tag_in`, …) — see the
-  full arg list via introspection if extending `searchMedia()`.
-- **`season` and `seasonYear` are independent filters, not a mandatory
-  pair** — confirmed live: `season: SUMMER` alone matches every Summer across
-  all years, and `seasonYear: 2025` alone matches every season within 2025.
-  Combine them for one specific season+year; neither requires the other.
+  custom list on an entry that doesn't already exist in the account's own
+  `animeListOptions`/`mangaListOptions` `customLists` (see User below) is
+  silently a no-op — the list must be created account-side first.
+- **`MediaListStatus`**: `CURRENT, PLANNING, COMPLETED, DROPPED, PAUSED, REPEATING`.
 - **`MediaList.score(format: ScoreFormat)`** takes an optional `format` arg to
   normalize the score regardless of the user's own list settings —
   `getUserList()` requests `POINT_10_DECIMAL` for a consistent 0-10 scale.
@@ -393,28 +233,224 @@ seasonYear`, plus many more (`averageScore_greater`, `tag_in`, …) — see the
   and build the array to match (`saveListEntry()`'s `orderAdvancedScores`
   does this, and rejects category names it doesn't recognize rather than
   guessing an order).
-- **`MediaListStatus`**: `CURRENT, PLANNING, COMPLETED, DROPPED, PAUSED, REPEATING`.
-- **`ActivityType`**: `TEXT, ANIME_LIST, MANGA_LIST, MESSAGE, MEDIA_LIST`.
-  Confirmed live: filtering `activities(type:MEDIA_LIST)` returns a mix of
-  both `ANIME_LIST` and `MANGA_LIST` entries (a real server-side OR-match,
-  not just an unfiltered fallback) — `ANIME_LIST`/`MANGA_LIST` alone each
-  return only their own type.
-- **`MediaSeason`**: `WINTER, SPRING, SUMMER, FALL`.
-- **`UserTitleLanguage`**: `ROMAJI, ENGLISH, NATIVE, ROMAJI_STYLISED,
-ENGLISH_STYLISED, NATIVE_STYLISED` — all 6 exposed by `update_user`.
-- **`Page`** exposes: `pageInfo, users, media, characters, staff, studios,
-mediaList, airingSchedules, mediaTrends, notifications, followers,
-following, activities, activityReplies, threads, threadComments, reviews,
-recommendations, likes`.
-- **`SiteStatistics` silently caps `perPage` at 25 itself** — confirmed live
-  by requesting a higher value directly (bypassing `get_site_statistics`'s
-  own matching `.max(25)`): AniList capped the response at 25 anyway, so
-  this tool's own limit costs nothing.
+- **`SaveMediaListEntry` does not itself validate `advancedScores` against
+  the account's settings at all** — it accepted a write while
+  `advancedScoringEnabled` was `false`, storing the raw positional array
+  unconditionally. The name↔position mapping (and any enforcement of it)
+  exists only client-side, in whichever client sent the write — AniList's
+  read path re-zips the stored array against whatever `advancedScoring`
+  category order happens to be configured _at read time_, so reordering or
+  renaming categories later would silently reinterpret old scores under
+  the new names/positions.
 - **`MediaListCollection(userId, userName, type, …)`** is capped at the
   **11,000 most recently updated unique entries** — irrelevant for virtually
   all users, but a hard ceiling if one ever hits it. It must include the
   user's custom lists (not just status lists) to avoid silently missing
   entries hidden from the default status lists.
+
+### Favourites (`favourites.ts`)
+
+- `ToggleFavourite(animeId, mangaId, characterId, staffId, studioId)` →
+  `Favourites { anime: MediaConnection, manga: MediaConnection, characters:
+CharacterConnection, staff: StaffConnection, studios: StudioConnection }`
+  (each a `{nodes: [...]}` connection).
+- **`ToggleFavourite` does not validate that `id` actually belongs to the
+  given `kind`** — confirmed live: `ToggleFavourite(characterId: <a real
+anime's id>)` succeeded and added that id to the account's favourited
+  characters, with no error and no existence check. `toggle_favourite`'s tool
+  description warns callers to resolve `id` from the matching
+  search/get tool for `kind` rather than reusing an id on hand, since AniList
+  itself won't catch the mismatch.
+
+### Activity (`activity.ts`)
+
+- `SaveTextActivity(id, text, locked)`, `SaveMessageActivity(id, message,
+recipientId, private, locked, asMod)`.
+- **`ActivityType`**: `TEXT, ANIME_LIST, MANGA_LIST, MESSAGE, MEDIA_LIST`.
+  Confirmed live: filtering `activities(type:MEDIA_LIST)` returns a mix of
+  both `ANIME_LIST` and `MANGA_LIST` entries (a real server-side OR-match,
+  not just an unfiltered fallback) — `ANIME_LIST`/`MANGA_LIST` alone each
+  return only their own type.
+
+### User (`user.ts`)
+
+- `ToggleFollow(userId)`.
+- **`UpdateUser`'s full arg list** (confirmed via introspection): `about,
+titleLanguage, displayAdultContent, airingNotifications, scoreFormat,
+rowOrder, profileColor, donatorBadge, notificationOptions, timezone,
+activityMergeTime, animeListOptions, mangaListOptions, staffNameLanguage,
+restrictMessagesToFollowing, disabledListActivity` — all of these are wired
+  up in `update_user`. Every one is readable back via `User.options`/
+  `User.donatorBadge`, including `rowOrder` (`User.mediaListOptions.rowOrder`
+  — a sibling of `scoreFormat`, NOT nested under `animeList`/`mangaList`;
+  an earlier pass at this file wrongly concluded it wasn't exposed anywhere,
+  confirmed live to be wrong).
+- **`donatorBadge`'s 24-char cap and `activityMergeTime`'s 0/20160 bounds
+  are AniList's own documented schema constraints, not this project's
+  guess** — confirmed via introspection of `UpdateUser`'s arg descriptions:
+  `donatorBadge`: "Profile highlight color (Max: 24)"; `activityMergeTime`:
+  "Minutes between activity for them to be merged together. 0 is Never,
+  Above 2 weeks (20160 mins) is Always. (Min: 0)".
+- **`profileColor`/`rowOrder`/`timezone` are all plain `String` args on
+  AniList's own schema (confirmed via introspection — none is a real GraphQL
+  enum), but AniList validates them very differently server-side, confirmed
+  live**: an unrecognized `profileColor` is silently ignored (the account's
+  existing value is left unchanged, no error, no way to detect the rejection
+  other than re-reading the account), while an invalid `rowOrder` or
+  `timezone` is rejected with a clear 400 (`"The selected row order is
+invalid."` / `"The timezone format is invalid."`). `timezone`'s accepted
+  format is documented by AniList's own schema as `-?HH:MM` (optional
+  leading minus only) — whether a leading `+` is also accepted wasn't tested
+  live, since `update_user` has no way to explicitly clear `timezone` back to
+  unset, so a wrong guess risked leaving the field permanently changed.
+- **`UpdateUser`'s atomicity is inconsistent across validation layers, and
+  the one confirmed non-atomic path is now blocked client-side anyway** —
+  the tool's own description used to claim "not atomic, e.g. an incomplete
+  `disabledListActivity`", but that specific trigger is unreachable through
+  this client since the `.refine()` below rejects it before any request is
+  sent. A fresh live re-test through a currently-reachable path — an
+  invalid `rowOrder` ("bogus_order") plus a valid `activityMergeTime`
+  change in the same call — showed the OPPOSITE: the whole mutation was
+  rejected atomically (`activityMergeTime` stayed at its prior value,
+  confirmed via a follow-up `get_authorized_user`), unlike the historical
+  `disabledListActivity` case below. `rowOrder`/`timezone`-style plain-
+  string args appear to validate in an earlier pass that blocks the whole
+  mutation; the list-valued args below validate later, after some fields
+  already commit. The description no longer makes a general atomicity
+  claim as a result — both of the following remain historically true and
+  are why the client-side `.refine()`s exist, even though neither is
+  reachable live anymore:
+  - **`disabledListActivity` requires all 6 `MediaListStatus` values every
+    call**; a shorter array is rejected with `400 Incorrect number of
+disabled list activity options (6 required)`. Worse: that rejection
+    does **not** roll back other fields sent in the same `UpdateUser`
+    call — a live test setting `staffNameLanguage`/`activityMergeTime`/
+    `restrictMessagesToFollowing` alongside an invalid (5-entry)
+    `disabledListActivity` saw the first three fields commit to the
+    account despite the overall mutation returning an error. `update_user`
+    now client-side validates this array's length/coverage before ever
+    sending, specifically to avoid triggering this failure mode.
+  - **`notificationOptions` is a full-array replace, not a partial
+    merge, and AniList does not error on a short list** — confirmed live:
+    sending a single `{type: THREAD_LIKE, enabled: false}` entry silently
+    dropped all 19 other notification types from the account's real,
+    persisted `options.notificationOptions` (verified via a follow-up
+    `get_authorized_user` call, not just the mutation's own echo) — they
+    don't reset to a default, they disappear outright. `update_user` now
+    client-side requires all 20 `NotificationType` values whenever this
+    arg is set at all, specifically to prevent this silent data loss.
+  - **Omitting the per-entry `enabled`/`disabled` boolean behaves
+    differently on these two otherwise-parallel array args** — confirmed
+    live: a `notificationOptions` entry missing `enabled` (e.g.
+    `{type: THREAD_LIKE}`) is accepted and persists as `enabled: null`
+    (verified via `get_authorized_user`), no error. The same shape of
+    omission on `disabledListActivity` (e.g. `{type: PAUSED}`, with the
+    other 5 statuses complete) instead fails the **entire** mutation with
+    a bare `500 Internal Server Error` — not the structured 400
+    validation shape described above, and confirmed to leave the account
+    completely unchanged (not a partial-apply case). Always send an
+    explicit `true`/`false` for every entry of both arrays.
+- **`animeListOptions`/`mangaListOptions` (`MediaListOptionsInput`: `{
+sectionOrder, splitCompletedSectionByFormat, customLists, advancedScoring,
+advancedScoringEnabled, theme }`) is a true partial merge, not full-replace**
+  — confirmed live: sending only `{customLists: [...]}` left
+  `advancedScoring`/`advancedScoringEnabled`/`sectionOrder` and the other
+  list type (`mangaList`) completely untouched. This is the opposite
+  convention from `SaveMediaListEntry`'s `advancedScores`, which zeros any
+  omitted category — don't assume one behavior implies the other.
+- **But `customLists` itself is full-replace, not merged by name** —
+  confirmed live: an account with `customLists: [A, B]`, sent
+  `{customLists: [A]}`, ended up with `customLists: [A]` — `B` was
+  silently deleted, not preserved. So while sibling _fields_ merge
+  (previous bullet), the _array value_ of a field you do set is taken
+  verbatim as the new complete value. Fetch the current array via
+  `get_authorized_user` first and include every name you want to keep,
+  not just the one being added or removed.
+- **`advancedScoring` was NOT put through this same before/after
+  full-replace test** — its own confirmed-live risk is different (see the
+  next bullet: reordering/renaming silently reinterprets already-scored
+  entries, a positional hazard). Deliberately not tested with a real
+  account that has stored `advancedScores` values, since a wrong write
+  there is the one genuinely hard-to-detect corruption case this file
+  warns against elsewhere. Treat "fetch first, resend in full" as a safe
+  default for it too (same field mechanism as `customLists`), not as an
+  equally-confirmed fact.
+- **A non-empty `advancedScoring` category list does NOT mean advanced
+  scoring is enabled** — confirmed live: an account with
+  `advancedScoringEnabled: false` still had `advancedScoring: [Story,
+Characters, Visuals, Audio, Enjoyment]` populated (disabling the feature on
+  the site doesn't clear the category list). `saveListEntry`'s
+  `orderAdvancedScores` must check `advancedScoringEnabled` explicitly, not
+  infer it from `categories.length`.
+- **`UserTitleLanguage`**: `ROMAJI, ENGLISH, NATIVE, ROMAJI_STYLISED,
+ENGLISH_STYLISED, NATIVE_STYLISED` — all 6 exposed by `update_user`.
+- **`User.options`/`User.mediaListOptions` are NOT viewer-gated** — confirmed
+  live: looking up a third-party account (not the caller's own) via
+  `get_user_profile`/`get_full_user_info` returns that account's full
+  notification toggles, `disabledListActivity`, `scoreFormat`, `rowOrder`,
+  and list-display/advanced-scoring settings, not just public profile fields
+  (name/about/avatar/donator status). This is AniList's own API behavior
+  (these fields simply aren't restricted to `Viewer`), not a bug in this
+  server, but it's worth knowing before treating them as private.
+- **`User.statistics` (anime/manga count, meanScore, etc.) lags behind the
+  account's real list state** — confirmed live: an account with several
+  real `MediaListCollection` entries (non-zero scores/progress) still had
+  `statistics.anime.count: 0` and all other statistics fields zeroed,
+  reproduced with a bare `curl` query bypassing this server entirely. This
+  is AniList's own stats aggregation being stale, not a bug in `get_user_stats`
+  — its query already exactly matches the schema.
+
+### Thread (`thread.ts`)
+
+- `SaveThread(id, title, body, categories: [Int], mediaCategories: [Int],
+sticky, locked)` and `SaveThreadComment(id, threadId, parentCommentId,
+comment)` — same upsert convention as `SaveMediaListEntry`. There is no
+  query to list `ThreadCategory` values independently; the only way to
+  discover one is to already have a `Thread` (its `categories`/
+  `mediaCategories` fields) or a forum URL
+  (`anilist.co/forum/recent?category=<id>`) — `post_thread`/`search_thread`
+  document this limitation rather than pretending categories are
+  discoverable some other way. `categories` is required when creating (no
+  `id`) — confirmed live: AniList rejects it with `validation (categories:
+The categories field is required when id is not present.)`.
+  `SaveThread`'s **`sticky` and `locked` args are silently no-ops without
+  moderator permission** — confirmed live on a non-mod account's own
+  thread: both args were accepted with no error, but `isSticky`/`isLocked`
+  stayed `false` afterward. `get_thread`'s query includes `isSticky`,
+  `isLocked`, and `mediaCategories` specifically so a caller can check
+  whether a `post_thread` call actually took effect, not just that it
+  didn't error.
+- **`categories`, when set on an update, is a full replace, not a
+  merge** — confirmed live with a real self-created/self-deleted test
+  thread: created with `categories:[7]` (General), then updated with
+  `categories:[1]` (Anime) alone — the thread ended up with `categories:
+[{id:1,name:"Anime"}]` only, category 7 silently dropped rather than
+  both being present. **`mediaCategories` behaves identically when set on
+  an update** — confirmed live the same way (created with `[21]`, updated
+  with `[16498]` alone, ended up with `[16498]` only).
+- **Omitting `title`/`body`/`categories` entirely on an update (as opposed
+  to setting them) leaves the existing value untouched** — confirmed live
+  via a raw `SaveThread(id:$id, mediaCategories:$mc)` call passing no
+  `title`/`body`/`categories` at all: the thread's title, body, and
+  category stayed exactly as created. `post_thread`'s `title`/`body` are
+  accordingly required only when creating (no `id`), same as
+  `categories` — not required on every call the way the tool originally
+  (incorrectly) enforced.
+- **`ThreadComment.comment(asHtml: Boolean)` / `Thread.body(asHtml: Boolean)`**
+  — both take the `asHtml` arg used throughout the client to request plain text.
+
+### Media (`media.ts`)
+
+- **`Media` query/filter args** (also valid on `Page.media(...)`, same
+  arg set): `search, type, sort: [MediaSort], isAdult, genre_in: [String],
+format_in: [MediaFormat], status_in: [MediaStatus], season: MediaSeason,
+seasonYear`, plus many more (`averageScore_greater`, `tag_in`, …) — see the
+  full arg list via introspection if extending `searchMedia()`.
+- **`season` and `seasonYear` are independent filters, not a mandatory
+  pair** — confirmed live: `season: SUMMER` alone matches every Summer across
+  all years, and `seasonYear: 2025` alone matches every season within 2025.
+  Combine them for one specific season+year; neither requires the other.
+- **`MediaSeason`**: `WINTER, SPRING, SUMMER, FALL`.
 - **`Media(id_in: [Int])` does not preserve the input array's order** —
   confirmed live: requesting `[154587, 21]` came back `[21, 154587]`
   (looked like default id-ascending sort). `getMedia()`'s array branch now
@@ -422,6 +458,124 @@ recommendations, likes`.
   didn't resolve (rather than dropping it), so the result is always the same
   length as `ids` and matches `get_media`'s documented "same order as `ids`,
   with `null` in place of any ID that didn't resolve" guarantee.
+- **`Media.characters(page, perPage)`**/**`Media.staff(page, perPage)`**
+  return `CharacterConnection`/`StaffConnection`; the per-title role
+  (MAIN/SUPPORTING/BACKGROUND for characters, e.g. "ADR Director" for staff)
+  lives on the **edge**, not the node — use `edges { role node {...} }`, not
+  `nodes {...}`, or the role is silently lost. `CharacterEdge.voiceActors`
+  returns one `Staff` per dub language (no `language` filter applied in our
+  queries — cheap enough to return all of them). Neither connection is
+  requested with a `sort` argument, and confirmed live (Attack on Titan,
+  `id:16498`): the returned order is not grouped by role either — a MAIN
+  character appeared at edge index 10, after seven SUPPORTING entries ahead
+  of it — so `get_media_characters`/`get_media_staff` can't promise any
+  particular ordering.
+- **`Media.relations`** → `MediaConnection`; the relation kind
+  (`MediaRelation` enum: `ADAPTATION, PREQUEL, SEQUEL, PARENT, SIDE_STORY,
+CHARACTER, SUMMARY, ALTERNATIVE, SPIN_OFF, OTHER, SOURCE, COMPILATION,
+CONTAINS`) lives on `MediaEdge.relationType`, again not on the node.
+- **`Media.stats.scoreDistribution`/`.statusDistribution`** (`MediaStats`,
+  each item `{score/status, amount}`) is the AniList equivalent of MAL's
+  watch-status/score-distribution endpoint — powers `get_media_statistics`.
+- **Token-efficiency split**: `fields.ts`'s `MEDIA_FIELDS` deliberately
+  excludes `tags` (often 20-30 entries per title) and `description` (can run
+  to several hundred/thousand characters) — `search.ts`/`recommendation.ts`
+  return many media items per call, so `tags` only lives in
+  `MEDIA_DETAIL_FIELDS` (appended solely by `get_media`) and `description`
+  is its own `MEDIA_DESCRIPTION_FIELD`, always appended by `get_media` but
+  only appended by `searchMedia()` when `search_media`'s `includeDescription`
+  is set. Keep this split if you add more variable-length fields.
+- **`Media.streamingEpisodes` takes no pagination args at all** (confirmed
+  via introspection — unlike `characters`/`staff`/`reviews`, there's no
+  `page`/`perPage`), so a long-running title can return hundreds of entries
+  in one response with no way to ask AniList itself for fewer. `getMedia()`
+  therefore excludes it from `MEDIA_DETAIL_FIELDS` entirely and only appends
+  it (`MEDIA_STREAMING_EPISODES_FIELD`) when `get_media`'s
+  `includeStreamingEpisodes` is explicitly set — same opt-in pattern as
+  `get_media_reviews`'s `includeBody`.
+- **`Media.rankings`** → `[MediaRank]`, also `MEDIA_DETAIL_FIELDS`-only (same
+  token-efficiency reasoning as `tags` above). Each entry is one ranking
+  window the title currently appears in — the site UI's "#N highest rated
+  all time" / "#N highest rated `<year>`" badges. `rank`/`type`
+  (`MediaRankType`: `RATED, POPULAR`)/`format`/`context` are non-null;
+  `year`/`season`/`allTime` are nullable and say which window `context`
+  describes (all-time vs a specific year, optionally narrowed to one
+  season) — verified via introspection against `graphql.anilist.co` directly
+  (AniList's hosted docs don't spell out per-field nullability here).
+
+### Recommendation (`recommendation.ts`)
+
+- **`Recommendation(id)` is unreliable even for ids taken straight from
+  `Media(id){ recommendations { nodes{id} } }`** — confirmed live via raw
+  `curl` against `https://graphql.anilist.co` (independent of this server,
+  ruling out a client bug): of the 10 recommendation-node ids returned for
+  one title, 7 came back `Not Found` (404) on the root `Recommendation(id)`
+  lookup and 3 resolved. Retried the same ids moments later with identical
+  results (not request-timing flakiness), and the failures didn't correlate
+  with that pairing's `rating` (the highest- and lowest-rated ids in the
+  sample both failed; a middling one succeeded). No root cause identified —
+  this is an AniList-side inconsistency between the connection view and the
+  root lookup, not something `getRecommendation()`'s query is doing wrong.
+  `get_recommendation`'s tool description discloses this so a 404 there
+  isn't misread as "this pairing doesn't exist."
+
+### People (`people.ts`)
+
+- **`Character(isBirthday: Boolean)`/`Staff(isBirthday: Boolean)`** power
+  `get_todays_birthdays`.
+- **`Character.media`/`Staff.staffMedia`** (`MediaConnection`) are each
+  person's filmography; the per-credit role lives on the edge, same
+  edge-not-node pattern as `Media.characters`/`Media.staff` above —
+  `MediaEdge.characterRole`/`MediaEdge.staffRole` respectively. `Staff.characters`
+  (a `CharacterConnection`) is voice-actor-specific (the characters they
+  voiced); `staffMedia` covers every staff role (writer, director, VA, etc.)
+  and is the one `get_staff` uses for a role-agnostic filmography.
+
+### Notification (`notification.ts`)
+
+- **`Notification` (top-level `Query` field, exposed via `Page.notifications`)**
+  is a union of **20 concrete types** — not documented on AniList's hosted
+  docs site as of this writing; verified by introspecting
+  `graphql.anilist.co` directly (`{__type(name:"NotificationUnion"){possibleTypes{name}}}`).
+  Every branch shares `id`/`type`/`createdAt`/`context` (or `contexts` on a
+  few); `fields.ts`'s `NOTIFICATION_FIELDS` adds each type's one distinguishing
+  reference (`media`/`user`/`thread`/`staff`/`character`) so `get_notifications`
+  doesn't force a follow-up call just to know what a notification is about.
+  Always viewer-scoped — the `Notification` query has no `userId` arg, so
+  `notification.ts`'s `getNotifications()` always calls `ctx.requireAuth()`.
+- **`ActivityMessageNotification.message` is not the message text** — despite
+  the name, its type is `MessageActivity` (a full nested object), not
+  `String`. The actual DM text is one level deeper, at
+  `message.message` (`MessageActivity.message`, itself an `asHtml`-taking
+  field) — `NOTIFICATION_FIELDS`' `ActivityMessageNotification` fragment
+  selects `message { id message(asHtml: false) siteUrl }` to surface it;
+  selecting bare `message` (as every other notification-type fragment does
+  for its own distinguishing field) silently returns nothing useful.
+
+### Misc — genres/tags/studio/site statistics (`misc.ts`)
+
+- **`SiteStatistics` silently caps `perPage` at 25 itself** — confirmed live
+  by requesting a higher value directly (bypassing `get_site_statistics`'s
+  own matching `.max(25)`): AniList capped the response at 25 anyway, so
+  this tool's own limit costs nothing.
+- **`Studio(search:$search)` (the by-name path `get_studio`'s `name` param
+  takes) does AniList's own fuzzy search, not an exact-name lookup** —
+  confirmed live: `Studio(search:"Kyoto Anim")` resolved directly to Kyoto
+  Animation, the same fuzzy-match mechanism `search_studio`'s `studios(
+search:...)` connection uses. `get_studio`'s own description used to imply
+  `search_studio` was needed first for any partial name; only true when you
+  actually want to browse multiple candidates rather than take the closest
+  match.
+
+### Cross-cutting patterns (not owned by one domain)
+
+- **`Page`** exposes: `pageInfo, users, media, characters, staff, studios,
+mediaList, airingSchedules, mediaTrends, notifications, followers,
+following, activities, activityReplies, threads, threadComments, reviews,
+recommendations, likes`.
+- **`Delete*` mutations** (`DeleteMediaListEntry(id)`, `DeleteActivity(id)`,
+  `DeleteThread(id)`, `DeleteThreadComment(id)`) each return
+  `Deleted { deleted: Boolean }`.
 - **Several other singular lookups return `null` instead of erroring for an
   unresolved ID, but NOT all of them** — confirmed live: a top-level
   `Media(id)`/`Thread(id)`/`User(id)`/`User(name)` query (no nested fields
@@ -437,27 +591,6 @@ recommendations, likes`.
   `getUserStats()`/`getFullUserInfo()`, which guard the same way as a
   defensive-consistency measure even though `User` itself hasn't been
   observed returning the null-instead-of-404 shape live.
-- **`Recommendation(id)` is unreliable even for ids taken straight from
-  `Media(id){ recommendations { nodes{id} } }`** — confirmed live via raw
-  `curl` against `https://graphql.anilist.co` (independent of this server,
-  ruling out a client bug): of the 10 recommendation-node ids returned for
-  one title, 7 came back `Not Found` (404) on the root `Recommendation(id)`
-  lookup and 3 resolved. Retried the same ids moments later with identical
-  results (not request-timing flakiness), and the failures didn't correlate
-  with that pairing's `rating` (the highest- and lowest-rated ids in the
-  sample both failed; a middling one succeeded). No root cause identified —
-  this is an AniList-side inconsistency between the connection view and the
-  root lookup, not something `getRecommendation()`'s query is doing wrong.
-  `get_recommendation`'s tool description discloses this so a 404 there
-  isn't misread as "this pairing doesn't exist."
-- **`Studio(search:$search)` (the by-name path `get_studio`'s `name` param
-  takes) does AniList's own fuzzy search, not an exact-name lookup** —
-  confirmed live: `Studio(search:"Kyoto Anim")` resolved directly to Kyoto
-  Animation, the same fuzzy-match mechanism `search_studio`'s `studios(
-search:...)` connection uses. `get_studio`'s own description used to imply
-  `search_studio` was needed first for any partial name; only true when you
-  actually want to browse multiple candidates rather than take the closest
-  match.
 - **A `Page(...)` connection filtered by a parent id doesn't error for a
   nonexistent id** — it just returns an empty-but-successful page,
   indistinguishable from "this parent genuinely has none of these". Confirmed
@@ -505,28 +638,6 @@ search:...)` connection uses. `get_studio`'s own description used to imply
   confirmed either way — check for this exact shape (or `mediaList`'s
   "actually just 404s" shape) before assuming either applies.
 
-- **`ToggleFavourite` does not validate that `id` actually belongs to the
-  given `kind`** — confirmed live: `ToggleFavourite(characterId: <a real
-anime's id>)` succeeded and added that id to the account's favourited
-  characters, with no error and no existence check. `toggle_favourite`'s tool
-  description warns callers to resolve `id` from the matching
-  search/get tool for `kind` rather than reusing an id on hand, since AniList
-  itself won't catch the mismatch.
-- **`User.options`/`User.mediaListOptions` are NOT viewer-gated** — confirmed
-  live: looking up a third-party account (not the caller's own) via
-  `get_user_profile`/`get_full_user_info` returns that account's full
-  notification toggles, `disabledListActivity`, `scoreFormat`, `rowOrder`,
-  and list-display/advanced-scoring settings, not just public profile fields
-  (name/about/avatar/donator status). This is AniList's own API behavior
-  (these fields simply aren't restricted to `Viewer`), not a bug in this
-  server, but it's worth knowing before treating them as private.
-- **`User.statistics` (anime/manga count, meanScore, etc.) lags behind the
-  account's real list state** — confirmed live: an account with several
-  real `MediaListCollection` entries (non-zero scores/progress) still had
-  `statistics.anime.count: 0` and all other statistics fields zeroed,
-  reproduced with a bare `curl` query bypassing this server entirely. This
-  is AniList's own stats aggregation being stale, not a bug in `get_user_stats`
-  — its query already exactly matches the schema.
 - **`Media.isFavourite`/`isFollowing`-shaped viewer fields have a brief
   read-after-write lag on AniList's own backend** — confirmed live: right
   after `ToggleFavourite` succeeded, a `get_media` call for that same id
@@ -542,79 +653,6 @@ anime's id>)` succeeded and added that id to the account's favourited
   (much shorter) timescale. Not fixable server-side short of never caching
   viewer-relative fields at all — expect it when a test or a real caller
   mutates then immediately re-reads to verify.
-- **`Media.characters(page, perPage)`**/**`Media.staff(page, perPage)`**
-  return `CharacterConnection`/`StaffConnection`; the per-title role
-  (MAIN/SUPPORTING/BACKGROUND for characters, e.g. "ADR Director" for staff)
-  lives on the **edge**, not the node — use `edges { role node {...} }`, not
-  `nodes {...}`, or the role is silently lost. `CharacterEdge.voiceActors`
-  returns one `Staff` per dub language (no `language` filter applied in our
-  queries — cheap enough to return all of them). Neither connection is
-  requested with a `sort` argument, and confirmed live (Attack on Titan,
-  `id:16498`): the returned order is not grouped by role either — a MAIN
-  character appeared at edge index 10, after seven SUPPORTING entries ahead
-  of it — so `get_media_characters`/`get_media_staff` can't promise any
-  particular ordering.
-- **`Media.relations`** → `MediaConnection`; the relation kind
-  (`MediaRelation` enum: `ADAPTATION, PREQUEL, SEQUEL, PARENT, SIDE_STORY,
-CHARACTER, SUMMARY, ALTERNATIVE, SPIN_OFF, OTHER, SOURCE, COMPILATION,
-CONTAINS`) lives on `MediaEdge.relationType`, again not on the node.
-- **`Media.stats.scoreDistribution`/`.statusDistribution`** (`MediaStats`,
-  each item `{score/status, amount}`) is the AniList equivalent of MAL's
-  watch-status/score-distribution endpoint — powers `get_media_statistics`.
-- **Token-efficiency split**: `fields.ts`'s `MEDIA_FIELDS` deliberately
-  excludes `tags` (often 20-30 entries per title) and `description` (can run
-  to several hundred/thousand characters) — `search.ts`/`recommendation.ts`
-  return many media items per call, so `tags` only lives in
-  `MEDIA_DETAIL_FIELDS` (appended solely by `get_media`) and `description`
-  is its own `MEDIA_DESCRIPTION_FIELD`, always appended by `get_media` but
-  only appended by `searchMedia()` when `search_media`'s `includeDescription`
-  is set. Keep this split if you add more variable-length fields.
-- **`Media.streamingEpisodes` takes no pagination args at all** (confirmed
-  via introspection — unlike `characters`/`staff`/`reviews`, there's no
-  `page`/`perPage`), so a long-running title can return hundreds of entries
-  in one response with no way to ask AniList itself for fewer. `getMedia()`
-  therefore excludes it from `MEDIA_DETAIL_FIELDS` entirely and only appends
-  it (`MEDIA_STREAMING_EPISODES_FIELD`) when `get_media`'s
-  `includeStreamingEpisodes` is explicitly set — same opt-in pattern as
-  `get_media_reviews`'s `includeBody`.
-- **`Media.rankings`** → `[MediaRank]`, also `MEDIA_DETAIL_FIELDS`-only (same
-  token-efficiency reasoning as `tags` above). Each entry is one ranking
-  window the title currently appears in — the site UI's "#N highest rated
-  all time" / "#N highest rated `<year>`" badges. `rank`/`type`
-  (`MediaRankType`: `RATED, POPULAR`)/`format`/`context` are non-null;
-  `year`/`season`/`allTime` are nullable and say which window `context`
-  describes (all-time vs a specific year, optionally narrowed to one
-  season) — verified via introspection against `graphql.anilist.co` directly
-  (AniList's hosted docs don't spell out per-field nullability here).
-- **`Character(isBirthday: Boolean)`/`Staff(isBirthday: Boolean)`** power
-  `get_todays_birthdays`.
-- **`ThreadComment.comment(asHtml: Boolean)` / `Thread.body(asHtml: Boolean)`**
-  — both take the `asHtml` arg used throughout the client to request plain text.
-- **`Notification` (top-level `Query` field, exposed via `Page.notifications`)**
-  is a union of **20 concrete types** — not documented on AniList's hosted
-  docs site as of this writing; verified by introspecting
-  `graphql.anilist.co` directly (`{__type(name:"NotificationUnion"){possibleTypes{name}}}`).
-  Every branch shares `id`/`type`/`createdAt`/`context` (or `contexts` on a
-  few); `fields.ts`'s `NOTIFICATION_FIELDS` adds each type's one distinguishing
-  reference (`media`/`user`/`thread`/`staff`/`character`) so `get_notifications`
-  doesn't force a follow-up call just to know what a notification is about.
-  Always viewer-scoped — the `Notification` query has no `userId` arg, so
-  `notification.ts`'s `getNotifications()` always calls `ctx.requireAuth()`.
-- **`ActivityMessageNotification.message` is not the message text** — despite
-  the name, its type is `MessageActivity` (a full nested object), not
-  `String`. The actual DM text is one level deeper, at
-  `message.message` (`MessageActivity.message`, itself an `asHtml`-taking
-  field) — `NOTIFICATION_FIELDS`' `ActivityMessageNotification` fragment
-  selects `message { id message(asHtml: false) siteUrl }` to surface it;
-  selecting bare `message` (as every other notification-type fragment does
-  for its own distinguishing field) silently returns nothing useful.
-- **`Character.media`/`Staff.staffMedia`** (`MediaConnection`) are each
-  person's filmography; the per-credit role lives on the edge, same
-  edge-not-node pattern as `Media.characters`/`Media.staff` above —
-  `MediaEdge.characterRole`/`MediaEdge.staffRole` respectively. `Staff.characters`
-  (a `CharacterConnection`) is voice-actor-specific (the characters they
-  voiced); `staffMedia` covers every staff role (writer, director, VA, etc.)
-  and is the one `get_staff` uses for a role-agnostic filmography.
 
 ## MCP client quirk observed during testing (not an AniList API fact)
 

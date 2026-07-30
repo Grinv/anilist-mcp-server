@@ -12,6 +12,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- Fix `search_activity`'s description and `outputSchema`, both of which wrongly modeled results as bare IDs — the query already returns full activity content. [f1d0d61](https://github.com/Grinv/anilist-mcp-server/commit/f1d0d61)
+- Disclose that `get_user_activity`/`get_user_recent_activity` error on an unknown user, unlike `search_activity`'s own `user` filter, which silently returns empty. [4563fc0](https://github.com/Grinv/anilist-mcp-server/commit/4563fc0)
 - Cap `get_media`'s `ids` array at 25 entries — it previously had no upper bound, and a batch of hundreds succeeded live against AniList with no cap, each entry carrying the full synopsis/tags/rankings. [8d9eba7](https://github.com/Grinv/anilist-mcp-server/commit/8d9eba7)
 - Disclose that a majority of ids from `get_recommendations_for_media` 404 on `get_recommendation`'s own lookup — a confirmed AniList-side inconsistency, not a bug in this server. [35a6226](https://github.com/Grinv/anilist-mcp-server/commit/35a6226)
 - Correct `PRIVACY.md`'s claim that `get_notifications` "does not write anything" — its `markAsRead: true` option resets AniList's real unread-notification badge count. [c9485a4](https://github.com/Grinv/anilist-mcp-server/commit/c9485a4)

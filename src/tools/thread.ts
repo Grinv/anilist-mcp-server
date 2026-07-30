@@ -143,7 +143,12 @@ export function registerThreadTools(server: McpServer, client: AniListClient): v
       description:
         "[Requires login] Post a new forum thread to the authenticated user's own AniList " +
         "account, or update an existing one by passing its `id`. Use search_thread first if " +
-        "you want to check whether a similar thread already exists before posting a new one.",
+        "you want to check whether a similar thread already exists before posting a new one. " +
+        "Note: this tool's own response doesn't include `categories`/`mediaCategories`/" +
+        "`isSticky`/`isLocked` — call get_thread with the returned `id` afterward to confirm " +
+        "whether a category/sticky/locked change actually applied, especially since " +
+        "sticky/locked can silently no-op and categories/mediaCategories can silently drop " +
+        "existing values (see those fields' own descriptions below).",
       inputSchema: z
         .object({
           title: z
@@ -263,9 +268,15 @@ export function registerThreadTools(server: McpServer, client: AniListClient): v
           .describe(
             "Reply to this specific comment instead of posting top-level (from " +
               "get_thread_comments). The reply then appears nested under that comment's " +
-              "`childComments` in get_thread_comments, not as a new top-level entry.",
+              "`childComments` in get_thread_comments, not as a new top-level entry. Not the " +
+              "comment being edited — that's `id`.",
           ),
-        id: commentId.optional().describe("Comment ID to update instead of creating a new one."),
+        id: commentId
+          .optional()
+          .describe(
+            "Comment ID to update instead of creating a new one. Not the comment you're " +
+              "replying to — that's `parentCommentId`.",
+          ),
       }),
       outputSchema: z.object({ comment: savedThreadComment }),
       annotations: {

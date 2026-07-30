@@ -342,7 +342,7 @@ The categories field is required when id is not present.)`.
     merge** — confirmed live with a real self-created/self-deleted test
     thread: created with `categories:[7]` (General), then updated with
     `categories:[1]` (Anime) alone — the thread ended up with `categories:
-    [{id:1,name:"Anime"}]` only, category 7 silently dropped rather than
+[{id:1,name:"Anime"}]` only, category 7 silently dropped rather than
     both being present. Whether omitting `categories` entirely on an update
     leaves the existing set untouched was NOT tested (hit AniList's
     "too many threads created recently" 1-minute rate limit mid-sequence);
@@ -388,6 +388,10 @@ ENGLISH_STYLISED, NATIVE_STYLISED` — all 6 exposed by `update_user`.
 mediaList, airingSchedules, mediaTrends, notifications, followers,
 following, activities, activityReplies, threads, threadComments, reviews,
 recommendations, likes`.
+- **`SiteStatistics` silently caps `perPage` at 25 itself** — confirmed live
+  by requesting a higher value directly (bypassing `get_site_statistics`'s
+  own matching `.max(25)`): AniList capped the response at 25 anyway, so
+  this tool's own limit costs nothing.
 - **`MediaListCollection(userId, userName, type, …)`** is capped at the
   **11,000 most recently updated unique entries** — irrelevant for virtually
   all users, but a hard ceiling if one ever hits it. It must include the

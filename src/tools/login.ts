@@ -12,8 +12,10 @@ export function registerLoginTools(server: McpServer, client: AniListClient): vo
       description:
         "Authorize the personal-list and social tools with your AniList account (one-time). " +
         "Prerequisite: register an app at anilist.co/settings/developer with Redirect URL set " +
-        "to this server's localhost callback, and set ANILIST_CLIENT_ID + ANILIST_CLIENT_SECRET " +
-        "in the server env. Calling this returns an authorization URL: open it, log in, and " +
+        "to `http://localhost:8082/callback` (the default; override the port via " +
+        "ANILIST_OAUTH_PORT if 8082 is taken — it must match exactly what you register), and " +
+        "set ANILIST_CLIENT_ID + ANILIST_CLIENT_SECRET in the server env. Calling this returns " +
+        "an authorization URL: open it, log in, and " +
         "click Approve. If your browser genuinely runs on the same machine as this server, " +
         "login then completes automatically; otherwise copy the URL you land on and pass it to " +
         "submit_anilist_redirect. `auto_capture` in the response is NOT a reliable detector of " +
@@ -23,8 +25,18 @@ export function registerLoginTools(server: McpServer, client: AniListClient): vo
         "the response doesn't.",
       inputSchema: z.object({}),
       outputSchema: z.object({
-        authorize_url: z.string(),
-        redirect_uri: z.string(),
+        authorize_url: z
+          .string()
+          .describe(
+            "The AniList OAuth authorization URL — open it in a browser and click Approve.",
+          ),
+        redirect_uri: z
+          .string()
+          .describe(
+            "The exact localhost callback URI this login attempt used (port from " +
+              "ANILIST_OAUTH_PORT, default 8082) — must exactly match the Redirect URL " +
+              "registered for your AniList app, or the token exchange fails.",
+          ),
         auto_capture: z
           .boolean()
           .describe(

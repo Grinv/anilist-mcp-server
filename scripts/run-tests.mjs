@@ -30,7 +30,20 @@ const passthrough = rawArgs.filter((a) => a !== "--coverage");
 const [major, minor] = process.versions.node.split(".").map(Number);
 const supportsThreshold = major > 22 || (major === 22 && minor >= 8);
 
+// Default timeout (Node 20.11+, our floor) — a safety net so a hanging test
+// (e.g. an unref'd timer with nothing else keeping the event loop alive, the
+// exact bug found and fixed in http.test.ts) fails fast with a clear timeout
+// instead of hanging indefinitely or reporting a vague "cancelledByParent".
+// --test-timeout applies per FILE, not per individual test() call, when
+// running multiple files (confirmed: several anilist.test.ts cases each take
+// several real seconds testing retry/backoff delays, and their file-level
+// total tripped a naive 20s value) — kept generous (well above the ~35s the
+// full suite normally takes) so it only catches a genuine hang, not slow but
+// legitimate tests. `passthrough` can still override it explicitly.
+const hasExplicitTimeout = passthrough.some((a) => a.startsWith("--test-timeout"));
+
 const args = ["--test", ...passthrough];
+if (!hasExplicitTimeout) args.push("--test-timeout=120000");
 if (coverage) {
   args.push("--experimental-test-coverage");
   if (supportsThreshold) args.push(`--test-coverage-lines=${COVERAGE_LINES_THRESHOLD}`);

@@ -633,6 +633,14 @@ recommendations, likes`.
     the schedule with `hasNextPage` correctly included — `getSchedule()`
     previously discarded `pageInfo.hasNextPage` even though it fetched it.
 
+  - `threads(categoryId)`/`threads(mediaCategoryId)` — an empty page for a
+    well-formed but nonexistent id in either filter, confirmed live (both
+    tested independently against `graphql.anilist.co`). Unlike the three
+    above, `searchThread()` has no existence-check alias for either —
+    there's no separate id to resolve first and no ambiguity worth guarding
+    against (a wrong category id and a real category with zero matching
+    threads are both legitimately "no results").
+
   **`mediaList` does NOT share this shape — confirmed live it needs no alias
   trick at all.** `MediaListCollection(userId/userName)` 404s the entire
   response itself for a nonexistent user (both a bad numeric id and a bad

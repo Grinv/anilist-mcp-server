@@ -88,6 +88,15 @@ test("honors Retry-After on 429", async (t) => {
 });
 
 test("aborts on timeout and maps to a timeout error", async (t) => {
+  // AbortSignal.timeout()'s own internal timer is deliberately unref'd
+  // (confirmed in Node's source) so it never keeps a process alive by
+  // itself — in real usage that's fine, since an in-flight fetch() already
+  // holds its own socket handle open. This mock does no real I/O, so it
+  // needs its own ref'd keep-alive standing in for that, or the unref'd
+  // timeout timer never gets a chance to fire before the event loop (with
+  // nothing else pending) considers itself done.
+  const keepAlive = setInterval(() => {}, 1000);
+  t.after(() => clearInterval(keepAlive));
   const mock = mockFetch(
     (_url, init) =>
       new Promise<Response>((_resolve, reject) => {
@@ -100,5 +109,31 @@ test("aborts on timeout and maps to a timeout error", async (t) => {
   await assert.rejects(
     () => client({ retries: 0, timeoutMs: 30 }).getJson("slow"),
     (err: unknown) => err instanceof ApiError && err.code === "timeout",
+  );
+});
+
+test("caller-supplied signal aborts the request and maps to a network error", async (t) => {
+  // Exercises the AbortSignal.any() merge branch (options.signal combined
+  // with the internal timeout signal) — no current call site in this repo
+  // actually passes options.signal, so this is otherwise untested code.
+  const keepAlive = setInterval(() => {}, 1000);
+  t.after(() => clearInterval(keepAlive));
+  const mock = mockFetch(
+    (_url, init) =>
+      new Promise<Response>((_resolve, reject) => {
+        init?.signal?.addEventListener("abort", () =>
+          reject(new DOMException("aborted", "AbortError")),
+        );
+      }),
+  );
+  installFetch(t, mock);
+  const controller = new AbortController();
+  const result = client({ retries: 0, timeoutMs: 30000 }).getJson("slow", {
+    signal: controller.signal,
+  });
+  controller.abort();
+  await assert.rejects(
+    () => result,
+    (err: unknown) => err instanceof ApiError && err.code === "network",
   );
 });

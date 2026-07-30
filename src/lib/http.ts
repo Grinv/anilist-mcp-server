@@ -64,10 +64,10 @@ export class HttpClient {
   }
 
   async #once<T>(url: string, options: RequestOptions, timeoutMs: number): Promise<T> {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), timeoutMs);
-    const onAbort = () => controller.abort();
-    options.signal?.addEventListener("abort", onAbort, { once: true });
+    const timeoutSignal = AbortSignal.timeout(timeoutMs);
+    const signal = options.signal
+      ? AbortSignal.any([timeoutSignal, options.signal])
+      : timeoutSignal;
 
     const headers = {
       "User-Agent": USER_AGENT,
@@ -82,14 +82,14 @@ export class HttpClient {
         method: options.method ?? "GET",
         headers,
         ...(options.body === undefined ? {} : { body: options.body }),
-        signal: controller.signal,
+        signal,
       });
     } catch (err) {
       if (options.signal?.aborted) {
         // Caller cancelled — propagate as a non-retryable abort.
         throw new ApiError({ code: "network", message: "Request aborted by caller", cause: err });
       }
-      if (controller.signal.aborted) {
+      if (timeoutSignal.aborted) {
         throw new ApiError({
           code: "timeout",
           message: `Request timed out after ${timeoutMs}ms`,
@@ -98,9 +98,6 @@ export class HttpClient {
         });
       }
       throw toNetworkError(err);
-    } finally {
-      clearTimeout(timer);
-      options.signal?.removeEventListener("abort", onAbort);
     }
 
     if (!res.ok) throw await toHttpError(res, "Authorization" in headers);

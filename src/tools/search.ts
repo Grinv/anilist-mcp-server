@@ -4,6 +4,7 @@ import type { AniListClient } from "../clients/anilist.js";
 import * as search from "../clients/anilist/search.js";
 import { jsonResult } from "../lib/result.js";
 import { guard } from "./guard.js";
+import { activityItem } from "./activity.js";
 import {
   pageInfoSchema,
   MEDIA_TYPES,
@@ -235,8 +236,8 @@ const mediaSearchInput = z.object({
 // Search results are lists of AniList media/character/staff/etc. objects —
 // per the precision policy, each item is typed loosely (id + passthrough)
 // rather than duplicating the full MEDIA_FIELDS/CHARACTER_FIELDS/etc. shape.
-// idOnly also matches the ACTIVITY_FRAGMENT union below (only `id` is common
-// to every branch: TextActivity/ListActivity/MessageActivity).
+// Exception: search_activity reuses activity.ts's activityItem, since its
+// query already selects the full ACTIVITY_FRAGMENT, not just `id`.
 
 export function registerSearchTools(server: McpServer, client: AniListClient): void {
   server.registerTool(
@@ -451,8 +452,11 @@ export function registerSearchTools(server: McpServer, client: AniListClient): v
       title: "Search activity feed",
       description:
         "Search/browse AniList's activity feed (list updates, text posts, messages), optionally " +
-        "filtered to one user and/or one activity type. Returns AniList activity IDs to use " +
-        "with get_activity.",
+        "filtered to one user and/or one activity type. Each result already includes its full " +
+        "content (text/message/status, `replyCount`/`likeCount`/`isLiked`, the posting user, " +
+        "and — for list activity — the media) — no follow-up get_activity call needed unless " +
+        "you need to re-check one specific result's `replyCount`/`likeCount`/`isLiked` later " +
+        "(e.g. after liking it).",
       inputSchema: z.object({
         user: userIdOrName
           .optional()
@@ -480,7 +484,7 @@ export function registerSearchTools(server: McpServer, client: AniListClient): v
         results: z
           .object({
             pageInfo: pageInfoSchema.optional(),
-            activities: z.array(idOnly).optional(),
+            activities: z.array(activityItem).optional(),
           })
           .passthrough(),
       }),

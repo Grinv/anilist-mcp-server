@@ -338,6 +338,15 @@ The categories field is required when id is not present.)`.
     `isLocked`, and `mediaCategories` specifically so a caller can check
     whether a `post_thread` call actually took effect, not just that it
     didn't error.
+  - **`categories`, when set on an update, is a full replace, not a
+    merge** — confirmed live with a real self-created/self-deleted test
+    thread: created with `categories:[7]` (General), then updated with
+    `categories:[1]` (Anime) alone — the thread ended up with `categories:
+    [{id:1,name:"Anime"}]` only, category 7 silently dropped rather than
+    both being present. Whether omitting `categories` entirely on an update
+    leaves the existing set untouched was NOT tested (hit AniList's
+    "too many threads created recently" 1-minute rate limit mid-sequence);
+    don't assume either way until confirmed.
 - **`Media` query/filter args** (also valid on `Page.media(...)`, same
   arg set): `search, type, sort: [MediaSort], isAdult, genre_in: [String],
 format_in: [MediaFormat], status_in: [MediaStatus], season: MediaSeason,

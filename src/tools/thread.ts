@@ -160,9 +160,13 @@ export function registerThreadTools(server: McpServer, client: AniListClient): v
             .describe(
               "Forum category IDs to post this thread under — REQUIRED when creating a new " +
                 "thread (AniList rejects the mutation otherwise), optional when updating one via " +
-                "`id`. Not independently listable by any tool; resolve one from a thread you've " +
-                "already read (get_thread's/search_thread's `categories` field) or from a forum " +
-                "URL like anilist.co/forum/recent?category=<id>.",
+                "`id`. When updating and you DO set this, it's a full replace, not a merge — " +
+                "confirmed live: an existing thread with categories [A] updated with just [B] " +
+                "ended up with [B] only, A silently dropped. Fetch the thread's current " +
+                "categories first (get_thread) and include every one you want to keep. Not " +
+                "independently listable by any tool; resolve one from a thread you've already " +
+                "read (get_thread's/search_thread's `categories` field) or from a forum URL " +
+                "like anilist.co/forum/recent?category=<id>.",
             ),
           mediaCategories: z
             .array(anilistId)
@@ -264,9 +268,9 @@ export function registerThreadTools(server: McpServer, client: AniListClient): v
     {
       title: "Delete a forum thread",
       description:
-        "[Requires login] Delete a forum thread the authenticated user owns, by its ID. This " +
-        "cannot be undone, and calling it again on an already-deleted id errors rather than " +
-        "silently succeeding.",
+        "[Requires login] Delete a forum thread the authenticated user owns, by its ID (from " +
+        "search_thread, get_thread, or the id returned by post_thread). This cannot be undone, " +
+        "and calling it again on an already-deleted id errors rather than silently succeeding.",
       inputSchema: z.object({ id: anilistId.describe("AniList thread ID to delete.") }),
       outputSchema: z.object({ result: deleteResult }),
       annotations: deleteToolAnnotations,

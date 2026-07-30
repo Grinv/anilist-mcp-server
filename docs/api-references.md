@@ -383,6 +383,10 @@ seasonYear`, plus many more (`averageScore_greater`, `tag_in`, …) — see the
   guessing an order).
 - **`MediaListStatus`**: `CURRENT, PLANNING, COMPLETED, DROPPED, PAUSED, REPEATING`.
 - **`ActivityType`**: `TEXT, ANIME_LIST, MANGA_LIST, MESSAGE, MEDIA_LIST`.
+  Confirmed live: filtering `activities(type:MEDIA_LIST)` returns a mix of
+  both `ANIME_LIST` and `MANGA_LIST` entries (a real server-side OR-match,
+  not just an unfiltered fallback) — `ANIME_LIST`/`MANGA_LIST` alone each
+  return only their own type.
 - **`MediaSeason`**: `WINTER, SPRING, SUMMER, FALL`.
 - **`UserTitleLanguage`**: `ROMAJI, ENGLISH, NATIVE, ROMAJI_STYLISED,
 ENGLISH_STYLISED, NATIVE_STYLISED` — all 6 exposed by `update_user`.
@@ -532,7 +536,12 @@ anime's id>)` succeeded and added that id to the account's favourited
   lives on the **edge**, not the node — use `edges { role node {...} }`, not
   `nodes {...}`, or the role is silently lost. `CharacterEdge.voiceActors`
   returns one `Staff` per dub language (no `language` filter applied in our
-  queries — cheap enough to return all of them).
+  queries — cheap enough to return all of them). Neither connection is
+  requested with a `sort` argument, and confirmed live (Attack on Titan,
+  `id:16498`): the returned order is not grouped by role either — a MAIN
+  character appeared at edge index 10, after seven SUPPORTING entries ahead
+  of it — so `get_media_characters`/`get_media_staff` can't promise any
+  particular ordering.
 - **`Media.relations`** → `MediaConnection`; the relation kind
   (`MediaRelation` enum: `ADAPTATION, PREQUEL, SEQUEL, PARENT, SIDE_STORY,
 CHARACTER, SUMMARY, ALTERNATIVE, SPIN_OFF, OTHER, SOURCE, COMPILATION,

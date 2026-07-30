@@ -6,6 +6,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- Raise the minimum supported Node.js version to ≥ 20.9.0 (was ≥ 20) — Node 20's first LTS point release. [6adffb4](https://github.com/Grinv/anilist-mcp-server/commit/6adffb4)
+
 ### Fixed
 
 - Correct `idempotentHint` to `false` on `delete_activity`/`delete_thread`/`delete_thread_comment`/`remove_list_entry` — each one errors, not silently succeeds, when retried on an already-deleted id. [fc4fc5e](https://github.com/Grinv/anilist-mcp-server/commit/fc4fc5e)

@@ -14,14 +14,25 @@ export function registerLoginTools(server: McpServer, client: AniListClient): vo
         "Prerequisite: register an app at anilist.co/settings/developer with Redirect URL set " +
         "to this server's localhost callback, and set ANILIST_CLIENT_ID + ANILIST_CLIENT_SECRET " +
         "in the server env. Calling this returns an authorization URL: open it, log in, and " +
-        "click Approve. If your browser is on the same machine as the server, login completes " +
-        "automatically; if it's remote (SSH/headless), copy the URL you land on and pass it to " +
-        "submit_anilist_redirect.",
+        "click Approve. If your browser genuinely runs on the same machine as this server, " +
+        "login then completes automatically; otherwise copy the URL you land on and pass it to " +
+        "submit_anilist_redirect. `auto_capture` in the response is NOT a reliable detector of " +
+        "that — it only reflects whether this server process could bind its own localhost " +
+        "listener, which typically succeeds even when the server runs remotely (SSH/headless) " +
+        "and the browser can never reach it; you (or the user) know the actual machine layout, " +
+        "the response doesn't.",
       inputSchema: z.object({}),
       outputSchema: z.object({
         authorize_url: z.string(),
         redirect_uri: z.string(),
-        auto_capture: z.boolean(),
+        auto_capture: z
+          .boolean()
+          .describe(
+            "Whether this server process could bind a local callback listener — NOT whether " +
+              "the browser opening authorize_url is actually on the same machine. A remote/SSH " +
+              "server can still bind its own loopback port successfully and read `true` here " +
+              "even though that browser's redirect can never reach it.",
+          ),
         instructions: z.string(),
       }),
       annotations: {
@@ -45,8 +56,11 @@ export function registerLoginTools(server: McpServer, client: AniListClient): vo
           redirect_uri: redirectUri,
           auto_capture: listening,
           instructions: listening
-            ? "Open authorize_url, log in and click Approve. Login then completes automatically — " +
-              "call get_authorized_user to confirm."
+            ? "Open authorize_url, log in and click Approve. If your browser is on the same " +
+              "machine as this server, login completes automatically — call get_authorized_user " +
+              "to confirm. If the server is actually remote (SSH/headless) despite this server " +
+              "being able to bind its own local port, copy the URL you're redirected to instead " +
+              "and pass it to submit_anilist_redirect."
             : "Open authorize_url, log in and click Approve, then copy the URL you're redirected " +
               "to and pass it to submit_anilist_redirect.",
         });

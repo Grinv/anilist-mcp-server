@@ -134,7 +134,10 @@ export function registerListTools(server: McpServer, client: AniListClient): voi
         "you only have a partial/fuzzy name. Paginated by `chunk`/`perChunk` (AniList's own " +
         "mechanism for this — counted across entries of ALL statuses combined, not per status), " +
         "since a large list can otherwise return thousands of entries in one response; check " +
-        "`hasNextChunk` and increment `chunk` to keep paging.",
+        "`hasNextChunk` and increment `chunk` to keep paging. AniList itself caps this at the " +
+        "~11,000 most recently updated unique entries — irrelevant for virtually every account, " +
+        "but a hard ceiling if one is ever hit (older entries beyond it aren't retrievable " +
+        "through this field at all, by any chunk).",
       inputSchema: z.object({
         type: z.enum(MEDIA_TYPES).describe("Whether to get the anime or manga list."),
         user: userIdOrName,

@@ -214,6 +214,12 @@ restrictMessagesToFollowing, disabledListActivity` — all of these are wired
     — a sibling of `scoreFormat`, NOT nested under `animeList`/`mangaList`;
     an earlier pass at this file wrongly concluded it wasn't exposed anywhere,
     confirmed live to be wrong).
+  - **`donatorBadge`'s 24-char cap and `activityMergeTime`'s 0/20160 bounds
+    are AniList's own documented schema constraints, not this project's
+    guess** — confirmed via introspection of `UpdateUser`'s arg descriptions:
+    `donatorBadge`: "Profile highlight color (Max: 24)"; `activityMergeTime`:
+    "Minutes between activity for them to be merged together. 0 is Never,
+    Above 2 weeks (20160 mins) is Always. (Min: 0)".
   - **`profileColor`/`rowOrder`/`timezone` are all plain `String` args on
     AniList's own schema (confirmed via introspection — none is a real GraphQL
     enum), but AniList validates them very differently server-side, confirmed
@@ -226,8 +232,23 @@ invalid."` / `"The timezone format is invalid."`). `timezone`'s accepted
     leading minus only) — whether a leading `+` is also accepted wasn't tested
     live, since `update_user` has no way to explicitly clear `timezone` back to
     unset, so a wrong guess risked leaving the field permanently changed.
-  - **`UpdateUser` is NOT atomic, and two of its list-valued args have
-    dangerous non-partial-update behavior** — both confirmed live:
+  - **`UpdateUser`'s atomicity is inconsistent across validation layers, and
+    the one confirmed non-atomic path is now blocked client-side anyway** —
+    the tool's own description used to claim "not atomic, e.g. an incomplete
+    `disabledListActivity`", but that specific trigger is unreachable through
+    this client since the `.refine()` below rejects it before any request is
+    sent. A fresh live re-test through a currently-reachable path — an
+    invalid `rowOrder` ("bogus_order") plus a valid `activityMergeTime`
+    change in the same call — showed the OPPOSITE: the whole mutation was
+    rejected atomically (`activityMergeTime` stayed at its prior value,
+    confirmed via a follow-up `get_authorized_user`), unlike the historical
+    `disabledListActivity` case below. `rowOrder`/`timezone`-style plain-
+    string args appear to validate in an earlier pass that blocks the whole
+    mutation; the list-valued args below validate later, after some fields
+    already commit. The description no longer makes a general atomicity
+    claim as a result — both of the following remain historically true and
+    are why the client-side `.refine()`s exist, even though neither is
+    reachable live anymore:
     - **`disabledListActivity` requires all 6 `MediaListStatus` values every
       call**; a shorter array is rejected with `400 Incorrect number of
 disabled list activity options (6 required)`. Worse: that rejection
@@ -274,6 +295,15 @@ advancedScoringEnabled, theme }`) is a true partial merge, not full-replace**
     verbatim as the new complete value. Fetch the current array via
     `get_authorized_user` first and include every name you want to keep,
     not just the one being added or removed.
+  - **`advancedScoring` was NOT put through this same before/after
+    full-replace test** — its own confirmed-live risk is different (see the
+    next bullet: reordering/renaming silently reinterprets already-scored
+    entries, a positional hazard). Deliberately not tested with a real
+    account that has stored `advancedScores` values, since a wrong write
+    there is the one genuinely hard-to-detect corruption case this file
+    warns against elsewhere. Treat "fetch first, resend in full" as a safe
+    default for it too (same field mechanism as `customLists`), not as an
+    equally-confirmed fact.
   - **A non-empty `advancedScoring` category list does NOT mean advanced
     scoring is enabled** — confirmed live: an account with
     `advancedScoringEnabled: false` still had `advancedScoring: [Story,

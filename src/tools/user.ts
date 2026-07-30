@@ -214,7 +214,8 @@ export function registerUserTools(server: McpServer, client: AniListClient): voi
         "display options). Confirmed live these settings are NOT viewer-gated, so they're " +
         "included for any user, not just the authenticated caller. Accepts an exact AniList " +
         "username directly — no need to call search_user first unless you only have a " +
-        "partial/fuzzy name and need to look up the exact one.",
+        "partial/fuzzy name and need to look up the exact one. Need statistics too? Use " +
+        "get_full_user_info instead of also calling get_user_stats separately.",
       inputSchema: z.object({ user: userIdOrName }),
       outputSchema: z.object({ profile: userProfileObject }),
       annotations: { readOnlyHint: true, openWorldHint: true },
@@ -236,7 +237,8 @@ export function registerUserTools(server: McpServer, client: AniListClient): voi
         "own stats aggregation can lag behind the account's real list — confirmed live, an " +
         "account with real scored/progressed entries still read back all-zero statistics — " +
         "so don't treat a zeroed result as 'this account has no list activity' without " +
-        "cross-checking get_user_list.",
+        "cross-checking get_user_list. Need the profile too? Use get_full_user_info instead of " +
+        "also calling get_user_profile separately.",
       inputSchema: z.object({ user: userIdOrName }),
       outputSchema: z.object({ stats: userStatsObject }),
       annotations: { readOnlyHint: true, openWorldHint: true },
@@ -300,11 +302,15 @@ export function registerUserTools(server: McpServer, client: AniListClient): voi
       description:
         "[Requires login] Get the profile of the AniList account currently authorized via " +
         "login_anilist/ANILIST_ACCESS_TOKEN — use this to confirm which account is connected. " +
-        "Also the authoritative source to fetch BEFORE a full-replace update_user call: its " +
-        "`options.notificationOptions`/`options.disabledListActivity` and " +
-        "`mediaListOptions.animeList/mangaList.{customLists,advancedScoring,...}` are the " +
-        "current values update_user's own field descriptions tell you to read first and " +
-        "resend in full (those writes replace the whole array/list, not merge by entry).",
+        "Also the authoritative source to fetch BEFORE an update_user call touching " +
+        "`options.notificationOptions`/`options.disabledListActivity` (confirmed live: full " +
+        "array replace, not merge by entry) or `mediaListOptions.animeList/mangaList." +
+        "customLists` (confirmed live: same full-replace behavior) — read the current values " +
+        "here first and resend them in full alongside your changes. The sibling " +
+        "`advancedScoring` array carries a related but distinct risk instead: it's positional, " +
+        "not name-matched, so reordering/renaming its entries silently reinterprets already-" +
+        "scored list entries (see update_user's own `advancedScoring` field for detail) — " +
+        "fetch it here first too before changing it.",
       inputSchema: z.object({}),
       outputSchema: z.object({ user: userProfileObject }),
       annotations: { readOnlyHint: true, openWorldHint: true },
@@ -348,11 +354,7 @@ export function registerUserTools(server: McpServer, client: AniListClient): voi
         "`notificationOptions`/`disabledListActivity` below for two confirmed exceptions, " +
         "PLUS `animeListOptions`/`mangaListOptions`'s nested `customLists` — a third: that " +
         "one field's ARRAY VALUE is a full replace even though its sibling fields and the " +
-        "other list type merge normally). Note: this mutation isn't atomic — confirmed live " +
-        "that rejecting one invalid field " +
-        "(e.g. an incomplete `disabledListActivity`) can still leave OTHER fields from that " +
-        "same call applied. If a call errors, re-check with get_authorized_user rather than " +
-        "assuming nothing changed.",
+        "other list type merge normally).",
       inputSchema: z.object({
         about: z.string().optional().describe("New profile 'about' text."),
         titleLanguage: z
@@ -412,8 +414,8 @@ export function registerUserTools(server: McpServer, client: AniListClient): voi
                 .describe(
                   "Whether this notification type is on. Optional per entry, but not really — " +
                     "omitting it doesn't error and doesn't inherit the previous value either; " +
-                    "confirmed live it's written as `enabled: null`, effectively unsetting the " +
-                    "type. Always pass an explicit true/false for every one of the 20 types.",
+                    `confirmed live it's written as \`enabled: null\`, effectively unsetting the ` +
+                    `type. Always pass an explicit true/false for every one of the ${NOTIFICATION_TYPES.length} types.`,
                 ),
             }),
           )
@@ -425,7 +427,7 @@ export function registerUserTools(server: McpServer, client: AniListClient): voi
           )
           .optional()
           .describe(
-            "ALL 20 notification types, every time — confirmed live this is a full replace, " +
+            `ALL ${NOTIFICATION_TYPES.length} notification types, every time — confirmed live this is a full replace, ` +
               "not a partial merge: AniList silently drops every type you don't list (not just " +
               "resets it to default, removes it) with no error. Fetch the account's current " +
               "list first (get_authorized_user's `options.notificationOptions`) and resend it " +
@@ -475,7 +477,7 @@ export function registerUserTools(server: McpServer, client: AniListClient): voi
                 .describe(
                   "Whether posting activity for this status is suppressed. Optional in the " +
                     "schema, but NOT safe to omit: confirmed live, leaving it out on even one " +
-                    "of the 6 statuses makes the whole call fail with a 500 Internal Server " +
+                    `of the ${MEDIA_LIST_STATUSES.length} statuses makes the whole call fail with a 500 Internal Server ` +
                     "Error on AniList's side (not a clean validation error, and not this " +
                     "server's bug) — always pass an explicit true/false for every status.",
                 ),
@@ -489,7 +491,7 @@ export function registerUserTools(server: McpServer, client: AniListClient): voi
           )
           .optional()
           .describe(
-            "ALL 6 list statuses, every time — confirmed live: AniList rejects this with a " +
+            `ALL ${MEDIA_LIST_STATUSES.length} list statuses, every time — confirmed live: AniList rejects this with a ` +
               '400 error if any status is missing ("Incorrect number of disabled list activity ' +
               "options\"), it's not a partial per-status update. Fetch the current list first " +
               "(get_authorized_user's `options.disabledListActivity`) and resend it in full " +

@@ -239,7 +239,11 @@ export function registerListTools(server: McpServer, client: AniListClient): voi
             "advanced scoring isn't enabled for this media's type, or if a key doesn't match " +
             "the account's configured category list for it (anime and manga have SEPARATELY " +
             "configured lists). Any of that list's categories you omit here is set to 0, " +
-            "not left unchanged — include every category if you don't want the others zeroed.",
+            "not left unchanged — include every category if you don't want the others zeroed. " +
+            "Stored positionally, not by name: matched against the account's category order " +
+            "(update_user's `advancedScoring`) at READ time, not write time — if that order is " +
+            "later renamed/reordered, a score you write for 'Story' today can silently be read " +
+            "back as 'Characters' tomorrow, with no error.",
         ),
       }),
       outputSchema: z.object({ entry: savedListEntry }),
@@ -310,7 +314,10 @@ export function registerListTools(server: McpServer, client: AniListClient): voi
             "(errors if advanced scoring is disabled, or a key doesn't match a configured " +
             "category). Unlike this tool's other fields, this one is NOT a true partial " +
             "update: any configured category you omit is set to 0, not left at its previous " +
-            "value — pass every category if you're only changing one.",
+            "value — pass every category if you're only changing one. Also stored " +
+            "positionally, not by name — same read-time reinterpretation risk as " +
+            "add_list_entry's `advancedScores` if the account's category order " +
+            "(update_user's `advancedScoring`) is later renamed/reordered.",
         ),
       }),
       outputSchema: z.object({ entry: savedListEntry }),

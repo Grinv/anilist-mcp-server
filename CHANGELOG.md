@@ -6,6 +6,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-07-30
+
 ### Changed
 
 - Reject non-positive AniList IDs locally instead of sending them upstream, where such values always fail anyway. [069bbe4](https://github.com/Grinv/anilist-mcp-server/commit/069bbe4)

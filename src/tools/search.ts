@@ -343,7 +343,10 @@ export function registerSearchTools(server: McpServer, client: AniListClient): v
     {
       title: "Search studios",
       description:
-        "Search AniList for animation/production studios by name. Returns AniList IDs to use with get_studio.",
+        "Search/browse AniList's animation/production studios by name, when you want to see " +
+        "multiple candidates rather than take the closest match — get_studio's own `name` " +
+        "param already does this same fuzzy search directly and resolves a partial name on its " +
+        "own. Returns AniList IDs to use with get_studio.",
       inputSchema: z.object({
         term: z.string().min(1).describe("Studio name (or part of it) to search for."),
         ...paginationFields(10),

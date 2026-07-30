@@ -4,8 +4,10 @@ Authoritative documentation for the one upstream API this server uses,
 plus facts verified live against the schema itself (GraphQL is
 self-describing via introspection — `docs.anilist.co` blocks plain HTTP
 fetches with a 403, so introspection was the reliable way to confirm exact
-field/argument names below, verified 2026-07-20, most recently re-verified
-2026-07-22). Re-verify against these
+field/argument names below; individual facts below are added/re-verified on
+an ongoing basis — see this file's own git history or CHANGELOG.md for what
+changed most recently, rather than a fixed date here that would just go
+stale again). Re-verify against these
 before changing `src/clients/anilist/*.ts` or `src/lib/graphql.ts`.
 
 ## Endpoint

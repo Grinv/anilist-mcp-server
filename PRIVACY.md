@@ -82,7 +82,9 @@ Bearer <token>` HTTP header on every GraphQL request that needs it — this
 
 - **`get_notifications` / `get_authorized_user`** read private data (your own
   notifications, your own profile as seen while logged in) using the same
-  bearer token, but do not write anything.
+  bearer token. `get_authorized_user` doesn't write anything; `get_notifications`
+  is read-only by default too, but its opt-in `markAsRead: true` resets
+  AniList's real unread-notification badge count as a side effect.
 - **The login flow itself** (`login_anilist`): opens your system browser to
   AniList's own authorize page, where you sign in and approve directly with
   AniList (this server never sees your AniList password). AniList redirects

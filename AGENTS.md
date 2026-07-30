@@ -108,10 +108,16 @@ npm run check:api      # live upstream health-check (network)
 - Every tool declares an `outputSchema` alongside `inputSchema`, describing the
   `structuredContent` shape `jsonResult()` returns. Model top-level keys
   precisely; for arrays of AniList media/character/staff/etc. objects and
-  other deeply-nested GraphQL substructures, a loose `.passthrough()`/
-  `z.unknown()` shape is fine — the SDK validates `structuredContent` against
-  `outputSchema` at runtime, so a schema that's too strict fails real tool
-  calls (a good signal, not just a style nit).
+  other deeply-nested GraphQL substructures, a loose `.loose()` shape is fine
+  (`z.json()` for a field that's genuinely AniList's own untyped GraphQL
+  `Json` scalar, e.g. `advancedScores`/`childComments`/`theme`) — the SDK
+  validates `structuredContent` against `outputSchema` at runtime, so a
+  schema that's too strict fails real tool calls (a good signal, not just a
+  style nit — but verify a bound against live AniList data before adding it,
+  the same way `anilistId`/`fuzzyDateOut`'s `.positive()` are documented as
+  confirmed live; a plausible-sounding bound like "an episode number is
+  always ≥1" can be wrong — AniList's `AiringSchedule.episode` does return
+  `0` for some titles).
 - **Never use `z.date()`/`z.bigint()`/`z.nan()`/`.transform()`/`z.map()`/
   `z.set()`/`z.symbol()`/`z.void()`/`z.custom()` in a tool's `inputSchema` or
   `outputSchema`.** `@modelcontextprotocol/server` v2 converts every

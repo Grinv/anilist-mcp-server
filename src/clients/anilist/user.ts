@@ -3,6 +3,22 @@ import { assertFound } from "../../lib/errors.js";
 import type { UserId } from "./ids.js";
 import { USER_FIELDS, USER_DETAIL_FIELDS } from "./fields.js";
 
+/** Resolves a username to its numeric AniList UserId — shared by
+ *  activity.ts's getUserActivity and search.ts's searchActivity, which both
+ *  need this resolved to numeric before building their query: AniList's
+ *  `activities`/`userId` filter is numeric-only, unlike most other
+ *  user-scoped fields in this API (confirmed live: "Unknown argument
+ *  userName on field activities of type Page" — see docs/api-references.md). */
+export async function resolveUserId(
+  ctx: AniListContext,
+  name: string,
+  header: Record<string, string> | undefined,
+): Promise<UserId> {
+  const query = `query($name:String){User(name:$name){id}}`;
+  const data = await ctx.gql.request<{ User: { id: UserId } | null }>(query, { name }, header);
+  return assertFound(data.User, `No AniList user named "${name}" was found.`).id;
+}
+
 export async function getUserProfile(ctx: AniListContext, user: UserId | string): Promise<unknown> {
   const byId = typeof user === "number";
   const fields = `${USER_FIELDS}${USER_DETAIL_FIELDS}`;

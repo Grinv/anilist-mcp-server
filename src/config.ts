@@ -11,8 +11,15 @@ const EnvSchema = z.object({
   /** Override the on-disk token store path (defaults under the OS config dir). */
   ANILIST_TOKEN_STORE: z.string().min(1).optional(),
 
-  ANILIST_GRAPHQL_URL: z.httpUrl().default("https://graphql.anilist.co"),
-  ANILIST_OAUTH_BASE_URL: z.httpUrl().default("https://anilist.co/api/v2/oauth"),
+  // z.url({ protocol }) not z.httpUrl(): both are user-overridable to point at
+  // a local proxy/mock (README's "Override upstream base URLs"), which very
+  // often means `http://localhost:<port>` or a bare IP — z.httpUrl()'s
+  // hostname regex requires a dotted, letters-only TLD and rejects both
+  // (confirmed live: it rejects http://localhost:4000 and http://127.0.0.1).
+  ANILIST_GRAPHQL_URL: z.url({ protocol: /^https?$/ }).default("https://graphql.anilist.co"),
+  ANILIST_OAUTH_BASE_URL: z
+    .url({ protocol: /^https?$/ })
+    .default("https://anilist.co/api/v2/oauth"),
 
   HTTP_TIMEOUT_MS: z.coerce.number().int().positive().default(15000),
   HTTP_RETRIES: z.coerce.number().int().nonnegative().default(2),

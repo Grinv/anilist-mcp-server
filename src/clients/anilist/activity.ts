@@ -1,6 +1,7 @@
 import type { AniListContext } from "./context.js";
 import { ACTIVITY_FRAGMENT, existsFragment } from "./fields.js";
 import { ApiError, assertFound } from "../../lib/errors.js";
+import { resolveUserId } from "./user.js";
 import type { ActivityId, UserId } from "./ids.js";
 
 export async function getActivity(ctx: AniListContext, id: ActivityId): Promise<unknown> {
@@ -44,13 +45,7 @@ export async function getUserActivity(
     assertFound(data.exists, `No AniList user found with ID ${user}.`);
     return data.feed;
   }
-  const resolveQuery = `query($name:String){User(name:$name){id}}`;
-  const resolveData = await ctx.gql.request<{ User: { id: UserId } | null }>(
-    resolveQuery,
-    { name: user },
-    header,
-  );
-  const userId = assertFound(resolveData.User, `No AniList user named "${user}" was found.`).id;
+  const userId = await resolveUserId(ctx, user, header);
   const activitiesQuery = `query($userId:Int,$page:Int,$perPage:Int){Page(page:$page,perPage:$perPage){
     pageInfo{total currentPage lastPage hasNextPage}
     activities(userId:$userId,sort:ID_DESC){${ACTIVITY_FRAGMENT}}

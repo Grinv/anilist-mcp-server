@@ -23,7 +23,15 @@ import { silentLogger, jsonResponse, mockFetch, installFetch, testConfig } from 
 // zod-validated tool inputSchema that normally produces an already-branded
 // value (see tools/outputSchemas.ts's mediaId/listEntryId/etc.) — a plain
 // literal needs an explicit (test-only) cast to satisfy a branded signature.
+// Same range/positivity constraint as tools/outputSchemas.ts's `anilistId`
+// (not imported directly — this file deliberately tests only the client
+// layer, never the tools layer) — a typo like `id<MediaId>(-1)` now throws
+// loudly instead of silently producing a branded value the real schema
+// would reject.
 function id<T>(n: number): T {
+  if (!Number.isInteger(n) || n <= 0 || n > 2147483647) {
+    throw new Error(`id() test helper: ${n} is not a valid AniList numeric ID`);
+  }
   return n as T;
 }
 

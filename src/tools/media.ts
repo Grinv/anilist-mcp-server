@@ -109,7 +109,7 @@ const mediaObject = z
         id: anilistId,
         airingAt: z.number().nonnegative().nullish(),
         timeUntilAiring: z.number().nullish(),
-        episode: z.int().positive().nullish(),
+        episode: z.int().nonnegative().nullish(),
       })
       .loose()
       .nullish(),
@@ -302,7 +302,7 @@ const scheduleItem = z
   .object({
     airingAt: z.number().nonnegative().nullish(),
     timeUntilAiring: z.number().nullish(),
-    episode: z.int().positive().nullish(),
+    episode: z.int().nonnegative().nullish(),
     media: z
       .object({
         id: anilistId,

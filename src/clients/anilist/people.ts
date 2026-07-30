@@ -1,5 +1,6 @@
 import type { AniListContext } from "./context.js";
 import { assertFound } from "../../lib/errors.js";
+import type { CharacterId, StaffId } from "./ids.js";
 import {
   CHARACTER_FIELDS,
   CHARACTER_DETAIL_FIELDS,
@@ -7,13 +8,13 @@ import {
   STAFF_DETAIL_FIELDS,
 } from "./fields.js";
 
-export async function getCharacter(ctx: AniListContext, id: number): Promise<unknown> {
+export async function getCharacter(ctx: AniListContext, id: CharacterId): Promise<unknown> {
   const query = `query($id:Int){Character(id:$id){${CHARACTER_FIELDS}${CHARACTER_DETAIL_FIELDS}}}`;
   const data = await ctx.gql.request<{ Character: unknown }>(query, { id }, ctx.authHeader());
   return assertFound(data.Character, `No character found with ID ${id}.`);
 }
 
-export async function getStaff(ctx: AniListContext, id: number): Promise<unknown> {
+export async function getStaff(ctx: AniListContext, id: StaffId): Promise<unknown> {
   const query = `query($id:Int){Staff(id:$id){${STAFF_FIELDS}${STAFF_DETAIL_FIELDS}}}`;
   const data = await ctx.gql.request<{ Staff: unknown }>(query, { id }, ctx.authHeader());
   return assertFound(data.Staff, `No staff member found with ID ${id}.`);

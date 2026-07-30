@@ -13,9 +13,9 @@ export const TokenStateSchema = z
   .object({
     accessToken: z.string(),
     /** Epoch milliseconds at which the access token expires. */
-    expiresAt: z.number(),
+    expiresAt: z.number().positive(),
   })
-  .passthrough();
+  .loose();
 
 export type TokenState = z.infer<typeof TokenStateSchema>;
 

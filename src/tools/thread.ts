@@ -8,78 +8,80 @@ import {
   pageInfoSchema,
   deleteResult,
   anilistId,
+  mediaId,
+  threadId,
+  commentId,
+  categoryId,
   paginationFields,
   deleteToolAnnotations,
 } from "./outputSchemas.js";
 
 const savedThread = z
   .object({
-    id: z.number().int(),
+    id: anilistId,
     title: z.string().nullish(),
-    siteUrl: z.string().nullish(),
-    replyCount: z.number().int().nullish(),
-    viewCount: z.number().int().nullish(),
-    likeCount: z.number().int().nullish(),
+    siteUrl: z.httpUrl().nullish(),
+    replyCount: z.int().nonnegative().nullish(),
+    viewCount: z.int().nonnegative().nullish(),
+    likeCount: z.int().nonnegative().nullish(),
     isLiked: z.boolean().nullish(),
   })
-  .passthrough();
+  .loose();
 
 const savedThreadComment = z
   .object({
-    id: z.number().int(),
+    id: anilistId,
     comment: z.string().nullish(),
-    siteUrl: z.string().nullish(),
-    likeCount: z.number().int().nullish(),
+    siteUrl: z.httpUrl().nullish(),
+    likeCount: z.int().nonnegative().nullish(),
     isLiked: z.boolean().nullish(),
   })
-  .passthrough();
+  .loose();
 
 const threadObject = z
   .object({
-    id: z.number().int(),
+    id: anilistId,
     title: z.string().nullish(),
     body: z.string().nullish(),
-    siteUrl: z.string().nullish(),
-    replyCommentId: z.number().int().nullish(),
+    siteUrl: z.httpUrl().nullish(),
+    replyCommentId: anilistId.nullish(),
     isSticky: z.boolean().nullish(),
     isLocked: z.boolean().nullish(),
-    replyCount: z.number().int().nullish(),
-    viewCount: z.number().int().nullish(),
-    likeCount: z.number().int().nullish(),
+    replyCount: z.int().nonnegative().nullish(),
+    viewCount: z.int().nonnegative().nullish(),
+    likeCount: z.int().nonnegative().nullish(),
     isLiked: z.boolean().nullish(),
-    user: z.object({ id: z.number().int(), name: z.string().nullish() }).passthrough().nullish(),
-    categories: z
-      .array(z.object({ id: z.number().int(), name: z.string().nullish() }).passthrough())
-      .nullish(),
+    user: z.object({ id: anilistId, name: z.string().nullish() }).loose().nullish(),
+    categories: z.array(z.object({ id: anilistId, name: z.string().nullish() }).loose()).nullish(),
     mediaCategories: z
       .array(
         z
           .object({
-            id: z.number().int(),
+            id: anilistId,
             title: z
               .object({ romaji: z.string().nullish(), english: z.string().nullish() })
               .nullish(),
           })
-          .passthrough(),
+          .loose(),
       )
       .nullish(),
   })
-  .passthrough();
+  .loose();
 
 const threadComment = z
   .object({
-    id: z.number().int(),
+    id: anilistId,
     comment: z.string().nullish(),
-    siteUrl: z.string().nullish(),
-    likeCount: z.number().int().nullish(),
+    siteUrl: z.httpUrl().nullish(),
+    likeCount: z.int().nonnegative().nullish(),
     isLiked: z.boolean().nullish(),
-    user: z.object({ id: z.number().int(), name: z.string().nullish() }).passthrough().nullish(),
+    user: z.object({ id: anilistId, name: z.string().nullish() }).loose().nullish(),
     // AniList's own untyped `Json` blob — replies posted via
     // post_thread_comment's `parentCommentId` live here, not as separate
     // top-level entries in this array.
-    childComments: z.unknown().nullish(),
+    childComments: z.json().nullish(),
   })
-  .passthrough();
+  .loose();
 
 export function registerThreadTools(server: McpServer, client: AniListClient): void {
   server.registerTool(
@@ -90,7 +92,7 @@ export function registerThreadTools(server: McpServer, client: AniListClient): v
         "Get an AniList forum thread's title, body and metadata (including `replyCount`, " +
         "`viewCount`, `likeCount`, `isLiked`) by its ID.",
       inputSchema: z.object({
-        id: anilistId.describe(
+        id: threadId.describe(
           "AniList thread ID — use search_thread to find one, or pass one already known " +
             "(e.g. from an AniList forum URL, anilist.co/forum/thread/<id>).",
         ),
@@ -110,7 +112,7 @@ export function registerThreadTools(server: McpServer, client: AniListClient): v
         "Replies (posted via post_thread_comment's `parentCommentId`) are nested under their " +
         "parent's `childComments` rather than appearing as separate entries in this list.",
       inputSchema: z.object({
-        threadId: anilistId.describe(
+        threadId: threadId.describe(
           "AniList thread ID — use search_thread to find one, or pass one already known " +
             "(e.g. from an AniList forum URL, or from get_thread).",
         ),
@@ -122,7 +124,7 @@ export function registerThreadTools(server: McpServer, client: AniListClient): v
             pageInfo: pageInfoSchema.optional(),
             threadComments: z.array(threadComment).optional(),
           })
-          .passthrough(),
+          .loose(),
       }),
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
@@ -165,7 +167,7 @@ export function registerThreadTools(server: McpServer, client: AniListClient): v
                 "(confirmed live: omitting it on an update leaves the existing body unchanged).",
             ),
           categories: z
-            .array(anilistId)
+            .array(categoryId)
             .optional()
             .describe(
               "Forum category IDs to post this thread under — REQUIRED when creating a new " +
@@ -179,7 +181,7 @@ export function registerThreadTools(server: McpServer, client: AniListClient): v
                 "like anilist.co/forum/recent?category=<id>.",
             ),
           mediaCategories: z
-            .array(anilistId)
+            .array(mediaId)
             .optional()
             .describe(
               "AniList anime/manga IDs to tag this thread with, for threads about a specific " +
@@ -205,7 +207,7 @@ export function registerThreadTools(server: McpServer, client: AniListClient): v
                 "moderator permission — confirmed live that a non-mod account's own thread " +
                 "silently stays unlocked).",
             ),
-          id: anilistId.optional().describe("Thread ID to update instead of creating a new one."),
+          id: threadId.optional().describe("Thread ID to update instead of creating a new one."),
         })
         .refine((v) => v.id !== undefined || v.title !== undefined, {
           message: "`title` is required when creating a new thread (no `id` given).",
@@ -246,7 +248,7 @@ export function registerThreadTools(server: McpServer, client: AniListClient): v
         "[Requires login] Post a new comment on an AniList forum thread from the authenticated " +
         "user's account, or update an existing one by passing its `id`.",
       inputSchema: z.object({
-        threadId: anilistId.describe(
+        threadId: threadId.describe(
           "AniList thread ID to comment on (from get_thread/search_thread).",
         ),
         comment: z
@@ -256,14 +258,14 @@ export function registerThreadTools(server: McpServer, client: AniListClient): v
           .describe(
             "The comment text to post (markdown; per AniList's own schema, up to 12000 characters).",
           ),
-        parentCommentId: anilistId
+        parentCommentId: commentId
           .optional()
           .describe(
             "Reply to this specific comment instead of posting top-level (from " +
               "get_thread_comments). The reply then appears nested under that comment's " +
               "`childComments` in get_thread_comments, not as a new top-level entry.",
           ),
-        id: anilistId.optional().describe("Comment ID to update instead of creating a new one."),
+        id: commentId.optional().describe("Comment ID to update instead of creating a new one."),
       }),
       outputSchema: z.object({ comment: savedThreadComment }),
       annotations: {
@@ -292,7 +294,7 @@ export function registerThreadTools(server: McpServer, client: AniListClient): v
         "[Requires login] Delete a forum thread the authenticated user owns, by its ID (from " +
         "search_thread, get_thread, or the id returned by post_thread). This cannot be undone, " +
         "and calling it again on an already-deleted id errors rather than silently succeeding.",
-      inputSchema: z.object({ id: anilistId.describe("AniList thread ID to delete.") }),
+      inputSchema: z.object({ id: threadId.describe("AniList thread ID to delete.") }),
       outputSchema: z.object({ result: deleteResult }),
       annotations: deleteToolAnnotations,
     },
@@ -309,7 +311,7 @@ export function registerThreadTools(server: McpServer, client: AniListClient): v
         "get_thread_comments or the id returned by post_thread_comment). This cannot be " +
         "undone, and calling it again on an already-deleted id errors rather than silently " +
         "succeeding.",
-      inputSchema: z.object({ id: anilistId.describe("AniList comment ID to delete.") }),
+      inputSchema: z.object({ id: commentId.describe("AniList comment ID to delete.") }),
       outputSchema: z.object({ result: deleteResult }),
       annotations: deleteToolAnnotations,
     },

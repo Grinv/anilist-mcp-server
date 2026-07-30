@@ -6,6 +6,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- Reject non-positive AniList IDs locally instead of sending them upstream, where such values always fail anyway.
+- Reject negative values locally for numeric fields that can never be negative (counts, years, scores, etc.), instead of relying on AniList's own response.
+- Model activity results as their real type-specific shape (text/list-update/message), not one object mixing every type's fields.
+- Validate URL fields (site links, avatar/cover/banner images, the AniList API base URLs) as real http/https URLs, not just strings.
+
 ## [0.6.0] - 2026-07-30
 
 ### Added

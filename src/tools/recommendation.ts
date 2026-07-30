@@ -4,20 +4,25 @@ import type { AniListClient } from "../clients/anilist.js";
 import * as recommendation from "../clients/anilist/recommendation.js";
 import { jsonResult } from "../lib/result.js";
 import { guard } from "./guard.js";
-import { anilistId, paginationFields, mediaTitleOut } from "./outputSchemas.js";
+import {
+  anilistId,
+  mediaId,
+  recommendationId,
+  paginationFields,
+  mediaTitleOut,
+} from "./outputSchemas.js";
 
 const mediaRefLite = z
   .object({
-    id: z.number().int(),
+    id: anilistId,
     title: mediaTitleOut.nullish(),
   })
-  .passthrough();
+  .loose();
 
 /** Net up/down tally across every user who's rated this recommendation
  *  pairing (confirmed via introspection: a plain `Int`, not an enum —
  *  distinct from `userRating` below, which is the caller's OWN vote). */
 const ratingOut = z
-  .number()
   .int()
   .nullish()
   .describe("Net rating (RATE_UP minus RATE_DOWN votes across all users), not the caller's own.");
@@ -29,27 +34,27 @@ const userRatingOut = z.enum(["NO_RATING", "RATE_UP", "RATE_DOWN"]).nullish();
 
 const recommendationObject = z
   .object({
-    id: z.number().int(),
+    id: anilistId,
     rating: ratingOut,
     userRating: userRatingOut,
     media: mediaRefLite.nullish(),
     mediaRecommendation: mediaRefLite.nullish(),
   })
-  .passthrough();
+  .loose();
 
 const recommendationNode = z
   .object({
-    id: z.number().int(),
+    id: anilistId,
     rating: ratingOut,
     userRating: userRatingOut,
     mediaRecommendation: z
       .object({
-        id: z.number().int(),
+        id: anilistId,
         title: mediaTitleOut.nullish(),
-        siteUrl: z.string().nullish(),
+        siteUrl: z.httpUrl().nullish(),
         mediaListEntry: z
-          .object({ id: z.number().int(), status: z.string().nullish() })
-          .passthrough()
+          .object({ id: anilistId, status: z.string().nullish() })
+          .loose()
           .nullish()
           .describe(
             "Whether this recommended title is on the caller's own list — viewer-relative, " +
@@ -58,10 +63,10 @@ const recommendationNode = z
               "field alone).",
           ),
       })
-      .passthrough()
+      .loose()
       .nullish(),
   })
-  .passthrough();
+  .loose();
 
 export function registerRecommendationTools(server: McpServer, client: AniListClient): void {
   server.registerTool(
@@ -79,7 +84,7 @@ export function registerRecommendationTools(server: McpServer, client: AniListCl
         "`nodes[].id` 404 here anyway (7 of 10 tested for one title), with no correlation to " +
         "that pairing's `rating`. A 404 on an id you just got from that tool doesn't mean the " +
         "pairing doesn't exist, only that this specific lookup can't resolve it.",
-      inputSchema: z.object({ id: anilistId.describe("AniList recommendation ID.") }),
+      inputSchema: z.object({ id: recommendationId.describe("AniList recommendation ID.") }),
       outputSchema: z.object({ recommendation: recommendationObject }),
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
@@ -100,7 +105,7 @@ export function registerRecommendationTools(server: McpServer, client: AniListCl
         "your own list — set `excludeInList: true` to filter those out server-side instead of " +
         "checking each one yourself.",
       inputSchema: z.object({
-        mediaId: anilistId.describe("AniList ID of the anime/manga to get recommendations for."),
+        mediaId: mediaId.describe("AniList ID of the anime/manga to get recommendations for."),
         ...paginationFields(10),
         excludeInList: z
           .boolean()
@@ -117,12 +122,12 @@ export function registerRecommendationTools(server: McpServer, client: AniListCl
           .object({
             pageInfo: z
               .object({ hasNextPage: z.boolean().nullish() })
-              .passthrough()
+              .loose()
               .optional()
               .describe("Whether another page exists — use this to decide whether to paginate."),
             nodes: z.array(recommendationNode).nullish(),
           })
-          .passthrough(),
+          .loose(),
       }),
       annotations: { readOnlyHint: true, openWorldHint: true },
     },

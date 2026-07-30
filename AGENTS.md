@@ -112,6 +112,18 @@ npm run check:api      # live upstream health-check (network)
   `z.unknown()` shape is fine — the SDK validates `structuredContent` against
   `outputSchema` at runtime, so a schema that's too strict fails real tool
   calls (a good signal, not just a style nit).
+- **Never use `z.date()`/`z.bigint()`/`z.nan()`/`.transform()`/`z.map()`/
+  `z.set()`/`z.symbol()`/`z.void()`/`z.custom()` in a tool's `inputSchema` or
+  `outputSchema`.** `@modelcontextprotocol/server` v2 converts every
+  registered schema to JSON Schema via Zod's own `~standard.jsonSchema`
+  bridge (`node_modules/@modelcontextprotocol/server/dist/src-CX2iR2pK.mjs`,
+  `standardSchemaToJsonSchema()`) with no `unrepresentable` override — and
+  that bridge, like `z.toJSONSchema()` itself, defaults `unrepresentable` to
+  `"throw"` (`zod/v4/core/to-json-schema.js`), not `"any"`. One of these
+  types anywhere in a tool schema throws at `registerTool()` time — i.e. it
+  crashes server startup, not just the one tool call. A reach for `z.date()`
+  on a "since"-style parameter is the likely way this bites; use a
+  date/time **string** format instead (e.g. `z.iso.datetime()`).
 - Mocked-`fetch` test fixtures must mirror the real upstream response shape
   for that exact query, not just whatever fields make the current code
   pass — see the `fixture-accuracy-check` skill.

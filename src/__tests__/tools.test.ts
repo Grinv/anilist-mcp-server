@@ -124,7 +124,10 @@ test("a representative read tool from each category is wired end-to-end", async 
         Thread: { id: 1 },
         exists: { id: 1 },
         User: { id: 1, name: "Grinv" },
-        Activity: { id: 1 },
+        // `type` is required — get_activity's output is now a discriminated union
+        // on it (TextActivity/ListActivity/MessageActivity), so a mock missing it
+        // fails output validation same as it would if AniList genuinely omitted it.
+        Activity: { id: 1, type: "TEXT" },
         Page: {
           pageInfo: {},
           media: [],

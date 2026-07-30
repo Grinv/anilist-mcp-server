@@ -11,8 +11,8 @@ const EnvSchema = z.object({
   /** Override the on-disk token store path (defaults under the OS config dir). */
   ANILIST_TOKEN_STORE: z.string().min(1).optional(),
 
-  ANILIST_GRAPHQL_URL: z.string().url().default("https://graphql.anilist.co"),
-  ANILIST_OAUTH_BASE_URL: z.string().url().default("https://anilist.co/api/v2/oauth"),
+  ANILIST_GRAPHQL_URL: z.httpUrl().default("https://graphql.anilist.co"),
+  ANILIST_OAUTH_BASE_URL: z.httpUrl().default("https://anilist.co/api/v2/oauth"),
 
   HTTP_TIMEOUT_MS: z.coerce.number().int().positive().default(15000),
   HTTP_RETRIES: z.coerce.number().int().nonnegative().default(2),

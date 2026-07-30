@@ -1,9 +1,10 @@
 import type { AniListContext } from "./context.js";
 import { ApiError } from "../../lib/errors.js";
+import type { MediaId, ListEntryId, UserId } from "./ids.js";
 
 export interface MediaListEntryInput {
-  mediaId?: number;
-  listEntryId?: number;
+  mediaId?: MediaId;
+  listEntryId?: ListEntryId;
   status?: "CURRENT" | "PLANNING" | "COMPLETED" | "DROPPED" | "PAUSED" | "REPEATING";
   /** 0-10 scale (decimals allowed) — converted internally to AniList's raw
    *  0-100 `scoreRaw`, which (unlike `score`) always means the same thing
@@ -27,7 +28,7 @@ export interface MediaListEntryInput {
 export async function getUserList(
   ctx: AniListContext,
   type: "ANIME" | "MANGA",
-  user: number | string,
+  user: UserId | string,
   chunk = 1,
   perChunk = 25,
 ): Promise<{ lists: unknown; hasNextChunk: boolean | null }> {
@@ -224,7 +225,10 @@ export async function saveListEntry(
   return data.SaveMediaListEntry;
 }
 
-export async function deleteListEntry(ctx: AniListContext, listEntryId: number): Promise<unknown> {
+export async function deleteListEntry(
+  ctx: AniListContext,
+  listEntryId: ListEntryId,
+): Promise<unknown> {
   const header = ctx.requireAuth();
   const query = `mutation($id:Int){DeleteMediaListEntry(id:$id){deleted}}`;
   const data = await ctx.gql.request<{ DeleteMediaListEntry: { deleted?: boolean } | null }>(

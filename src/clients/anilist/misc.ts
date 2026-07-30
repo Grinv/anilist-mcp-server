@@ -1,8 +1,12 @@
 import type { AniListContext } from "./context.js";
 import { assertFound } from "../../lib/errors.js";
+import type { StudioId } from "./ids.js";
 import { STUDIO_FIELDS } from "./fields.js";
 
-export async function getStudio(ctx: AniListContext, idOrName: number | string): Promise<unknown> {
+export async function getStudio(
+  ctx: AniListContext,
+  idOrName: StudioId | string,
+): Promise<unknown> {
   const byId = typeof idOrName === "number";
   const query = byId
     ? `query($id:Int){Studio(id:$id){${STUDIO_FIELDS}}}`

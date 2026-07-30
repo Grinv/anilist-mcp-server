@@ -1,5 +1,6 @@
 import type { AniListContext } from "./context.js";
 import { assertFound } from "../../lib/errors.js";
+import type { CategoryId, MediaId, UserId } from "./ids.js";
 import {
   MEDIA_FIELDS,
   MEDIA_DESCRIPTION_FIELD,
@@ -181,8 +182,8 @@ export async function searchUser(
 export async function searchThread(
   ctx: AniListContext,
   term?: string,
-  categoryId?: number,
-  mediaCategoryId?: number,
+  categoryId?: CategoryId,
+  mediaCategoryId?: MediaId,
   page = 1,
   perPage = 10,
 ): Promise<unknown> {
@@ -206,7 +207,7 @@ export async function searchThread(
 
 export async function searchActivity(
   ctx: AniListContext,
-  user?: number | string,
+  user?: UserId | string,
   type?: string,
   page = 1,
   perPage = 10,
@@ -219,10 +220,10 @@ export async function searchActivity(
   // username unresolved would make AniList treat the `userId` filter as
   // absent and silently return the *global* activity feed instead of
   // erroring on an unknown username.
-  let userId: number | undefined;
+  let userId: UserId | undefined;
   if (typeof user === "string") {
     const resolveQuery = `query($name:String){User(name:$name){id}}`;
-    const resolveData = await ctx.gql.request<{ User: { id: number } | null }>(
+    const resolveData = await ctx.gql.request<{ User: { id: UserId } | null }>(
       resolveQuery,
       { name: user },
       header,

@@ -1,8 +1,9 @@
 import type { AniListContext } from "./context.js";
 import { ACTIVITY_FRAGMENT, existsFragment } from "./fields.js";
 import { ApiError, assertFound } from "../../lib/errors.js";
+import type { ActivityId, UserId } from "./ids.js";
 
-export async function getActivity(ctx: AniListContext, id: number): Promise<unknown> {
+export async function getActivity(ctx: AniListContext, id: ActivityId): Promise<unknown> {
   const query = `query($id:Int){Activity(id:$id){${ACTIVITY_FRAGMENT}}}`;
   const data = await ctx.gql.request<{ Activity: unknown }>(query, { id }, ctx.authHeader());
   return assertFound(data.Activity, `No activity found with ID ${id}.`);
@@ -10,7 +11,7 @@ export async function getActivity(ctx: AniListContext, id: number): Promise<unkn
 
 export async function getUserActivity(
   ctx: AniListContext,
-  user: number | string,
+  user: UserId | string,
   page = 1,
   perPage = 10,
 ): Promise<unknown> {
@@ -44,7 +45,7 @@ export async function getUserActivity(
     return data.feed;
   }
   const resolveQuery = `query($name:String){User(name:$name){id}}`;
-  const resolveData = await ctx.gql.request<{ User: { id: number } | null }>(
+  const resolveData = await ctx.gql.request<{ User: { id: UserId } | null }>(
     resolveQuery,
     { name: user },
     header,
@@ -65,7 +66,7 @@ export async function getUserActivity(
 export async function postTextActivity(
   ctx: AniListContext,
   text: string,
-  id?: number,
+  id?: ActivityId,
 ): Promise<unknown> {
   const header = ctx.requireAuth();
   const query = `mutation($id:Int,$text:String){SaveTextActivity(id:$id,text:$text){
@@ -77,9 +78,9 @@ export async function postTextActivity(
 
 export async function postMessageActivity(
   ctx: AniListContext,
-  recipientId: number,
+  recipientId: UserId,
   message: string,
-  id?: number,
+  id?: ActivityId,
 ): Promise<unknown> {
   const header = ctx.requireAuth();
   const query = `mutation($id:Int,$recipientId:Int,$message:String){SaveMessageActivity(id:$id,recipientId:$recipientId,message:$message){
@@ -93,7 +94,7 @@ export async function postMessageActivity(
   return data.SaveMessageActivity;
 }
 
-export async function deleteActivity(ctx: AniListContext, id: number): Promise<unknown> {
+export async function deleteActivity(ctx: AniListContext, id: ActivityId): Promise<unknown> {
   const header = ctx.requireAuth();
   const query = `mutation($id:Int){DeleteActivity(id:$id){deleted}}`;
   const data = await ctx.gql.request<{ DeleteActivity: { deleted?: boolean } | null }>(

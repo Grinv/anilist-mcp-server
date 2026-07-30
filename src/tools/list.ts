@@ -10,6 +10,8 @@ import {
   MEDIA_LIST_STATUSES,
   fuzzyDateOut,
   anilistId,
+  mediaId,
+  listEntryId,
   userIdOrName,
   mediaTitleOut,
   deleteToolAnnotations,
@@ -17,9 +19,9 @@ import {
 
 const fuzzyDate = z
   .object({
-    year: z.number().int().optional(),
-    month: z.number().int().min(1).max(12).optional(),
-    day: z.number().int().min(1).max(31).optional(),
+    year: z.int().positive().optional(),
+    month: z.int().min(1).max(12).optional(),
+    day: z.int().min(1).max(31).optional(),
   })
   .describe("A partial date; omit fields you don't know (e.g. just {year: 2026}).");
 
@@ -36,46 +38,46 @@ const fuzzyDate = z
 const REPEAT_MAX = 1000;
 const PRIORITY_MAX = 255;
 const NOTES_MAX = 6000;
-const scoreBounds = z.number().min(0).max(10).optional();
-const nonNegativeInt = z.number().int().min(0).optional();
-const repeatBounds = z.number().int().min(0).max(REPEAT_MAX).optional();
-const priorityBounds = z.number().int().min(0).max(PRIORITY_MAX).optional();
+const scoreBounds = z.number().nonnegative().max(10).optional();
+const nonNegativeInt = z.int().nonnegative().optional();
+const repeatBounds = z.int().nonnegative().max(REPEAT_MAX).optional();
+const priorityBounds = z.int().nonnegative().max(PRIORITY_MAX).optional();
 const notesBounds = z.string().max(NOTES_MAX).optional();
-const advancedScoresBounds = z.record(z.string(), z.number().min(0).max(10)).optional();
+const advancedScoresBounds = z.record(z.string(), z.number().nonnegative().max(10)).optional();
 
 const listEntryMediaLite = z
   .object({
-    id: z.number().int(),
-    idMal: z.number().int().nullish(),
+    id: anilistId,
+    idMal: z.int().positive().nullish(),
     title: mediaTitleOut.nullish(),
-    episodes: z.number().int().nullish(),
-    chapters: z.number().int().nullish(),
-    siteUrl: z.string().nullish(),
+    episodes: z.int().positive().nullish(),
+    chapters: z.int().positive().nullish(),
+    siteUrl: z.httpUrl().nullish(),
   })
-  .passthrough();
+  .loose();
 
 const listEntry = z
   .object({
-    id: z.number().int(),
+    id: anilistId,
     status: z.string().nullish(),
-    score: z.number().nullish(),
-    progress: z.number().int().nullish(),
-    progressVolumes: z.number().int().nullish(),
-    repeat: z.number().int().nullish(),
-    priority: z.number().int().nullish(),
+    score: z.number().nonnegative().nullish(),
+    progress: z.int().nonnegative().nullish(),
+    progressVolumes: z.int().nonnegative().nullish(),
+    repeat: z.int().nonnegative().nullish(),
+    priority: z.int().nonnegative().nullish(),
     private: z.boolean().nullish(),
     notes: z.string().nullish(),
     hiddenFromStatusLists: z.boolean().nullish(),
     startedAt: fuzzyDateOut.nullish(),
     completedAt: fuzzyDateOut.nullish(),
-    updatedAt: z.number().nullish(),
-    createdAt: z.number().nullish(),
+    updatedAt: z.number().nonnegative().nullish(),
+    createdAt: z.number().nonnegative().nullish(),
     // Requested with `asArray: true` — AniList's default shape here is an
     // untyped `Json` object keyed by every one of the account's configured
     // custom list names (`{listName: boolean}`), which isn't representable
     // as a stable schema; `asArray` gives a predictable list instead.
     customLists: z
-      .array(z.object({ name: z.string().nullish(), enabled: z.boolean().nullish() }).passthrough())
+      .array(z.object({ name: z.string().nullish(), enabled: z.boolean().nullish() }).loose())
       .nullish()
       .describe(
         "Every custom list configured on the account, with `enabled` showing whether THIS " +
@@ -87,7 +89,7 @@ const listEntry = z
     // takes a plain {category: score} map, but AniList echoes this back in
     // whatever shape it actually stores it in.
     advancedScores: z
-      .unknown()
+      .json()
       .nullish()
       .describe(
         "Per-category advanced scores as AniList actually stores them — an untyped value " +
@@ -97,7 +99,7 @@ const listEntry = z
       ),
     media: listEntryMediaLite.nullish(),
   })
-  .passthrough();
+  .loose();
 
 const listGroup = z
   .object({
@@ -107,20 +109,20 @@ const listGroup = z
     status: z.string().nullish(),
     entries: z.array(listEntry).nullish(),
   })
-  .passthrough();
+  .loose();
 
 /** SaveMediaListEntry's own selection set — narrower than a full listEntry
  *  (no dates/notes/etc., since the mutation only asks for these fields back). */
 const savedListEntry = z
   .object({
-    id: z.number().int(),
+    id: anilistId,
     status: z.string().nullish(),
-    score: z.number().nullish(),
-    progress: z.number().int().nullish(),
-    mediaId: z.number().int().nullish(),
+    score: z.number().nonnegative().nullish(),
+    progress: z.int().nonnegative().nullish(),
+    mediaId: anilistId.nullish(),
     hiddenFromStatusLists: z.boolean().nullish(),
   })
-  .passthrough();
+  .loose();
 
 export function registerListTools(server: McpServer, client: AniListClient): void {
   server.registerTool(
@@ -142,7 +144,6 @@ export function registerListTools(server: McpServer, client: AniListClient): voi
         type: z.enum(MEDIA_TYPES).describe("Whether to get the anime or manga list."),
         user: userIdOrName,
         chunk: z
-          .number()
           .int()
           .positive()
           .default(1)
@@ -150,9 +151,8 @@ export function registerListTools(server: McpServer, client: AniListClient): voi
             "Chunk number for pagination (AniList paginates this list by chunk, not page).",
           ),
         perChunk: z
-          .number()
           .int()
-          .min(1)
+          .positive()
           .max(25)
           .default(25)
           .describe("Entries per chunk, counted across all statuses combined (max 25)."),
@@ -183,7 +183,7 @@ export function registerListTools(server: McpServer, client: AniListClient): voi
         "set here keeps its previous value, not a default. Use get_user_list first to check " +
         "for an existing entry if you need a guaranteed-fresh one.",
       inputSchema: z.object({
-        mediaId: anilistId.describe("AniList anime/manga ID to add (from search_media)."),
+        mediaId: mediaId.describe("AniList anime/manga ID to add (from search_media)."),
         status: z
           .enum(MEDIA_LIST_STATUSES)
           .optional()
@@ -263,7 +263,7 @@ export function registerListTools(server: McpServer, client: AniListClient): voi
         "list by its list-entry ID (NOT the media ID — get it from get_user_list, or from " +
         "add_list_entry's response). Only set the fields you want to change.",
       inputSchema: z.object({
-        listEntryId: anilistId.describe("The list ENTRY id to update (not the media id)."),
+        listEntryId: listEntryId.describe("The list ENTRY id to update (not the media id)."),
         status: z.enum(MEDIA_LIST_STATUSES).optional().describe("New list status."),
         score: scoreBounds.describe(
           "New score out of 10 (decimals allowed), always on this scale regardless of the " +
@@ -337,7 +337,7 @@ export function registerListTools(server: McpServer, client: AniListClient): voi
         "undone, and calling it again on an already-deleted id errors rather than silently " +
         "succeeding.",
       inputSchema: z.object({
-        listEntryId: anilistId.describe("The list ENTRY id to delete (not the media id)."),
+        listEntryId: listEntryId.describe("The list ENTRY id to delete (not the media id)."),
       }),
       outputSchema: z.object({ result: deleteResult }),
       annotations: deleteToolAnnotations,

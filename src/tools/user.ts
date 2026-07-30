@@ -5,7 +5,13 @@ import * as user from "../clients/anilist/user.js";
 import * as activity from "../clients/anilist/activity.js";
 import { jsonResult } from "../lib/result.js";
 import { guard } from "./guard.js";
-import { pageInfoSchema, anilistId, userIdOrName, MEDIA_LIST_STATUSES } from "./outputSchemas.js";
+import {
+  pageInfoSchema,
+  anilistId,
+  userId,
+  userIdOrName,
+  MEDIA_LIST_STATUSES,
+} from "./outputSchemas.js";
 import { NOTIFICATION_TYPES } from "./notification.js";
 import { activityItem } from "./activity.js";
 
@@ -80,17 +86,17 @@ const mediaListTypeOptions = z
     // Read side (`MediaListTypeOptions.theme`) is a deprecated, untyped
     // `Json` scalar (confirmed via introspection) — NOT the plain `String`
     // the write side takes, so it can't be modeled as `z.string()`.
-    theme: z.unknown().nullish(),
+    theme: z.json().nullish(),
   })
-  .passthrough();
+  .loose();
 
 const notificationOptionOut = z
   .object({ type: z.string().nullish(), enabled: z.boolean().nullish() })
-  .passthrough();
+  .loose();
 
 const listActivityOptionOut = z
   .object({ type: z.string().nullish(), disabled: z.boolean().nullish() })
-  .passthrough();
+  .loose();
 
 /** What update_user actually changes — without echoing these back, there's
  *  no way to verify one of its calls actually took effect. `rowOrder` reads
@@ -105,13 +111,13 @@ const userOptionsFields = {
       airingNotifications: z.boolean().nullish(),
       profileColor: z.string().nullish(),
       timezone: z.string().nullish(),
-      activityMergeTime: z.number().int().nullish(),
+      activityMergeTime: z.int().nonnegative().nullish(),
       staffNameLanguage: z.string().nullish(),
       restrictMessagesToFollowing: z.boolean().nullish(),
       notificationOptions: z.array(notificationOptionOut).nullish(),
       disabledListActivity: z.array(listActivityOptionOut).nullish(),
     })
-    .passthrough()
+    .loose()
     .nullish(),
   mediaListOptions: z
     .object({
@@ -120,7 +126,7 @@ const userOptionsFields = {
       animeList: mediaListTypeOptions.nullish(),
       mangaList: mediaListTypeOptions.nullish(),
     })
-    .passthrough()
+    .loose()
     .nullish(),
 };
 
@@ -128,80 +134,80 @@ const userOptionsFields = {
  *  depending on what the account has actually set. */
 const userProfileObject = z
   .object({
-    id: z.number().int(),
+    id: anilistId,
     name: z.string().nullish(),
     about: z.string().nullish(),
-    avatar: z.object({ large: z.string().nullish() }).nullish(),
-    bannerImage: z.string().nullish(),
-    siteUrl: z.string().nullish(),
-    donatorTier: z.number().int().nullish(),
+    avatar: z.object({ large: z.httpUrl().nullish() }).nullish(),
+    bannerImage: z.httpUrl().nullish(),
+    siteUrl: z.httpUrl().nullish(),
+    donatorTier: z.int().nonnegative().nullish(),
     donatorBadge: z.string().nullish(),
     isFollowing: z.boolean().nullish(),
     isFollower: z.boolean().nullish(),
     ...userOptionsFields,
   })
-  .passthrough();
+  .loose();
 
 const animeStats = z
   .object({
-    count: z.number().int().nullish(),
-    meanScore: z.number().nullish(),
-    minutesWatched: z.number().int().nullish(),
-    episodesWatched: z.number().int().nullish(),
+    count: z.int().nonnegative().nullish(),
+    meanScore: z.number().nonnegative().nullish(),
+    minutesWatched: z.int().nonnegative().nullish(),
+    episodesWatched: z.int().nonnegative().nullish(),
   })
-  .passthrough();
+  .loose();
 
 const mangaStats = z
   .object({
-    count: z.number().int().nullish(),
-    meanScore: z.number().nullish(),
-    chaptersRead: z.number().int().nullish(),
-    volumesRead: z.number().int().nullish(),
+    count: z.int().nonnegative().nullish(),
+    meanScore: z.number().nonnegative().nullish(),
+    chaptersRead: z.int().nonnegative().nullish(),
+    volumesRead: z.int().nonnegative().nullish(),
   })
-  .passthrough();
+  .loose();
 
 const userStatsObject = z
   .object({
     statistics: z
       .object({ anime: animeStats.nullish(), manga: mangaStats.nullish() })
-      .passthrough()
+      .loose()
       .nullish(),
   })
-  .passthrough();
+  .loose();
 
 const fullUserObject = z
   .object({
-    id: z.number().int(),
+    id: anilistId,
     name: z.string().nullish(),
     about: z.string().nullish(),
-    avatar: z.object({ large: z.string().nullish() }).nullish(),
-    bannerImage: z.string().nullish(),
-    siteUrl: z.string().nullish(),
-    donatorTier: z.number().int().nullish(),
+    avatar: z.object({ large: z.httpUrl().nullish() }).nullish(),
+    bannerImage: z.httpUrl().nullish(),
+    siteUrl: z.httpUrl().nullish(),
+    donatorTier: z.int().nonnegative().nullish(),
     donatorBadge: z.string().nullish(),
     isFollowing: z.boolean().nullish(),
     isFollower: z.boolean().nullish(),
     ...userOptionsFields,
     statistics: z
       .object({ anime: animeStats.nullish(), manga: mangaStats.nullish() })
-      .passthrough()
+      .loose()
       .nullish(),
   })
-  .passthrough();
+  .loose();
 
 const followResult = z
-  .object({ id: z.number().int(), name: z.string().nullish(), isFollowing: z.boolean().nullish() })
-  .passthrough();
+  .object({ id: anilistId, name: z.string().nullish(), isFollowing: z.boolean().nullish() })
+  .loose();
 
 const updateUserResult = z
   .object({
-    id: z.number().int(),
+    id: anilistId,
     name: z.string().nullish(),
     about: z.string().nullish(),
     donatorBadge: z.string().nullish(),
     ...userOptionsFields,
   })
-  .passthrough();
+  .loose();
 
 export function registerUserTools(server: McpServer, client: AniListClient): void {
   server.registerTool(
@@ -291,7 +297,7 @@ export function registerUserTools(server: McpServer, client: AniListClient): voi
             pageInfo: pageInfoSchema.optional(),
             activities: z.array(activityItem).optional(),
           })
-          .passthrough(),
+          .loose(),
       }),
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
@@ -332,7 +338,7 @@ export function registerUserTools(server: McpServer, client: AniListClient): voi
         "[Requires login] Toggle following another AniList user from the authenticated " +
         "user's account. Calling it again on the same user unfollows them.",
       inputSchema: z.object({
-        id: anilistId.describe(
+        id: userId.describe(
           "AniList numeric user ID to follow/unfollow — this mutation has no username form; " +
             "resolve one via search_user or get_user_profile first.",
         ),
@@ -457,7 +463,6 @@ export function registerUserTools(server: McpServer, client: AniListClient): voi
               "own literal grammar, which mentions only an optional leading minus.",
           ),
         activityMergeTime: z
-          .number()
           .int()
           .min(0)
           .optional()

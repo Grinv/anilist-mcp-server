@@ -4,17 +4,23 @@ import type { AniListClient } from "../clients/anilist.js";
 import * as misc from "../clients/anilist/misc.js";
 import { jsonResult } from "../lib/result.js";
 import { guard } from "./guard.js";
-import { pageInfoSchema, anilistId, paginationFields, favouriteOut } from "./outputSchemas.js";
+import {
+  pageInfoSchema,
+  anilistId,
+  studioId,
+  paginationFields,
+  favouriteOut,
+} from "./outputSchemas.js";
 
 const mediaTagItem = z
   .object({
-    id: z.number().int().optional(),
+    id: anilistId.optional(),
     name: z.string().optional(),
     description: z.string().nullish(),
     category: z.string().nullish(),
     isAdult: z.boolean().nullish(),
   })
-  .passthrough();
+  .loose();
 
 const statSeries = z
   .object({
@@ -22,16 +28,16 @@ const statSeries = z
       .array(
         z
           .object({
-            date: z.number().nullish(),
-            count: z.number().int().nullish(),
-            change: z.number().int().nullish(),
+            date: z.number().nonnegative().nullish(),
+            count: z.int().nonnegative().nullish(),
+            change: z.int().nullish(),
           })
-          .passthrough(),
+          .loose(),
       )
       .nullish(),
     pageInfo: pageInfoSchema.optional(),
   })
-  .passthrough();
+  .loose();
 
 const siteStatisticsObject = z
   .object({
@@ -39,36 +45,36 @@ const siteStatisticsObject = z
     anime: statSeries.nullish(),
     manga: statSeries.nullish(),
   })
-  .passthrough();
+  .loose();
 
 /** STUDIO_FIELDS — only `id`/`name` are near-certain; everything else is
  *  nullable/absent depending on what AniList actually has for the studio. */
 const studioObject = z
   .object({
-    id: z.number().int().optional(),
+    id: anilistId.optional(),
     name: z.string().optional(),
     isAnimationStudio: z.boolean().nullish(),
     isFavourite: favouriteOut("studio"),
-    siteUrl: z.string().nullish(),
+    siteUrl: z.httpUrl().nullish(),
     media: z
       .object({
         nodes: z
           .array(
             z
               .object({
-                id: z.number().int().optional(),
+                id: anilistId.optional(),
                 title: z
                   .object({ romaji: z.string().nullish(), english: z.string().nullish() })
                   .nullish(),
               })
-              .passthrough(),
+              .loose(),
           )
           .nullish(),
       })
-      .passthrough()
+      .loose()
       .nullish(),
   })
-  .passthrough();
+  .loose();
 
 export function registerMiscTools(server: McpServer, client: AniListClient): void {
   server.registerTool(
@@ -88,7 +94,6 @@ export function registerMiscTools(server: McpServer, client: AniListClient): voi
 
   const mediaTagsPageInfo = pageInfoSchema.extend({
     total: z
-      .number()
       .int()
       .nullish()
       .describe(
@@ -98,7 +103,6 @@ export function registerMiscTools(server: McpServer, client: AniListClient): voi
           "Safe to rely on to know when you've paged through everything.",
       ),
     lastPage: z
-      .number()
       .int()
       .nullish()
       .describe(
@@ -142,9 +146,8 @@ export function registerMiscTools(server: McpServer, client: AniListClient): voi
         "(bypassing this tool's own 25 cap): AniList's SiteStatistics field silently caps " +
         "`perPage` at 25 itself, so this tool's own limit doesn't lose you anything.",
       inputSchema: z.object({
-        page: z.number().int().positive().default(1).describe("Page number for pagination."),
+        page: z.int().positive().default(1).describe("Page number for pagination."),
         perPage: z
-          .number()
           .int()
           .min(1)
           .max(25)
@@ -174,7 +177,7 @@ export function registerMiscTools(server: McpServer, client: AniListClient): voi
         "and `name` are given, `id` takes precedence and `name` is ignored.",
       inputSchema: z
         .object({
-          id: anilistId.optional().describe("AniList studio ID. Provide this or `name`."),
+          id: studioId.optional().describe("AniList studio ID. Provide this or `name`."),
           name: z
             .string()
             .min(1)

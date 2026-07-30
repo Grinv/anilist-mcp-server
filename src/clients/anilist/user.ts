@@ -1,8 +1,9 @@
 import type { AniListContext } from "./context.js";
 import { assertFound } from "../../lib/errors.js";
+import type { UserId } from "./ids.js";
 import { USER_FIELDS, USER_DETAIL_FIELDS } from "./fields.js";
 
-export async function getUserProfile(ctx: AniListContext, user: number | string): Promise<unknown> {
+export async function getUserProfile(ctx: AniListContext, user: UserId | string): Promise<unknown> {
   const byId = typeof user === "number";
   const fields = `${USER_FIELDS}${USER_DETAIL_FIELDS}`;
   const query = byId
@@ -16,7 +17,7 @@ export async function getUserProfile(ctx: AniListContext, user: number | string)
   return assertFound(data.User, `No AniList user found matching ${JSON.stringify(user)}.`);
 }
 
-export async function getUserStats(ctx: AniListContext, user: number | string): Promise<unknown> {
+export async function getUserStats(ctx: AniListContext, user: UserId | string): Promise<unknown> {
   const byId = typeof user === "number";
   const statsFields = `statistics{anime{count meanScore minutesWatched episodesWatched}manga{count meanScore chaptersRead volumesRead}}`;
   const query = byId
@@ -32,7 +33,7 @@ export async function getUserStats(ctx: AniListContext, user: number | string): 
 
 export async function getFullUserInfo(
   ctx: AniListContext,
-  user: number | string,
+  user: UserId | string,
 ): Promise<unknown> {
   const byId = typeof user === "number";
   const fields = `${USER_FIELDS}${USER_DETAIL_FIELDS} statistics{anime{count meanScore minutesWatched episodesWatched}manga{count meanScore chaptersRead volumesRead}}`;
@@ -54,7 +55,7 @@ export async function getAuthorizedUser(ctx: AniListContext): Promise<unknown> {
   return data.Viewer;
 }
 
-export async function followUser(ctx: AniListContext, id: number): Promise<unknown> {
+export async function followUser(ctx: AniListContext, id: UserId): Promise<unknown> {
   const header = ctx.requireAuth();
   const query = `mutation($id:Int){ToggleFollow(userId:$id){id name isFollowing}}`;
   const data = await ctx.gql.request<{ ToggleFollow: unknown }>(query, { id }, header);

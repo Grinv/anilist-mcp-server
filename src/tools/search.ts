@@ -9,7 +9,8 @@ import {
   pageInfoSchema,
   MEDIA_TYPES,
   idOnly,
-  anilistId,
+  mediaId,
+  categoryId,
   userIdOrName,
   paginationFields,
 } from "./outputSchemas.js";
@@ -49,9 +50,9 @@ const SOURCES = [
 
 const fuzzyDateFilter = z
   .object({
-    year: z.number().int().describe("Required — a date filter needs at least a year."),
-    month: z.number().int().min(1).max(12).optional(),
-    day: z.number().int().min(1).max(31).optional(),
+    year: z.int().positive().describe("Required — a date filter needs at least a year."),
+    month: z.int().min(1).max(12).optional(),
+    day: z.int().min(1).max(31).optional(),
   })
   .describe("A partial date; omit `month`/`day` you don't want to narrow by.");
 const MEDIA_SORTS = [
@@ -127,8 +128,8 @@ const mediaSearchInput = z.object({
         "`seasonYear` for one specific season+year.",
     ),
   seasonYear: z
-    .number()
     .int()
+    .positive()
     .optional()
     .describe(
       "Restrict to this airing/release year (matches any season within it). Works alone or " +
@@ -154,41 +155,35 @@ const mediaSearchInput = z.object({
         "get_recommendations_for_media's `excludeInList`.",
     ),
   averageScore_greater: z
-    .number()
     .int()
-    .min(0)
+    .nonnegative()
     .max(100)
     .optional()
     .describe("Restrict to entries with an average score strictly greater than this (0-100)."),
   averageScore_lesser: z
-    .number()
     .int()
-    .min(0)
+    .nonnegative()
     .max(100)
     .optional()
     .describe("Restrict to entries with an average score strictly less than this (0-100)."),
   popularity_greater: z
-    .number()
     .int()
-    .min(0)
+    .nonnegative()
     .optional()
     .describe("Restrict to entries with more list-adds than this."),
   popularity_lesser: z
-    .number()
     .int()
-    .min(0)
+    .nonnegative()
     .optional()
     .describe("Restrict to entries with fewer list-adds than this."),
   episodes_greater: z
-    .number()
     .int()
-    .min(0)
+    .nonnegative()
     .optional()
     .describe("Restrict to entries with more episodes/chapters than this."),
   episodes_lesser: z
-    .number()
     .int()
-    .min(0)
+    .nonnegative()
     .optional()
     .describe("Restrict to entries with fewer episodes/chapters than this."),
   startDate_greater: fuzzyDateFilter
@@ -254,7 +249,7 @@ export function registerSearchTools(server: McpServer, client: AniListClient): v
       outputSchema: z.object({
         results: z
           .object({ pageInfo: pageInfoSchema.optional(), media: z.array(idOnly).optional() })
-          .passthrough(),
+          .loose(),
       }),
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
@@ -306,7 +301,7 @@ export function registerSearchTools(server: McpServer, client: AniListClient): v
       outputSchema: z.object({
         results: z
           .object({ pageInfo: pageInfoSchema.optional(), characters: z.array(idOnly).optional() })
-          .passthrough(),
+          .loose(),
       }),
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
@@ -329,7 +324,7 @@ export function registerSearchTools(server: McpServer, client: AniListClient): v
       outputSchema: z.object({
         results: z
           .object({ pageInfo: pageInfoSchema.optional(), staff: z.array(idOnly).optional() })
-          .passthrough(),
+          .loose(),
       }),
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
@@ -355,7 +350,7 @@ export function registerSearchTools(server: McpServer, client: AniListClient): v
       outputSchema: z.object({
         results: z
           .object({ pageInfo: pageInfoSchema.optional(), studios: z.array(idOnly).optional() })
-          .passthrough(),
+          .loose(),
       }),
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
@@ -380,7 +375,7 @@ export function registerSearchTools(server: McpServer, client: AniListClient): v
       outputSchema: z.object({
         results: z
           .object({ pageInfo: pageInfoSchema.optional(), users: z.array(idOnly).optional() })
-          .passthrough(),
+          .loose(),
       }),
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
@@ -405,7 +400,7 @@ export function registerSearchTools(server: McpServer, client: AniListClient): v
           .describe(
             "Free-text search term (matches thread title/body). Omit to just filter/browse.",
           ),
-        categoryId: anilistId
+        categoryId: categoryId
           .optional()
           .describe(
             "Restrict to this forum category ID. Not independently listable by any tool — " +
@@ -414,7 +409,7 @@ export function registerSearchTools(server: McpServer, client: AniListClient): v
               "ID doesn't error, it silently filters to an empty result — indistinguishable " +
               "from 'no threads in this category.'",
           ),
-        mediaCategoryId: anilistId
+        mediaCategoryId: mediaId
           .optional()
           .describe(
             "Restrict to threads tagged with this AniList anime/manga ID (from " +
@@ -427,7 +422,7 @@ export function registerSearchTools(server: McpServer, client: AniListClient): v
       outputSchema: z.object({
         results: z
           .object({ pageInfo: pageInfoSchema.optional(), threads: z.array(idOnly).optional() })
-          .passthrough(),
+          .loose(),
       }),
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
@@ -486,7 +481,7 @@ export function registerSearchTools(server: McpServer, client: AniListClient): v
             pageInfo: pageInfoSchema.optional(),
             activities: z.array(activityItem).optional(),
           })
-          .passthrough(),
+          .loose(),
       }),
       annotations: { readOnlyHint: true, openWorldHint: true },
     },

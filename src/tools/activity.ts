@@ -8,54 +8,88 @@ import {
   pageInfoSchema,
   deleteResult,
   anilistId,
+  activityId,
+  userId,
   userIdOrName,
   paginationFields,
   mediaTitleOut,
   deleteToolAnnotations,
 } from "./outputSchemas.js";
 
-/** Matches the ACTIVITY_FRAGMENT union (TextActivity/ListActivity/MessageActivity) —
- *  `id` is the only field common to every branch; the rest are optional since
- *  which ones are populated depends on which concrete activity type came back. */
-export const activityItem = z
+// Fields ACTIVITY_FRAGMENT selects identically on every branch of AniList's
+// ActivityUnion (TextActivity/ListActivity/MessageActivity). `type` itself
+// isn't here — each branch below declares its own literal/enum for it, since
+// that's the zod discriminant.
+const activityCommon = {
+  id: anilistId,
+  createdAt: z.number().nonnegative().nullish(),
+  siteUrl: z.httpUrl().nullish(),
+  replyCount: z.int().nonnegative().nullish(),
+  likeCount: z.int().nonnegative().nullish(),
+  isLiked: z.boolean().nullish(),
+};
+
+const activityUserRef = z.object({ id: anilistId, name: z.string().nullish() }).loose();
+
+const textActivityItem = z
   .object({
-    id: z.number().int(),
-    type: z.string().nullish(),
-    createdAt: z.number().nullish(),
-    siteUrl: z.string().nullish(),
-    replyCount: z.number().int().nullish(),
-    likeCount: z.number().int().nullish(),
-    isLiked: z.boolean().nullish(),
+    ...activityCommon,
+    type: z.literal("TEXT"),
     text: z.string().nullish(),
+    user: activityUserRef.nullish(),
+  })
+  .loose();
+
+const listActivityItem = z
+  .object({
+    ...activityCommon,
+    // AniList's ActivityType enum has a 3rd value, MEDIA_LIST — not observed
+    // live (a spot-check of both the newest and the very first activities on
+    // AniList found only ANIME_LIST/MANGA_LIST for this branch), but included
+    // since it's a real enum member the API schema documents.
+    type: z.enum(["ANIME_LIST", "MANGA_LIST", "MEDIA_LIST"]),
     status: z.string().nullish(),
     progress: z.string().nullish(),
-    message: z.string().nullish(),
-    user: z.object({ id: z.number().int(), name: z.string().nullish() }).passthrough().nullish(),
+    user: activityUserRef.nullish(),
     media: z
       .object({
-        id: z.number().int(),
+        id: anilistId,
         title: mediaTitleOut.nullish(),
       })
-      .passthrough()
-      .nullish(),
-    recipient: z
-      .object({ id: z.number().int(), name: z.string().nullish() })
-      .passthrough()
-      .nullish(),
-    messenger: z
-      .object({ id: z.number().int(), name: z.string().nullish() })
-      .passthrough()
+      .loose()
       .nullish(),
   })
-  .passthrough();
+  .loose();
+
+const messageActivityItem = z
+  .object({
+    ...activityCommon,
+    type: z.literal("MESSAGE"),
+    message: z.string().nullish(),
+    recipient: activityUserRef.nullish(),
+    messenger: activityUserRef.nullish(),
+  })
+  .loose();
+
+/** Matches the ACTIVITY_FRAGMENT union (TextActivity/ListActivity/MessageActivity),
+ *  modeled as a discriminated union on `type` instead of one flat object with
+ *  every branch's fields optional — confirmed live (oldest and newest
+ *  activities alike) that `type` is always present: GraphQL can't resolve an
+ *  `... on X` fragment without already knowing the concrete type, so an
+ *  activity missing it isn't a realistic case this needs to tolerate. */
+export const activityItem = z.discriminatedUnion("type", [
+  textActivityItem,
+  listActivityItem,
+  messageActivityItem,
+]);
 
 const savedTextActivity = z
-  .object({ id: z.number().int(), text: z.string().nullish(), siteUrl: z.string().nullish() })
-  .passthrough();
+  .object({ id: anilistId, text: z.string().nullish(), siteUrl: z.httpUrl().nullish() })
+  .loose();
 
 const savedMessageActivity = z
-  .object({ id: z.number().int(), message: z.string().nullish(), siteUrl: z.string().nullish() })
-  .passthrough();
+  .object({ id: anilistId, message: z.string().nullish(), siteUrl: z.httpUrl().nullish() })
+  .loose();
 
 export function registerActivityTools(server: McpServer, client: AniListClient): void {
   server.registerTool(
@@ -66,7 +100,7 @@ export function registerActivityTools(server: McpServer, client: AniListClient):
         "Get a single AniList activity post (list update, text post, or message) by its ID, " +
         "including `replyCount`, `likeCount`, and `isLiked`.",
       inputSchema: z.object({
-        id: anilistId.describe(
+        id: activityId.describe(
           "AniList activity ID — from get_user_activity, get_user_recent_activity, " +
             "search_activity, or the id returned by post_text_activity/post_message_activity.",
         ),
@@ -105,7 +139,7 @@ export function registerActivityTools(server: McpServer, client: AniListClient):
             pageInfo: pageInfoSchema.optional(),
             activities: z.array(activityItem).optional(),
           })
-          .passthrough(),
+          .loose(),
       }),
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
@@ -128,7 +162,7 @@ export function registerActivityTools(server: McpServer, client: AniListClient):
           .min(5)
           .max(10000)
           .describe("The text to post (per AniList's own schema: 5-10000 characters)."),
-        id: anilistId.optional().describe("Activity ID to update instead of creating a new post."),
+        id: activityId.optional().describe("Activity ID to update instead of creating a new post."),
       }),
       outputSchema: z.object({ activity: savedTextActivity }),
       annotations: {
@@ -157,7 +191,7 @@ export function registerActivityTools(server: McpServer, client: AniListClient):
         "argument, but this tool doesn't expose it, so every message sent through it is " +
         "public. Don't use it for anything the sender expects to stay confidential.",
       inputSchema: z.object({
-        recipientId: anilistId.describe(
+        recipientId: userId.describe(
           "AniList numeric user ID of the message recipient (resolve a username via " +
             "search_user first).",
         ),
@@ -166,7 +200,7 @@ export function registerActivityTools(server: McpServer, client: AniListClient):
           .min(2)
           .max(10000)
           .describe("The message text to post (per AniList's own schema: 2-10000 characters)."),
-        id: anilistId.optional().describe("Activity ID to update instead of creating a new post."),
+        id: activityId.optional().describe("Activity ID to update instead of creating a new post."),
       }),
       outputSchema: z.object({ activity: savedMessageActivity }),
       annotations: {
@@ -193,7 +227,7 @@ export function registerActivityTools(server: McpServer, client: AniListClient):
         "undone, and calling it again on an already-deleted id errors rather than silently " +
         "succeeding.",
       inputSchema: z.object({
-        id: anilistId.describe(
+        id: activityId.describe(
           "AniList activity ID to delete — from get_user_activity, get_user_recent_activity, " +
             "search_activity, or the id returned by a previous " +
             "post_text_activity/post_message_activity call.",

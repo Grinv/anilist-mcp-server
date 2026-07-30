@@ -1,5 +1,6 @@
 import type { AniListContext } from "./context.js";
 import { assertFound } from "../../lib/errors.js";
+import type { MediaId } from "./ids.js";
 import {
   MEDIA_FIELDS,
   MEDIA_DESCRIPTION_FIELD,
@@ -11,13 +12,13 @@ import {
 export async function getMedia(
   ctx: AniListContext,
   type: "ANIME" | "MANGA",
-  ids: number | number[],
+  ids: MediaId | MediaId[],
   includeStreamingEpisodes = false,
 ): Promise<unknown> {
   const fields = `${MEDIA_FIELDS}${MEDIA_DESCRIPTION_FIELD}${MEDIA_DETAIL_FIELDS}${includeStreamingEpisodes ? MEDIA_STREAMING_EPISODES_FIELD : ""}`;
   if (Array.isArray(ids)) {
     const query = `query($ids:[Int],$type:MediaType){Page(perPage:${ids.length}){media(id_in:$ids,type:$type){${fields}}}}`;
-    const data = await ctx.gql.request<{ Page: { media: { id: number }[] } }>(
+    const data = await ctx.gql.request<{ Page: { media: { id: MediaId }[] } }>(
       query,
       { ids, type },
       ctx.authHeader(),
@@ -44,7 +45,7 @@ export async function getMedia(
 export async function getMediaStatistics(
   ctx: AniListContext,
   type: "ANIME" | "MANGA",
-  id: number,
+  id: MediaId,
 ): Promise<unknown> {
   const query = `query($id:Int,$type:MediaType){Media(id:$id,type:$type){
     stats {
@@ -63,7 +64,7 @@ export async function getMediaStatistics(
 export async function getMediaCharacters(
   ctx: AniListContext,
   type: "ANIME" | "MANGA",
-  id: number,
+  id: MediaId,
   page = 1,
   perPage = 25,
 ): Promise<unknown> {
@@ -88,7 +89,7 @@ export async function getMediaCharacters(
 export async function getMediaStaff(
   ctx: AniListContext,
   type: "ANIME" | "MANGA",
-  id: number,
+  id: MediaId,
   page = 1,
   perPage = 25,
 ): Promise<unknown> {
@@ -109,7 +110,7 @@ export async function getMediaStaff(
 export async function getMediaReviews(
   ctx: AniListContext,
   type: "ANIME" | "MANGA",
-  id: number,
+  id: MediaId,
   page = 1,
   perPage = 10,
   includeBody = false,
@@ -134,7 +135,7 @@ export async function getMediaReviews(
 export async function getMediaRelations(
   ctx: AniListContext,
   type: "ANIME" | "MANGA",
-  id: number,
+  id: MediaId,
 ): Promise<unknown> {
   const query = `query($id:Int,$type:MediaType){Media(id:$id,type:$type){
     relations{
@@ -151,7 +152,7 @@ export async function getMediaRelations(
 
 export async function getSchedule(
   ctx: AniListContext,
-  mediaId?: number,
+  mediaId?: MediaId,
   notYetAired = true,
   page = 1,
   perPage = 25,

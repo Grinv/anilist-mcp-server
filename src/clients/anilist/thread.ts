@@ -1,8 +1,9 @@
 import type { AniListContext } from "./context.js";
 import { ApiError, assertFound } from "../../lib/errors.js";
+import type { ThreadId, CommentId, CategoryId, MediaId } from "./ids.js";
 import { existsFragment } from "./fields.js";
 
-export async function getThread(ctx: AniListContext, id: number): Promise<unknown> {
+export async function getThread(ctx: AniListContext, id: ThreadId): Promise<unknown> {
   const query = `query($id:Int){Thread(id:$id){id title body(asHtml:false) siteUrl replyCommentId
     isSticky isLocked replyCount viewCount likeCount isLiked user{id name} categories{id name}
     mediaCategories{id title{romaji english}}}}`;
@@ -12,7 +13,7 @@ export async function getThread(ctx: AniListContext, id: number): Promise<unknow
 
 export async function getThreadComments(
   ctx: AniListContext,
-  threadId: number,
+  threadId: ThreadId,
   page = 1,
   perPage = 25,
 ): Promise<unknown> {
@@ -41,9 +42,9 @@ export async function getThreadComments(
 }
 
 export interface SaveThreadOptions {
-  id?: number;
-  categories?: number[];
-  mediaCategories?: number[];
+  id?: ThreadId;
+  categories?: CategoryId[];
+  mediaCategories?: MediaId[];
   sticky?: boolean;
   locked?: boolean;
 }
@@ -78,9 +79,9 @@ export async function postThread(
 
 export async function postThreadComment(
   ctx: AniListContext,
-  threadId: number,
+  threadId: ThreadId,
   comment: string,
-  opts: { id?: number; parentCommentId?: number } = {},
+  opts: { id?: CommentId; parentCommentId?: CommentId } = {},
 ): Promise<unknown> {
   const header = ctx.requireAuth();
   const query = `mutation($id:Int,$threadId:Int,$parentCommentId:Int,$comment:String){
@@ -96,7 +97,7 @@ export async function postThreadComment(
   return data.SaveThreadComment;
 }
 
-export async function deleteThread(ctx: AniListContext, id: number): Promise<unknown> {
+export async function deleteThread(ctx: AniListContext, id: ThreadId): Promise<unknown> {
   const header = ctx.requireAuth();
   const query = `mutation($id:Int){DeleteThread(id:$id){deleted}}`;
   const data = await ctx.gql.request<{ DeleteThread: { deleted?: boolean } | null }>(
@@ -117,7 +118,7 @@ export async function deleteThread(ctx: AniListContext, id: number): Promise<unk
   return data.DeleteThread;
 }
 
-export async function deleteThreadComment(ctx: AniListContext, id: number): Promise<unknown> {
+export async function deleteThreadComment(ctx: AniListContext, id: CommentId): Promise<unknown> {
   const header = ctx.requireAuth();
   const query = `mutation($id:Int){DeleteThreadComment(id:$id){deleted}}`;
   const data = await ctx.gql.request<{ DeleteThreadComment: { deleted?: boolean } | null }>(

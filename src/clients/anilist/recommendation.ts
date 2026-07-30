@@ -1,7 +1,11 @@
 import type { AniListContext } from "./context.js";
 import { assertFound } from "../../lib/errors.js";
+import type { MediaId, RecommendationId } from "./ids.js";
 
-export async function getRecommendation(ctx: AniListContext, id: number): Promise<unknown> {
+export async function getRecommendation(
+  ctx: AniListContext,
+  id: RecommendationId,
+): Promise<unknown> {
   const query = `query($id:Int){Recommendation(id:$id){id rating userRating
     media{id title{romaji english}} mediaRecommendation{id title{romaji english}}}}`;
   const data = await ctx.gql.request<{ Recommendation: unknown }>(query, { id }, ctx.authHeader());
@@ -15,7 +19,7 @@ interface RecommendationsPage {
 
 export async function getRecommendationsForMedia(
   ctx: AniListContext,
-  mediaId: number,
+  mediaId: MediaId,
   page = 1,
   perPage = 10,
   excludeInList = false,

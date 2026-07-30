@@ -16,7 +16,16 @@ import * as notification from "../clients/anilist/notification.js";
 import * as recommendation from "../clients/anilist/recommendation.js";
 import { ApiError } from "../lib/errors.js";
 import type { TokenState } from "../lib/tokenStore.js";
+import type { MediaId, ListEntryId, ThreadId, ActivityId, UserId } from "../clients/anilist/ids.js";
 import { silentLogger, jsonResponse, mockFetch, installFetch, testConfig } from "./helpers.js";
+
+// This file calls clients/anilist/*.ts functions directly, bypassing the
+// zod-validated tool inputSchema that normally produces an already-branded
+// value (see tools/outputSchemas.ts's mediaId/listEntryId/etc.) — a plain
+// literal needs an explicit (test-only) cast to satisfy a branded signature.
+function id<T>(n: number): T {
+  return n as T;
+}
 
 function tempStorePath(name: string): string {
   return join(tmpdir(), `anilist-mcp-server-test-${name}.json`);
@@ -32,10 +41,10 @@ test("getMedia(single id) queries Media(), getMedia(array) queries Page.media()"
   installFetch(t, mock);
   const client = new AniListClient(testConfig({}), silentLogger());
 
-  const single = await media.getMedia(client.ctx(), "ANIME", 1);
+  const single = await media.getMedia(client.ctx(), "ANIME", id<MediaId>(1));
   assert.deepEqual(single, { id: 1 });
 
-  const many = await media.getMedia(client.ctx(), "ANIME", [1, 2]);
+  const many = await media.getMedia(client.ctx(), "ANIME", [id<MediaId>(1), id<MediaId>(2)]);
   assert.deepEqual(many, [{ id: 1 }, { id: 2 }]);
 });
 
@@ -51,7 +60,7 @@ test("getSchedule aliases a mediaId existence check into the same request as the
   installFetch(t, mock);
   const client = new AniListClient(testConfig({}), silentLogger());
 
-  const result = await media.getSchedule(client.ctx(), 1);
+  const result = await media.getSchedule(client.ctx(), id<MediaId>(1));
   assert.deepEqual(result, { schedule: [{ episode: 5 }], hasNextPage: false });
   assert.equal(mock.calls.length, 1, "the existence check and schedule query are one request");
   const query = JSON.parse(mock.calls[0]!.init?.body as string).query as string;
@@ -72,7 +81,7 @@ test("getSchedule rejects with not_found for a nonexistent mediaId, instead of s
   const client = new AniListClient(testConfig({}), silentLogger());
 
   await assert.rejects(
-    () => media.getSchedule(client.ctx(), 999999999),
+    () => media.getSchedule(client.ctx(), id<MediaId>(999999999)),
     (err: unknown) => err instanceof ApiError && err.code === "not_found",
   );
   assert.equal(mock.calls.length, 1, "the not-found check costs no extra request");
@@ -93,7 +102,7 @@ test("getSchedule's exists check filters on type:ANIME, rejecting a real manga i
   const client = new AniListClient(testConfig({}), silentLogger());
 
   await assert.rejects(
-    () => media.getSchedule(client.ctx(), 30013), // a real manga id (One Piece manga)
+    () => media.getSchedule(client.ctx(), id<MediaId>(30013)), // a real manga id (One Piece manga)
     (err: unknown) => err instanceof ApiError && err.code === "not_found",
   );
   const query = JSON.parse(mock.calls[0]!.init?.body as string).query as string;
@@ -121,7 +130,7 @@ test("getThreadComments aliases a threadId existence check into the same request
   installFetch(t, mock);
   const client = new AniListClient(testConfig({}), silentLogger());
 
-  const result = await thread.getThreadComments(client.ctx(), 1);
+  const result = await thread.getThreadComments(client.ctx(), id<ThreadId>(1));
   assert.deepEqual(result, { pageInfo: {}, threadComments: [{ id: 5 }] });
   assert.equal(mock.calls.length, 1, "the existence check and comments query are one request");
   const query = JSON.parse(mock.calls[0]!.init?.body as string).query as string;
@@ -142,7 +151,7 @@ test("getThreadComments rejects with not_found for a nonexistent threadId, inste
   const client = new AniListClient(testConfig({}), silentLogger());
 
   await assert.rejects(
-    () => thread.getThreadComments(client.ctx(), 999999999),
+    () => thread.getThreadComments(client.ctx(), id<ThreadId>(999999999)),
     (err: unknown) => err instanceof ApiError && err.code === "not_found",
   );
   assert.equal(mock.calls.length, 1, "the not-found check costs no extra request");
@@ -235,7 +244,7 @@ test("getRecommendationsForMedia requests mediaListEntry and, when excludeInList
 
   const withoutFilter = (await recommendation.getRecommendationsForMedia(
     client.ctx(),
-    1,
+    id<MediaId>(1),
     1,
     10,
   )) as { nodes: unknown[] };
@@ -247,7 +256,7 @@ test("getRecommendationsForMedia requests mediaListEntry and, when excludeInList
 
   const filtered = (await recommendation.getRecommendationsForMedia(
     client.ctx(),
-    1,
+    id<MediaId>(1),
     1,
     10,
     true,
@@ -262,7 +271,7 @@ test("getRecommendationsForMedia requests mediaListEntry and, when excludeInList
 test("saveListEntry refuses without a configured access token", async () => {
   const client = new AniListClient(testConfig({}), silentLogger());
   await assert.rejects(
-    () => list.saveListEntry(client.ctx(), { mediaId: 1, status: "PLANNING" }),
+    () => list.saveListEntry(client.ctx(), { mediaId: id<MediaId>(1), status: "PLANNING" }),
     (err: unknown) => err instanceof ApiError && err.code === "unauthorized",
   );
 });
@@ -274,7 +283,10 @@ test("saveListEntry sends the Bearer token and omits fields left undefined", asy
   installFetch(t, mock);
   const client = new AniListClient(testConfig({ ANILIST_ACCESS_TOKEN: "tok" }), silentLogger());
 
-  const result = await list.saveListEntry(client.ctx(), { mediaId: 42, status: "PLANNING" });
+  const result = await list.saveListEntry(client.ctx(), {
+    mediaId: id<MediaId>(42),
+    status: "PLANNING",
+  });
   assert.deepEqual(result, { id: 9, status: "PLANNING" });
 
   const call = mock.calls[0]!;
@@ -293,7 +305,7 @@ test("saveListEntry converts the 0-10 `score` to AniList's raw 0-100 scoreRaw (n
   installFetch(t, mock);
   const client = new AniListClient(testConfig({ ANILIST_ACCESS_TOKEN: "tok" }), silentLogger());
 
-  await list.saveListEntry(client.ctx(), { mediaId: 42, score: 8.5 });
+  await list.saveListEntry(client.ctx(), { mediaId: id<MediaId>(42), score: 8.5 });
   const { query, variables } = JSON.parse(mock.calls[0]!.init?.body as string) as {
     query: string;
     variables: Record<string, unknown>;
@@ -332,7 +344,7 @@ test("saveListEntry resolves advancedScores against the account's own configured
   // order (not the anime list's [Story, Characters]), proving the real media
   // type (not a key-subset guess) decided which list was used.
   await list.saveListEntry(client.ctx(), {
-    mediaId: 42,
+    mediaId: id<MediaId>(42),
     advancedScores: { Story: 8, Characters: 9 },
   });
   const saveCall = mock.calls.find((c) => {
@@ -374,7 +386,8 @@ test("saveListEntry rejects advancedScores when advancedScoringEnabled is false,
   const client = new AniListClient(testConfig({ ANILIST_ACCESS_TOKEN: "tok" }), silentLogger());
 
   await assert.rejects(
-    () => list.saveListEntry(client.ctx(), { mediaId: 42, advancedScores: { Story: 8 } }),
+    () =>
+      list.saveListEntry(client.ctx(), { mediaId: id<MediaId>(42), advancedScores: { Story: 8 } }),
     (err: unknown) =>
       err instanceof ApiError &&
       err.code === "bad_request" &&
@@ -406,7 +419,8 @@ test("saveListEntry rejects advancedScores keys that don't match the entry's act
   // a classified ApiError (bad_request), not a bare Error, so guard() can
   // surface the specific message instead of a generic "Unexpected error".
   await assert.rejects(
-    () => list.saveListEntry(client.ctx(), { mediaId: 42, advancedScores: { Typo: 5 } }),
+    () =>
+      list.saveListEntry(client.ctx(), { mediaId: id<MediaId>(42), advancedScores: { Typo: 5 } }),
     (err: unknown) =>
       err instanceof ApiError &&
       err.code === "bad_request" &&
@@ -438,7 +452,10 @@ test("saveListEntry resolves media type from listEntryId (update path) when no m
   installFetch(t, mock);
   const client = new AniListClient(testConfig({ ANILIST_ACCESS_TOKEN: "tok" }), silentLogger());
 
-  await list.saveListEntry(client.ctx(), { listEntryId: 99, advancedScores: { Story: 7, Art: 6 } });
+  await list.saveListEntry(client.ctx(), {
+    listEntryId: id<ListEntryId>(99),
+    advancedScores: { Story: 7, Art: 6 },
+  });
   const saveCall = mock.calls.find((c) => {
     const q = JSON.parse(c.init?.body as string).query as string;
     return !q.includes("mediaListOptions") && !q.includes("MediaList(id");
@@ -471,7 +488,11 @@ test("saveListEntry throws (rather than silently defaulting to ANIME) when the m
   // Must be a classified ApiError (bad_request), not a bare Error — see the
   // "Typo" test above for why.
   await assert.rejects(
-    () => list.saveListEntry(client.ctx(), { mediaId: 999999, advancedScores: { Story: 8 } }),
+    () =>
+      list.saveListEntry(client.ctx(), {
+        mediaId: id<MediaId>(999999),
+        advancedScores: { Story: 8 },
+      }),
     (err: unknown) =>
       err instanceof ApiError &&
       err.code === "bad_request" &&
@@ -496,7 +517,7 @@ test("getUserActivity aliases a numeric id's existence check into the same reque
   installFetch(t, mock);
   const client = new AniListClient(testConfig({}), silentLogger());
 
-  await activity.getUserActivity(client.ctx(), 7640432);
+  await activity.getUserActivity(client.ctx(), id<UserId>(7640432));
   assert.equal(mock.calls.length, 1, "the existence check and activities query are one request");
   const { query, variables } = JSON.parse(mock.calls[0]!.init?.body as string) as {
     query: string;
@@ -563,7 +584,7 @@ test("getUserActivity rejects with not_found when a numeric user id doesn't reso
   const client = new AniListClient(testConfig({}), silentLogger());
 
   await assert.rejects(
-    () => activity.getUserActivity(client.ctx(), 999999999),
+    () => activity.getUserActivity(client.ctx(), id<UserId>(999999999)),
     (err: unknown) => err instanceof ApiError && err.code === "not_found",
   );
   assert.equal(mock.calls.length, 1, "the not-found check costs no extra request");
@@ -574,7 +595,7 @@ test("searchActivity passes a numeric user straight through as the userId filter
   installFetch(t, mock);
   const client = new AniListClient(testConfig({}), silentLogger());
 
-  await search.searchActivity(client.ctx(), 7640432);
+  await search.searchActivity(client.ctx(), id<UserId>(7640432));
   assert.equal(mock.calls.length, 1);
   const { variables } = JSON.parse(mock.calls[0]!.init?.body as string) as {
     variables: Record<string, unknown>;
@@ -635,7 +656,7 @@ test("deleteListEntry rejects when AniList reports deleted: false instead of rep
   installFetch(t, mock);
   const client = new AniListClient(testConfig({ ANILIST_ACCESS_TOKEN: "tok" }), silentLogger());
   await assert.rejects(
-    () => list.deleteListEntry(client.ctx(), 1),
+    () => list.deleteListEntry(client.ctx(), id<ListEntryId>(1)),
     (err: unknown) => err instanceof ApiError && err.code === "not_found",
   );
 });
@@ -645,7 +666,7 @@ test("deleteActivity rejects when AniList reports deleted: false instead of repo
   installFetch(t, mock);
   const client = new AniListClient(testConfig({ ANILIST_ACCESS_TOKEN: "tok" }), silentLogger());
   await assert.rejects(
-    () => activity.deleteActivity(client.ctx(), 1),
+    () => activity.deleteActivity(client.ctx(), id<ActivityId>(1)),
     (err: unknown) => err instanceof ApiError && err.code === "not_found",
   );
 });
@@ -655,7 +676,7 @@ test("deleteThread rejects when AniList reports deleted: false instead of report
   installFetch(t, mock);
   const client = new AniListClient(testConfig({ ANILIST_ACCESS_TOKEN: "tok" }), silentLogger());
   await assert.rejects(
-    () => thread.deleteThread(client.ctx(), 1),
+    () => thread.deleteThread(client.ctx(), id<ThreadId>(1)),
     (err: unknown) => err instanceof ApiError && err.code === "not_found",
   );
 });
@@ -752,14 +773,14 @@ test("read queries attach the Authorization header when a token is configured, a
   installFetch(t, mock);
 
   const anon = new AniListClient(testConfig({}), silentLogger());
-  await media.getMedia(anon.ctx(), "ANIME", 1);
+  await media.getMedia(anon.ctx(), "ANIME", id<MediaId>(1));
   assert.equal(
     (mock.calls[0]!.init?.headers as Record<string, string> | undefined)?.Authorization,
     undefined,
   );
 
   const authed = new AniListClient(testConfig({ ANILIST_ACCESS_TOKEN: "tok" }), silentLogger());
-  await media.getMedia(authed.ctx(), "ANIME", 1);
+  await media.getMedia(authed.ctx(), "ANIME", id<MediaId>(1));
   assert.equal(
     (mock.calls[1]!.init?.headers as Record<string, string>).Authorization,
     "Bearer tok",

@@ -70,7 +70,7 @@ export function registerNotificationTools(server: McpServer, client: AniListClie
           .object({
             pageInfo: z
               .object({ hasNextPage: z.boolean().nullish() })
-              .passthrough()
+              .loose()
               .optional()
               .describe(
                 "Whether another page exists — this query only ever requests hasNextPage, " +
@@ -78,7 +78,7 @@ export function registerNotificationTools(server: McpServer, client: AniListClie
               ),
             notifications: z.array(idOnly).optional(),
           })
-          .passthrough(),
+          .loose(),
       }),
       annotations: {
         readOnlyHint: false,

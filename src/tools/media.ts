@@ -11,6 +11,7 @@ import {
   MEDIA_TYPES,
   fuzzyDateOut,
   anilistId,
+  mediaId,
   paginationFields,
   mediaTitleOut,
   favouriteOut,
@@ -19,7 +20,7 @@ import {
 const mediaType = z.enum(MEDIA_TYPES).describe("Whether `id` refers to anime or manga.");
 
 const idsSchema = z
-  .union([anilistId, z.array(anilistId).min(1).max(25)], {
+  .union([mediaId, z.array(mediaId).min(1).max(25)], {
     // A plain string `error` fires for every union-mismatch reason alike, so a
     // wrong-but-present value (e.g. a decimal) would get told "is required" —
     // misleading when something WAS passed. Branch on `issue.input` instead.
@@ -38,23 +39,23 @@ const idsSchema = z
  *  AniList field is nullable, so it's modeled as `.nullish()` here. */
 const mediaObject = z
   .object({
-    id: z.number().int(),
-    idMal: z.number().int().nullish(),
+    id: anilistId,
+    idMal: z.int().positive().nullish(),
     type: z.string().nullish(),
     format: z.string().nullish(),
     status: z.string().nullish(),
-    episodes: z.number().int().nullish(),
-    chapters: z.number().int().nullish(),
-    volumes: z.number().int().nullish(),
-    duration: z.number().int().nullish(),
+    episodes: z.int().positive().nullish(),
+    chapters: z.int().positive().nullish(),
+    volumes: z.int().positive().nullish(),
+    duration: z.int().positive().nullish(),
     genres: z.array(z.string()).nullish(),
-    averageScore: z.number().nullish(),
-    popularity: z.number().nullish(),
+    averageScore: z.number().nonnegative().nullish(),
+    popularity: z.number().nonnegative().nullish(),
     isAdult: z.boolean().nullish(),
     isFavourite: favouriteOut("title"),
-    siteUrl: z.string().nullish(),
+    siteUrl: z.httpUrl().nullish(),
     season: z.string().nullish(),
-    seasonYear: z.number().int().nullish(),
+    seasonYear: z.int().positive().nullish(),
     countryOfOrigin: z.string().nullish(),
     title: z
       .object({
@@ -63,7 +64,7 @@ const mediaObject = z
         native: z.string().nullish(),
       })
       .nullish(),
-    coverImage: z.object({ large: z.string().nullish() }).nullish(),
+    coverImage: z.object({ large: z.httpUrl().nullish() }).nullish(),
     startDate: fuzzyDateOut.nullish(),
     endDate: fuzzyDateOut.nullish(),
     description: z.string().nullish(),
@@ -79,10 +80,10 @@ const mediaObject = z
         z
           .object({
             name: z.string().optional(),
-            rank: z.number().int().nullish(),
+            rank: z.int().positive().nullish(),
             isMediaSpoiler: z.boolean().nullish(),
           })
-          .passthrough(),
+          .loose(),
       )
       .nullish(),
     // AniList's own ranking badges (e.g. site UI's "#134 highest rated all
@@ -92,31 +93,31 @@ const mediaObject = z
       .array(
         z
           .object({
-            rank: z.number().int().nullish(),
+            rank: z.int().positive().nullish(),
             type: z.string().nullish(),
             format: z.string().nullish(),
-            year: z.number().int().nullish(),
+            year: z.int().positive().nullish(),
             season: z.string().nullish(),
             allTime: z.boolean().nullish(),
             context: z.string().nullish(),
           })
-          .passthrough(),
+          .loose(),
       )
       .nullish(),
     nextAiringEpisode: z
       .object({
-        id: z.number().int(),
-        airingAt: z.number().nullish(),
+        id: anilistId,
+        airingAt: z.number().nonnegative().nullish(),
         timeUntilAiring: z.number().nullish(),
-        episode: z.number().int().nullish(),
+        episode: z.int().positive().nullish(),
       })
-      .passthrough()
+      .loose()
       .nullish(),
     externalLinks: z
       .array(
         z
           .object({
-            id: z.number().int(),
+            id: anilistId,
             url: z.string().nullish(),
             site: z.string().nullish(),
             type: z.string().nullish(),
@@ -125,7 +126,7 @@ const mediaObject = z
             notes: z.string().nullish(),
             isDisabled: z.boolean().nullish(),
           })
-          .passthrough(),
+          .loose(),
       )
       .nullish(),
     streamingEpisodes: z
@@ -137,33 +138,31 @@ const mediaObject = z
             url: z.string().nullish(),
             site: z.string().nullish(),
           })
-          .passthrough(),
+          .loose(),
       )
       .nullish(),
     mediaListEntry: z
       .object({
-        id: z.number().int(),
+        id: anilistId,
         status: z.string().nullish(),
-        score: z.number().nullish(),
-        progress: z.number().int().nullish(),
-        progressVolumes: z.number().int().nullish(),
-        repeat: z.number().int().nullish(),
-        priority: z.number().int().nullish(),
+        score: z.number().nonnegative().nullish(),
+        progress: z.int().nonnegative().nullish(),
+        progressVolumes: z.int().nonnegative().nullish(),
+        repeat: z.int().nonnegative().nullish(),
+        priority: z.int().nonnegative().nullish(),
         private: z.boolean().nullish(),
         notes: z.string().nullish(),
         hiddenFromStatusLists: z.boolean().nullish(),
         customLists: z
-          .array(
-            z.object({ name: z.string().nullish(), enabled: z.boolean().nullish() }).passthrough(),
-          )
+          .array(z.object({ name: z.string().nullish(), enabled: z.boolean().nullish() }).loose())
           .nullish(),
-        advancedScores: z.unknown().nullish(),
+        advancedScores: z.json().nullish(),
         startedAt: fuzzyDateOut.nullish(),
         completedAt: fuzzyDateOut.nullish(),
-        updatedAt: z.number().nullish(),
-        createdAt: z.number().nullish(),
+        updatedAt: z.number().nonnegative().nullish(),
+        createdAt: z.number().nonnegative().nullish(),
       })
-      .passthrough()
+      .loose()
       .nullish()
       .describe(
         "Whether this title is on the caller's own list — viewer-relative, so it only " +
@@ -171,24 +170,27 @@ const mediaObject = z
           "on the list (the two cases aren't distinguishable from this field alone).",
       ),
   })
-  .passthrough();
+  .loose();
 
 const statisticsObject = z
   .object({
     scoreDistribution: z
       .array(
-        z.object({ score: z.number().nullish(), amount: z.number().int().nullish() }).passthrough(),
+        z
+          .object({
+            score: z.number().nonnegative().nullish(),
+            amount: z.int().nonnegative().nullish(),
+          })
+          .loose(),
       )
       .nullish(),
     statusDistribution: z
       .array(
-        z
-          .object({ status: z.string().nullish(), amount: z.number().int().nullish() })
-          .passthrough(),
+        z.object({ status: z.string().nullish(), amount: z.int().nonnegative().nullish() }).loose(),
       )
       .nullish(),
   })
-  .passthrough();
+  .loose();
 
 const charactersConnection = z
   .object({
@@ -202,29 +204,29 @@ const charactersConnection = z
               .array(
                 z
                   .object({
-                    id: z.number().int(),
+                    id: anilistId,
                     name: z.object({ full: z.string().nullish() }).nullish(),
                     languageV2: z.string().nullish(),
                   })
-                  .passthrough(),
+                  .loose(),
               )
               .nullish(),
             node: z
               .object({
-                id: z.number().int(),
+                id: anilistId,
                 name: z
                   .object({ full: z.string().nullish(), native: z.string().nullish() })
                   .nullish(),
-                siteUrl: z.string().nullish(),
+                siteUrl: z.httpUrl().nullish(),
               })
-              .passthrough()
+              .loose()
               .nullish(),
           })
-          .passthrough(),
+          .loose(),
       )
       .nullish(),
   })
-  .passthrough();
+  .loose();
 
 const staffConnection = z
   .object({
@@ -236,17 +238,17 @@ const staffConnection = z
             role: z.string().nullish(),
             node: z
               .object({
-                id: z.number().int(),
+                id: anilistId,
                 name: z.object({ full: z.string().nullish() }).nullish(),
               })
-              .passthrough()
+              .loose()
               .nullish(),
           })
-          .passthrough(),
+          .loose(),
       )
       .nullish(),
   })
-  .passthrough();
+  .loose();
 
 const reviewsConnection = z
   .object({
@@ -255,23 +257,20 @@ const reviewsConnection = z
       .array(
         z
           .object({
-            id: z.number().int(),
+            id: anilistId,
             summary: z.string().nullish(),
             body: z.string().nullish(),
-            rating: z.number().nullish(),
-            ratingAmount: z.number().nullish(),
-            score: z.number().nullish(),
-            siteUrl: z.string().nullish(),
-            user: z
-              .object({ id: z.number().int(), name: z.string().nullish() })
-              .passthrough()
-              .nullish(),
+            rating: z.number().nonnegative().nullish(),
+            ratingAmount: z.number().nonnegative().nullish(),
+            score: z.number().nonnegative().nullish(),
+            siteUrl: z.httpUrl().nullish(),
+            user: z.object({ id: anilistId, name: z.string().nullish() }).loose().nullish(),
           })
-          .passthrough(),
+          .loose(),
       )
       .nullish(),
   })
-  .passthrough();
+  .loose();
 
 const relationsObject = z
   .object({
@@ -282,38 +281,38 @@ const relationsObject = z
             relationType: z.string().nullish(),
             node: z
               .object({
-                id: z.number().int(),
+                id: anilistId,
                 type: z.string().nullish(),
                 format: z.string().nullish(),
                 title: z
                   .object({ romaji: z.string().nullish(), english: z.string().nullish() })
                   .nullish(),
-                siteUrl: z.string().nullish(),
+                siteUrl: z.httpUrl().nullish(),
               })
-              .passthrough()
+              .loose()
               .nullish(),
           })
-          .passthrough(),
+          .loose(),
       )
       .nullish(),
   })
-  .passthrough();
+  .loose();
 
 const scheduleItem = z
   .object({
-    airingAt: z.number().nullish(),
+    airingAt: z.number().nonnegative().nullish(),
     timeUntilAiring: z.number().nullish(),
-    episode: z.number().int().nullish(),
+    episode: z.int().positive().nullish(),
     media: z
       .object({
-        id: z.number().int(),
+        id: anilistId,
         title: mediaTitleOut.nullish(),
-        siteUrl: z.string().nullish(),
+        siteUrl: z.httpUrl().nullish(),
       })
-      .passthrough()
+      .loose()
       .nullish(),
   })
-  .passthrough();
+  .loose();
 
 const FAVOURITE_KINDS = ["ANIME", "MANGA", "CHARACTER", "STAFF", "STUDIO"] as const;
 
@@ -365,7 +364,7 @@ export function registerMediaTools(server: McpServer, client: AniListClient): vo
         "Get an anime/manga's watch/read-status counts (watching/completed/planning/etc.) and " +
         "score distribution histogram across all AniList users. Use search_media first to " +
         "resolve a title to its AniList ID.",
-      inputSchema: z.object({ type: mediaType, id: anilistId.describe("AniList ID.") }),
+      inputSchema: z.object({ type: mediaType, id: mediaId.describe("AniList ID.") }),
       outputSchema: z.object({ statistics: statisticsObject }),
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
@@ -388,7 +387,7 @@ export function registerMediaTools(server: McpServer, client: AniListClient): vo
         "well after several Supporting ones.",
       inputSchema: z.object({
         type: mediaType,
-        id: anilistId.describe("AniList ID."),
+        id: mediaId.describe("AniList ID."),
         ...paginationFields(25),
       }),
       outputSchema: z.object({ characters: charactersConnection }),
@@ -414,7 +413,7 @@ export function registerMediaTools(server: McpServer, client: AniListClient): vo
         "popularity-sorted).",
       inputSchema: z.object({
         type: mediaType,
-        id: anilistId.describe("AniList ID."),
+        id: mediaId.describe("AniList ID."),
         ...paginationFields(25),
       }),
       outputSchema: z.object({ staff: staffConnection }),
@@ -437,7 +436,7 @@ export function registerMediaTools(server: McpServer, client: AniListClient): vo
         "first to resolve a title to its AniList ID.",
       inputSchema: z.object({
         type: mediaType,
-        id: anilistId.describe("AniList ID."),
+        id: mediaId.describe("AniList ID."),
         ...paginationFields(10),
         includeBody: z
           .boolean()
@@ -464,7 +463,7 @@ export function registerMediaTools(server: McpServer, client: AniListClient): vo
         "adaptations, spin-offs) with the relation type. Use search_media first to resolve a " +
         "title to its AniList ID.",
       inputSchema: z.object({
-        id: anilistId.describe("AniList anime/manga ID."),
+        id: mediaId.describe("AniList anime/manga ID."),
         type: z.enum(["ANIME", "MANGA"]).describe("Whether `id` refers to an anime or a manga."),
       }),
       outputSchema: z.object({ relations: relationsObject }),
@@ -487,7 +486,7 @@ export function registerMediaTools(server: McpServer, client: AniListClient): vo
         "— manga has no airing schedule; a manga id is rejected with a clear error rather than " +
         "silently returning an empty schedule.",
       inputSchema: z.object({
-        mediaId: anilistId.optional().describe("Restrict to this AniList anime ID (not manga)."),
+        mediaId: mediaId.optional().describe("Restrict to this AniList anime ID (not manga)."),
         notYetAired: z
           .boolean()
           .default(true)

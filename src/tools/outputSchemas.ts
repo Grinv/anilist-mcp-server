@@ -9,10 +9,38 @@ import { z } from "zod";
  *  staff, studio, thread, activity, recommendation, list-entry, …). AniList's
  *  GraphQL `Int` scalar is 32-bit signed, so a value outside this range
  *  always fails upstream with a raw GraphQL type-coercion error instead of a
- *  clear local validation message. Doesn't reject 0/negative values — those
- *  are still representable as `Int` and already fail cleanly upstream as
- *  "not found"; this only guards the range GraphQL can carry at all. */
-export const anilistId = z.number().int().min(-2147483648).max(2147483647);
+ *  clear local validation message. Also rejects 0/negative values — AniList
+ *  only ever assigns positive auto-increment IDs, so unlike a merely
+ *  nonexistent-but-in-range positive ID (which we can't know is bad without
+ *  asking AniList), a non-positive one is *always* invalid, and catching it
+ *  locally skips a wasted call against AniList's own tightly-limited rate cap
+ *  (see docs/api-references.md) instead of spending it on a call that could
+ *  never succeed. */
+export const anilistId = z.int32().positive();
+
+/** Per-entity-kind variants of `anilistId`, branded so e.g. a `MediaId` can't
+ *  be passed where a `ListEntryId` is expected without a compile error —
+ *  `.brand()` is compile-time-only (identical runtime validation, identical
+ *  JSON Schema output), so this costs nothing at the protocol level. Each
+ *  brand's inferred type is structurally identical to the matching alias in
+ *  `clients/anilist/ids.ts` (both reuse zod's own `$brand` marker), so client
+ *  function signatures can use those aliases without importing this file —
+ *  see that file's own comment for why. Left OUT of this list deliberately:
+ *  `toggle_favourite`'s `id`, which is genuinely polymorphic (anime/manga/
+ *  character/staff/studio, selected by its sibling `kind` field) — AniList's
+ *  own mutation doesn't validate that `id` matches `kind` either (confirmed
+ *  live), so no single brand would be accurate there. */
+export const mediaId = anilistId.brand<"MediaId">();
+export const listEntryId = anilistId.brand<"ListEntryId">();
+export const userId = anilistId.brand<"UserId">();
+export const characterId = anilistId.brand<"CharacterId">();
+export const staffId = anilistId.brand<"StaffId">();
+export const studioId = anilistId.brand<"StudioId">();
+export const threadId = anilistId.brand<"ThreadId">();
+export const commentId = anilistId.brand<"CommentId">();
+export const categoryId = anilistId.brand<"CategoryId">();
+export const activityId = anilistId.brand<"ActivityId">();
+export const recommendationId = anilistId.brand<"RecommendationId">();
 
 /** MCP annotations shared by every "delete this real thing by id" tool
  *  (delete_activity, delete_thread, delete_thread_comment, remove_list_entry)
@@ -32,11 +60,10 @@ export const deleteToolAnnotations = {
  *  by `get_site_statistics`: its `perPage` describes a different cap
  *  (AniList's own, not this schema's) and needs its own wording. */
 export const paginationFields = (defaultPerPage: number) => ({
-  page: z.number().int().positive().default(1).describe("Page number for pagination."),
+  page: z.int().positive().default(1).describe("Page number for pagination."),
   perPage: z
-    .number()
     .int()
-    .min(1)
+    .positive()
     .max(25)
     .default(defaultPerPage)
     .describe("Results per page (max 25)."),
@@ -68,17 +95,15 @@ export const favouriteOut = (kind: string) =>
 export const pageInfoSchema = z
   .object({
     total: z
-      .number()
       .int()
       .nullish()
       .describe(
         "Not currently accurate (a known AniList performance limitation) — don't rely on it " +
           "to decide whether to fetch more pages.",
       ),
-    perPage: z.number().int().nullish(),
-    currentPage: z.number().int().nullish(),
+    perPage: z.int().nullish(),
+    currentPage: z.int().nullish(),
     lastPage: z
-      .number()
       .int()
       .nullish()
       .describe(
@@ -87,17 +112,17 @@ export const pageInfoSchema = z
       ),
     hasNextPage: z.boolean().nullish(),
   })
-  .passthrough();
+  .loose();
 
-export const deleteResult = z.object({ deleted: z.boolean().nullish() }).passthrough();
+export const deleteResult = z.object({ deleted: z.boolean().nullish() }).loose();
 
 /** A minimal placeholder for a GraphQL union/type where only `id` is common
  *  to every branch (e.g. the ACTIVITY_FRAGMENT union) — per the precision
  *  policy, loosely typed rather than duplicating the full shape per call
  *  site. Shared so the same one-line schema isn't hand-copied per file. */
 export const idOnly = z
-  .object({ id: z.number().int() })
-  .passthrough()
+  .object({ id: anilistId })
+  .loose()
   .describe(
     "Only `id` is guaranteed here — the real object has more fields, but their shape " +
       "depends on which variant of an underlying union type this is (e.g. which activity " +
@@ -114,18 +139,21 @@ export const mediaTitleOut = z.object({
 });
 
 /** A FuzzyDate in AniList's *output* shape (all fields nullable — unlike the
- *  input variant, which is a plain optional {year,month,day}). */
+ *  input variant, which is a plain optional {year,month,day}). Confirmed live
+ *  (raw GraphQL against a title with an incomplete release date): an unknown
+ *  month/day comes back as `null`, never `0` — so `.positive()` can't
+ *  misfire on a legitimate "unknown" sentinel here. */
 export const fuzzyDateOut = z
   .object({
-    year: z.number().int().nullish(),
-    month: z.number().int().nullish(),
-    day: z.number().int().nullish(),
+    year: z.int().positive().nullish(),
+    month: z.int().positive().nullish(),
+    day: z.int().positive().nullish(),
   })
-  .passthrough();
+  .loose();
 
 const favouriteNodesList = z
-  .object({ nodes: z.array(z.object({ id: z.number().int() }).passthrough()).nullish() })
-  .passthrough();
+  .object({ nodes: z.array(z.object({ id: anilistId }).loose()).nullish() })
+  .loose();
 
 export const toggleFavouriteResult = z
   .object({
@@ -135,7 +163,7 @@ export const toggleFavouriteResult = z
     staff: favouriteNodesList.nullish(),
     studios: favouriteNodesList.nullish(),
   })
-  .passthrough();
+  .loose();
 
 /** AniList's Media `type` enum — shared by every tool that operates on either
  *  an anime or a manga through one parameterized call. */
@@ -160,7 +188,7 @@ export const MEDIA_LIST_STATUSES = [
  *  domains) so the custom error message stays in one place instead of being
  *  hand-copied (and left un-customized) per file. */
 export const userIdOrName = z
-  .union([anilistId, z.string().min(1)], {
+  .union([userId, z.string().min(1)], {
     // Same fix as media.ts's idsSchema: a plain string `error` fires for
     // every union-mismatch reason, so branch on `issue.input` to avoid
     // telling the caller "is required" when a wrongly-typed value WAS given.

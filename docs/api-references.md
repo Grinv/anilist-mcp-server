@@ -419,6 +419,19 @@ recommendations, likes`.
   `getUserStats()`/`getFullUserInfo()`, which guard the same way as a
   defensive-consistency measure even though `User` itself hasn't been
   observed returning the null-instead-of-404 shape live.
+- **`Recommendation(id)` is unreliable even for ids taken straight from
+  `Media(id){ recommendations { nodes{id} } }`** — confirmed live via raw
+  `curl` against `https://graphql.anilist.co` (independent of this server,
+  ruling out a client bug): of the 10 recommendation-node ids returned for
+  one title, 7 came back `Not Found` (404) on the root `Recommendation(id)`
+  lookup and 3 resolved. Retried the same ids moments later with identical
+  results (not request-timing flakiness), and the failures didn't correlate
+  with that pairing's `rating` (the highest- and lowest-rated ids in the
+  sample both failed; a middling one succeeded). No root cause identified —
+  this is an AniList-side inconsistency between the connection view and the
+  root lookup, not something `getRecommendation()`'s query is doing wrong.
+  `get_recommendation`'s tool description discloses this so a 404 there
+  isn't misread as "this pairing doesn't exist."
 - **`Studio(search:$search)` (the by-name path `get_studio`'s `name` param
   takes) does AniList's own fuzzy search, not an exact-name lookup** —
   confirmed live: `Studio(search:"Kyoto Anim")` resolved directly to Kyoto

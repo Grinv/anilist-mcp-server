@@ -502,6 +502,13 @@ CONTAINS`) lives on `MediaEdge.relationType`, again not on the node.
   describes (all-time vs a specific year, optionally narrowed to one
   season) — verified via introspection against `graphql.anilist.co` directly
   (AniList's hosted docs don't spell out per-field nullability here).
+- **`AiringSchedule.episode` can legitimately be `0`** — confirmed live
+  (querying `airingSchedules` broadly): the minimum value observed across a
+  50-item sample was `0`, not `1` (likely a prologue/recap airing before a
+  season's numbered run). `get_media`'s `nextAiringEpisode.episode` and
+  `get_anime_schedule`'s `scheduleItem.episode` are `.nonnegative()`, not
+  `.positive()`, specifically because of this — don't tighten it further
+  without re-checking live first.
 
 ### Recommendation (`recommendation.ts`)
 

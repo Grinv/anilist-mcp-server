@@ -31,10 +31,17 @@ src/
                   # user), matching src/tools/*. Tool handlers call these
                   # domain functions directly (e.g. `media.getMedia(client.ctx(), ...)`)
                   # rather than through a same-named method on AniListClient.
+                  # anilist/ids.ts — branded numeric-ID type aliases (MediaId,
+                  # ListEntryId, etc.), one per domain concept; every domain
+                  # file's exported functions take these instead of plain
+                  # `number` so e.g. a MediaId can't compile where a
+                  # ListEntryId is expected. Compile-time only — see the
+                  # file's own comment for why it has no zod runtime import.
   tools/          # misc.ts, activity.ts, list.ts, media.ts, notification.ts,
                   # people.ts, recommendation.ts, search.ts, thread.ts, user.ts,
                   # login.ts, guard.ts (never-throw wrapper), outputSchemas.ts
-                  # (shared output-schema fragments)
+                  # (shared output-schema fragments, incl. anilistId and its
+                  # per-domain branded variants — mediaId, listEntryId, etc.)
   prompts.ts      # MCP Prompts: multi-step plans that orchestrate the read tools
   __tests__/      # node:test (*.test.ts) + helpers.ts
 scripts/          # build-tests.mjs, run-tests.mjs, check-api.mjs, sync-version.mjs

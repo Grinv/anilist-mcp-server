@@ -280,10 +280,12 @@ export function registerUserTools(server: McpServer, client: AniListClient): voi
       title: "Get a user's most recent activity",
       description:
         "Get an AniList user's 5 most recent activity posts, with full content (not just IDs) " +
-        "— a fixed count, not configurable; use get_user_activity for a paginated full feed " +
-        "instead. Accepts an exact AniList username directly — no need to call search_user " +
-        "first unless you only have a partial/fuzzy name (username resolution costs one " +
-        "extra internal lookup either way).",
+        "— every activity type (list updates, text posts, and message activity they received; " +
+        "the underlying query applies no type filter of its own), a fixed count, not " +
+        "configurable; use get_user_activity for a paginated full feed instead. Accepts an " +
+        "exact AniList username directly — no need to call search_user first unless you only " +
+        "have a partial/fuzzy name (username resolution costs one extra internal lookup " +
+        "either way).",
       inputSchema: z.object({
         user: userIdOrName.describe(
           "AniList user ID, or username. Unlike search_activity's own `user` filter, both an " +

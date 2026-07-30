@@ -70,8 +70,10 @@ export function registerRecommendationTools(server: McpServer, client: AniListCl
       title: "Get a recommendation by ID",
       description:
         "Get a single AniList recommendation pairing (media + the media users recommend " +
-        "alongside it) by its AniList recommendation ID. Use get_recommendations_for_media " +
-        "first to discover recommendation IDs for a title.",
+        "alongside it) by its AniList recommendation ID — useful for re-checking one specific " +
+        "pairing's current `rating`/`userRating` (e.g. after voting on it) without " +
+        "re-paginating the whole list. Use get_recommendations_for_media instead to discover " +
+        "recommendation IDs for a title in the first place, or to browse/list them.",
       inputSchema: z.object({ id: anilistId.describe("AniList recommendation ID.") }),
       outputSchema: z.object({ recommendation: recommendationObject }),
       annotations: { readOnlyHint: true, openWorldHint: true },

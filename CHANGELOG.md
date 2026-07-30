@@ -9,21 +9,22 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Changed
 
 - Reject non-positive AniList IDs locally instead of sending them upstream, where such values always fail anyway. [069bbe4](https://github.com/Grinv/anilist-mcp-server/commit/069bbe4)
-- Reject negative values locally for numeric fields that can never be negative (counts, years, scores, etc.), instead of relying on AniList's own response. [069bbe4](https://github.com/Grinv/anilist-mcp-server/commit/069bbe4) [b80f321](https://github.com/Grinv/anilist-mcp-server/commit/b80f321)
+- Reject negative values locally for numeric fields that can never be negative (counts, years, scores, etc.). [069bbe4](https://github.com/Grinv/anilist-mcp-server/commit/069bbe4) [b80f321](https://github.com/Grinv/anilist-mcp-server/commit/b80f321)
 - Model activity results as their real type-specific shape (text/list-update/message), not one object mixing every type's fields. [069bbe4](https://github.com/Grinv/anilist-mcp-server/commit/069bbe4)
 - Validate URL fields (site links, avatar/cover/banner images, the AniList API base URLs) as real http/https URLs, not just strings. [069bbe4](https://github.com/Grinv/anilist-mcp-server/commit/069bbe4) [b80f321](https://github.com/Grinv/anilist-mcp-server/commit/b80f321)
+- Disclose that `add_list_entry`/`update_list_entry`'s `advancedScores` are positional — reordering categories later reinterprets written scores. [0a1aff4](https://github.com/Grinv/anilist-mcp-server/commit/0a1aff4)
+- Disclose that `post_thread`'s response omits `categories`/`isSticky`/`isLocked` — call `get_thread` afterward to confirm a change applied. [4a2a5ac](https://github.com/Grinv/anilist-mcp-server/commit/4a2a5ac)
+- Disclose that `post_thread_comment`'s `id` and `parentCommentId` refer to different comments — the branded type can't tell them apart. [4a2a5ac](https://github.com/Grinv/anilist-mcp-server/commit/4a2a5ac)
 - Disclose that `get_user_recent_activity` applies no activity-type filter, same as `get_user_activity`. [3ce5ca3](https://github.com/Grinv/anilist-mcp-server/commit/3ce5ca3)
-- Disclose that `add_list_entry`/`update_list_entry`'s `advancedScores` are stored positionally, so renaming/reordering the account's category order later silently reinterprets already-written scores. [0a1aff4](https://github.com/Grinv/anilist-mcp-server/commit/0a1aff4)
-- Disclose that `post_thread`'s own response omits `categories`/`mediaCategories`/`isSticky`/`isLocked` — call `get_thread` afterward to confirm a change actually applied. [4a2a5ac](https://github.com/Grinv/anilist-mcp-server/commit/4a2a5ac)
-- Disclose `login_anilist`'s actual default redirect URI (`http://localhost:8082/callback`) and its `ANILIST_OAUTH_PORT` override, needed before registering an AniList app. [c194eca](https://github.com/Grinv/anilist-mcp-server/commit/c194eca)
-- Clarify that `get_recommendation`'s rating/vote is cast on anilist.co directly — this server has no tool to vote on a recommendation itself. [a74780b](https://github.com/Grinv/anilist-mcp-server/commit/a74780b)
-- Clarify `get_media_reviews`' `rating`/`ratingAmount` are a review's community-helpfulness vote, distinct from `score` (the reviewer's own rating of the title) — results are sorted by the former, not the latter. [628c2df](https://github.com/Grinv/anilist-mcp-server/commit/628c2df)
-- Confirm `get_site_statistics`' `pageInfo.total`/`.lastPage` are accurate for this field, unlike this schema's usual degraded-pagination meaning elsewhere. [e024968](https://github.com/Grinv/anilist-mcp-server/commit/e024968)
+- Disclose `login_anilist`'s actual default redirect URI and its `ANILIST_OAUTH_PORT` override, needed before registering an AniList app. [c194eca](https://github.com/Grinv/anilist-mcp-server/commit/c194eca)
+- Clarify that `get_recommendation`'s rating/vote is cast on anilist.co directly — this server has no tool to vote itself. [a74780b](https://github.com/Grinv/anilist-mcp-server/commit/a74780b)
+- Clarify `get_media_reviews` sorts by `rating` (a review's community-helpfulness vote), not `score` (the reviewer's own rating). [628c2df](https://github.com/Grinv/anilist-mcp-server/commit/628c2df)
+- Confirm `get_site_statistics`' `pageInfo.total`/`.lastPage` are accurate here, unlike this schema's usual meaning elsewhere. [e024968](https://github.com/Grinv/anilist-mcp-server/commit/e024968)
 
 ### Fixed
 
-- Fix `get_anime_schedule`'s `notYetAired: false` description — it swaps to a past-only result set, it doesn't add already-aired episodes to the still-upcoming ones. [628c2df](https://github.com/Grinv/anilist-mcp-server/commit/628c2df)
-- Fix `get_recommendations_for_media`'s description pointing to the wrong field path (`mediaRecommendation.mediaListEntry`, not a top-level `mediaListEntry`). [a74780b](https://github.com/Grinv/anilist-mcp-server/commit/a74780b)
+- Fix `get_anime_schedule`'s `notYetAired: false` description — it swaps to a past-only result set, not an addition to upcoming ones. [628c2df](https://github.com/Grinv/anilist-mcp-server/commit/628c2df)
+- Fix `get_recommendations_for_media`'s description pointing to the wrong field path for `mediaListEntry`. [a74780b](https://github.com/Grinv/anilist-mcp-server/commit/a74780b)
 
 ## [0.6.0] - 2026-07-30
 

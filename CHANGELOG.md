@@ -12,6 +12,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- Relax `post_thread`'s `title`/`body` to required only when creating (no `id`) — confirmed live that AniList accepts an update omitting either, keeping the thread's existing value; also disclose `mediaCategories` is a full replace on update, same as `categories`. [c928316](https://github.com/Grinv/anilist-mcp-server/commit/c928316)
 - Fix `search_activity`'s description and `outputSchema`, both of which wrongly modeled results as bare IDs — the query already returns full activity content. [f1d0d61](https://github.com/Grinv/anilist-mcp-server/commit/f1d0d61)
 - Disclose that `get_user_activity`/`get_user_recent_activity` error on an unknown user, unlike `search_activity`'s own `user` filter, which silently returns empty. [4563fc0](https://github.com/Grinv/anilist-mcp-server/commit/4563fc0)
 - Cap `get_media`'s `ids` array at 25 entries — it previously had no upper bound, and a batch of hundreds succeeded live against AniList with no cap, each entry carrying the full synopsis/tags/rankings. [8d9eba7](https://github.com/Grinv/anilist-mcp-server/commit/8d9eba7)

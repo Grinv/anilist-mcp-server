@@ -8,7 +8,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
-- Raise the minimum supported Node.js version to ≥ 20.9.0 (was ≥ 20) — Node 20's first LTS point release. [6adffb4](https://github.com/Grinv/anilist-mcp-server/commit/6adffb4)
+- Raise the minimum supported Node.js version to ≥ 20.11.0 (was ≥ 20). [6adffb4](https://github.com/Grinv/anilist-mcp-server/commit/6adffb4) [90c540d](https://github.com/Grinv/anilist-mcp-server/commit/90c540d)
 
 ### Fixed
 

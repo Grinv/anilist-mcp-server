@@ -182,6 +182,11 @@ completedAt: FuzzyDateInput)` — note **`advancedScores`** is plural (a
     third-party wrapper library shipped a mismatched singular `advancedScore`
     in its own hand-written mutation string, which is part of why its writes
     never worked — see AGENTS.md's "Why this server exists").
+  - **`repeat`/`priority`/`notes`'s 1000/255/6000 caps are AniList's own
+    documented schema constraints, not this project's guess** — confirmed via
+    introspection of `SaveMediaListEntry`'s arg descriptions: `repeat`: "...
+    (Min: 0, Max: 1000)"; `priority`: "Priority of planning (Min: 0, Max:
+    255)"; `notes`: "Text notes (Min: 0, Max: 6000)".
   - **Omitting `status` on create does NOT default to `PLANNING`** — confirmed
     live twice (a completely bare `SaveMediaListEntry(mediaId)` call) — the
     API defaults to **`CURRENT`**, with `startedAt` auto-set to today. AniList's
@@ -345,10 +350,17 @@ The categories field is required when id is not present.)`.
     thread: created with `categories:[7]` (General), then updated with
     `categories:[1]` (Anime) alone — the thread ended up with `categories:
 [{id:1,name:"Anime"}]` only, category 7 silently dropped rather than
-    both being present. Whether omitting `categories` entirely on an update
-    leaves the existing set untouched was NOT tested (hit AniList's
-    "too many threads created recently" 1-minute rate limit mid-sequence);
-    don't assume either way until confirmed.
+    both being present. **`mediaCategories` behaves identically when set on
+    an update** — confirmed live the same way (created with `[21]`, updated
+    with `[16498]` alone, ended up with `[16498]` only).
+  - **Omitting `title`/`body`/`categories` entirely on an update (as opposed
+    to setting them) leaves the existing value untouched** — confirmed live
+    via a raw `SaveThread(id:$id, mediaCategories:$mc)` call passing no
+    `title`/`body`/`categories` at all: the thread's title, body, and
+    category stayed exactly as created. `post_thread`'s `title`/`body` are
+    accordingly required only when creating (no `id`), same as
+    `categories` — not required on every call the way the tool originally
+    (incorrectly) enforced.
 - **`Media` query/filter args** (also valid on `Page.media(...)`, same
   arg set): `search, type, sort: [MediaSort], isAdult, genre_in: [String],
 format_in: [MediaFormat], status_in: [MediaStatus], season: MediaSeason,

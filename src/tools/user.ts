@@ -278,7 +278,13 @@ export function registerUserTools(server: McpServer, client: AniListClient): voi
         "instead. Accepts an exact AniList username directly — no need to call search_user " +
         "first unless you only have a partial/fuzzy name (username resolution costs one " +
         "extra internal lookup either way).",
-      inputSchema: z.object({ user: userIdOrName }),
+      inputSchema: z.object({
+        user: userIdOrName.describe(
+          "AniList user ID, or username. Unlike search_activity's own `user` filter, both an " +
+            "unknown numeric ID and an unknown username error here rather than silently " +
+            "returning an empty feed.",
+        ),
+      }),
       outputSchema: z.object({
         activity: z
           .object({

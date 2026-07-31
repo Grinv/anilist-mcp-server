@@ -72,8 +72,14 @@ export async function searchMedia(
   // An empty/whitespace-only term must behave like an omitted one (the
   // documented term-less browse/ranking mode) rather than being sent to
   // AniList as a literal `search: ""`, which matches nothing and silently
-  // returns zero results.
-  const search = opts.term?.trim() ? opts.term : undefined;
+  // returns zero results. Trim so stray surrounding whitespace isn't sent
+  // either.
+  const search = opts.term?.trim() || undefined;
+  // SEARCH_MATCH ranks by relevance to `search`, so it's meaningless without a
+  // term. Default to it only when there's actually a term; a term-less call
+  // with no explicit sort browses in AniList's own default order instead of a
+  // relevance ranking against nothing.
+  const sort = opts.sort ?? (search ? ["SEARCH_MATCH"] : undefined);
   const data = await ctx.gql.request<{ Page: unknown }>(
     query,
     {
@@ -81,7 +87,7 @@ export async function searchMedia(
       type,
       page: opts.page ?? 1,
       perPage: opts.perPage ?? 10,
-      sort: opts.sort ?? ["SEARCH_MATCH"],
+      sort,
       isAdult: f.isAdult,
       genre_in: f.genre_in,
       format_in: f.format_in,

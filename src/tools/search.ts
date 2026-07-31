@@ -214,8 +214,9 @@ const mediaSearchInput = z.object({
     .describe(
       'Sort order, most-significant key first (e.g. ["SCORE_DESC"] for highest-rated first, ' +
         '["POPULARITY_DESC"] for most popular, ["TRENDING_DESC"] for what\'s hot right now). ' +
-        "Defaults to relevance-ranked SEARCH_MATCH, which only makes sense when `term` is also " +
-        "given — set an explicit sort for a term-less browse/ranking query.",
+        "Defaults to relevance-ranked SEARCH_MATCH when a `term` is given; with no term and no " +
+        "explicit sort, results come back in AniList's own default order. Set an explicit sort " +
+        "for a term-less ranking/browse query (e.g. top-rated or most-popular).",
     ),
   includeDescription: z
     .boolean()

@@ -1,8 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { createLogger, type LogLevel } from "../lib/logger.js";
-
-type SinkCall = { level: Exclude<LogLevel, "silent">; message: string };
+import { createLogger } from "../lib/logger.js";
 
 function captureStderr<T>(fn: () => T): { result: T; lines: string[] } {
   const lines: string[] = [];
@@ -17,66 +15,57 @@ function captureStderr<T>(fn: () => T): { result: T; lines: string[] } {
   }
 }
 
-test("sink mirrors every emitted line with its level", () => {
-  const calls: SinkCall[] = [];
-  captureStderr(() => {
-    const log = createLogger("debug", (level, message) => calls.push({ level, message }));
+test("emits every level to stderr with its label", () => {
+  const { lines } = captureStderr(() => {
+    const log = createLogger("debug");
     log.debug("d");
     log.info("i");
     log.warn("w");
     log.error("e");
   });
-  assert.deepEqual(calls, [
-    { level: "debug", message: "d" },
-    { level: "info", message: "i" },
-    { level: "warn", message: "w" },
-    { level: "error", message: "e" },
+  assert.deepEqual(lines, [
+    "[anilist-mcp-server] debug: d",
+    "[anilist-mcp-server] info: i",
+    "[anilist-mcp-server] warn: w",
+    "[anilist-mcp-server] error: e",
   ]);
 });
 
-test("sink is gated by the same threshold as stderr", () => {
-  const calls: SinkCall[] = [];
-  captureStderr(() => {
-    const log = createLogger("warn", (level, message) => calls.push({ level, message }));
+test("stderr output is gated by the configured threshold", () => {
+  const { lines } = captureStderr(() => {
+    const log = createLogger("warn");
     log.debug("d");
     log.info("i");
     log.warn("w");
     log.error("e");
   });
-  assert.deepEqual(
-    calls.map((c) => c.level),
-    ["warn", "error"],
-  );
+  assert.deepEqual(lines, ["[anilist-mcp-server] warn: w", "[anilist-mcp-server] error: e"]);
 });
 
-test("silent level emits to neither stderr nor sink", () => {
-  const calls: SinkCall[] = [];
+test("silent level emits nothing", () => {
   const { lines } = captureStderr(() => {
-    const log = createLogger("silent", (level, message) => calls.push({ level, message }));
+    const log = createLogger("silent");
     log.error("e");
   });
-  assert.equal(calls.length, 0);
   assert.equal(lines.length, 0);
 });
 
-test("messages reach the sink already redacted", () => {
-  const calls: SinkCall[] = [];
-  captureStderr(() => {
-    const log = createLogger("info", (level, message) => calls.push({ level, message }));
+test("credentials are redacted before reaching stderr", () => {
+  const { lines } = captureStderr(() => {
+    const log = createLogger("info");
     log.info("calling https://api.example.test/x?access_token=supersecret&v=1");
   });
-  assert.equal(calls.length, 1);
-  assert.match(calls[0]!.message, /access_token=\*\*\*/);
-  assert.doesNotMatch(calls[0]!.message, /supersecret/);
+  assert.equal(lines.length, 1);
+  assert.match(lines[0]!, /access_token=\*\*\*/);
+  assert.doesNotMatch(lines[0]!, /supersecret/);
 });
 
-test("a throwing sink never breaks logging", () => {
+test("extra args are stringified and redacted", () => {
   const { lines } = captureStderr(() => {
-    const log = createLogger("info", () => {
-      throw new Error("sink blew up");
-    });
-    assert.doesNotThrow(() => log.info("still logs"));
+    const log = createLogger("info");
+    log.info("headers", { Authorization: "Bearer supersecret" });
   });
   assert.equal(lines.length, 1);
-  assert.match(lines[0]!, /still logs/);
+  assert.match(lines[0]!, /Bearer \*\*\*/);
+  assert.doesNotMatch(lines[0]!, /supersecret/);
 });

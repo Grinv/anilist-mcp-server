@@ -3,7 +3,7 @@
 // JWTs (~1 year); once one expires, re-authentication via login_anilist is
 // the only way to renew it. The file is created 0600 inside the user's OS
 // config directory.
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir, platform } from "node:os";
 import { dirname, join } from "node:path";
 import { z } from "zod";
@@ -60,6 +60,12 @@ export class TokenStore {
     // file inherits directory ACLs) — best effort, no error there.
     mkdirSync(dirname(this.#path), { recursive: true, mode: 0o700 });
     writeFileSync(this.#path, JSON.stringify(state, null, 2), { mode: 0o600 });
+    // `mode` above only applies when the file is newly created; overwriting a
+    // pre-existing (possibly looser) tokens.json — from a backup, an older
+    // tool, or an operator-supplied ANILIST_TOKEN_STORE path — leaves its old
+    // perms untouched. Re-assert 0600 so a save always tightens a stored
+    // ~1-year JWT. POSIX only; Windows has no equivalent and inherits dir ACLs.
+    if (platform() !== "win32") chmodSync(this.#path, 0o600);
   }
 }
 

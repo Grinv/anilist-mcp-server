@@ -60,7 +60,15 @@ export const deleteToolAnnotations = {
  *  by `get_site_statistics`: its `perPage` describes a different cap
  *  (AniList's own, not this schema's) and needs its own wording. */
 export const paginationFields = (defaultPerPage: number) => ({
-  page: z.int().positive().default(1).describe("Page number for pagination."),
+  page: z
+    .int()
+    .positive()
+    .default(1)
+    .describe(
+      "Page number for pagination. AniList caps pagination depth at " +
+        "page × perPage ≤ 5000 entries; a deeper page returns an upstream " +
+        "error rather than more results.",
+    ),
   perPage: z
     .int()
     .positive()

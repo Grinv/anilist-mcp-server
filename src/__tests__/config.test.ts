@@ -2,23 +2,23 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { loadConfig } from "../config.js";
 
-test("no credentials → not configured", () => {
+test("no credentials → cannot log in, defaults apply", () => {
   const c = loadConfig({});
-  assert.equal(c.auth.configured, false);
   assert.equal(c.auth.canLogin, false);
+  assert.equal(c.auth.accessToken, undefined);
   assert.equal(c.graphqlUrl, "https://graphql.anilist.co");
 });
 
-test("access token only → configured", () => {
+test("access token only → token is read, but cannot start a login", () => {
   const c = loadConfig({ ANILIST_ACCESS_TOKEN: "tok" });
-  assert.equal(c.auth.configured, true);
+  assert.equal(c.auth.accessToken, "tok");
   assert.equal(c.auth.canLogin, false);
 });
 
-test("client id + secret → can log in, but not configured until login completes", () => {
+test("client id + secret → can log in", () => {
   const c = loadConfig({ ANILIST_CLIENT_ID: "id", ANILIST_CLIENT_SECRET: "secret" });
   assert.equal(c.auth.canLogin, true);
-  assert.equal(c.auth.configured, false);
+  assert.equal(c.auth.accessToken, undefined);
 });
 
 test("client id alone (no secret) → cannot log in", () => {
@@ -28,7 +28,7 @@ test("client id alone (no secret) → cannot log in", () => {
 
 test("empty-string values are treated as unset (mcpb passes unset config as '')", () => {
   const c = loadConfig({ ANILIST_ACCESS_TOKEN: "", ANILIST_CLIENT_ID: "", LOG_LEVEL: "" });
-  assert.equal(c.auth.configured, false);
+  assert.equal(c.auth.accessToken, undefined);
   assert.equal(c.logLevel, "info"); // default still applies
 });
 
@@ -38,9 +38,8 @@ test("unsubstituted .mcpb placeholders are treated as unset", () => {
     ANILIST_ACCESS_TOKEN: "${user_config.anilist_access_token}",
     ANILIST_CLIENT_ID: "${user_config.anilist_client_id}",
   });
-  // Must NOT be taken as real credentials (else `configured` → true → tools
-  // would try to authenticate with garbage).
-  assert.equal(c.auth.configured, false);
+  // Must NOT be taken as real credentials, or tools would try to authenticate
+  // with garbage.
   assert.equal(c.auth.accessToken, undefined);
   assert.equal(c.auth.clientId, undefined);
 });

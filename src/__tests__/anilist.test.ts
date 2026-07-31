@@ -211,21 +211,45 @@ test("searchMedia passes isAdult through when set, and omits it when left undefi
   assert.equal(vars.isAdult, false);
 });
 
-test("searchMedia sends the caller's sort, or SEARCH_MATCH when omitted", async (t) => {
+test("searchMedia defaults sort to SEARCH_MATCH only when a term is present, and trims the term", async (t) => {
   const mock = mockFetch(() => jsonResponse({ data: { Page: { media: [] } } }));
   installFetch(t, mock);
-  const client = new AniListClient(testConfig({}), silentLogger());
+  // Disable the read cache (else the no-term and whitespace-term calls, which
+  // build identical variables, would collapse to one fetch) and the throttle.
+  const client = new AniListClient(
+    testConfig({ CACHE_TTL_MS: "0", ANILIST_MIN_INTERVAL_MS: "0" }),
+    silentLogger(),
+  );
+  const varsOf = (i: number) =>
+    JSON.parse(mock.calls[i]!.init?.body as string).variables as Record<string, unknown>;
 
+  // A term with no explicit sort → relevance ranking.
+  await search.searchMedia(client.ctx(), "ANIME", { term: "frieren", filter: {} });
+  assert.equal(varsOf(0).search, "frieren");
+  assert.deepEqual(varsOf(0).sort, ["SEARCH_MATCH"], "relevance sort when a term is given");
+
+  // No term and no explicit sort → AniList's own default order (sort omitted),
+  // since ranking by relevance to no term is meaningless.
   await search.searchMedia(client.ctx(), "ANIME", { filter: {} });
-  let vars = JSON.parse(mock.calls[0]!.init?.body as string).variables as Record<string, unknown>;
-  assert.deepEqual(vars.sort, ["SEARCH_MATCH"], "default sort when none is given");
+  assert.equal(varsOf(1).search, undefined);
+  assert.equal(varsOf(1).sort, undefined, "no default sort for a term-less browse");
 
+  // A whitespace-only term is treated as no term at all (dropped, no relevance sort).
+  await search.searchMedia(client.ctx(), "ANIME", { term: "   ", filter: {} });
+  assert.equal(varsOf(2).search, undefined, "whitespace-only term is dropped");
+  assert.equal(varsOf(2).sort, undefined);
+
+  // Surrounding whitespace on a real term is trimmed before sending.
+  await search.searchMedia(client.ctx(), "ANIME", { term: "  bebop  ", filter: {} });
+  assert.equal(varsOf(3).search, "bebop", "term is trimmed");
+  assert.deepEqual(varsOf(3).sort, ["SEARCH_MATCH"]);
+
+  // An explicit sort is always passed through unchanged.
   await search.searchMedia(client.ctx(), "ANIME", {
     sort: ["SCORE_DESC", "POPULARITY_DESC"],
     filter: {},
   });
-  vars = JSON.parse(mock.calls[1]!.init?.body as string).variables as Record<string, unknown>;
-  assert.deepEqual(vars.sort, ["SCORE_DESC", "POPULARITY_DESC"]);
+  assert.deepEqual(varsOf(4).sort, ["SCORE_DESC", "POPULARITY_DESC"]);
 });
 
 test("getRecommendationsForMedia requests mediaListEntry and, when excludeInList is set, filters out recommendations already on the caller's list", async (t) => {

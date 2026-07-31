@@ -6,6 +6,22 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- Document AniList's `page × perPage ≤ 5000` pagination-depth cap on the shared `page` field: a deeper page returns an upstream error rather than more results (confirmed live on both a top-level search and a nested media connection).
+- `search_media` no longer defaults `sort` to SEARCH_MATCH for a term-less (or whitespace-only) query, where a relevance ranking against no term is meaningless; such a query now browses in AniList's own default order, and a term is trimmed before it's sent.
+
+### Removed
+
+- Remove the unused `LogSink` mirror channel from `lib/logger.ts`; it was never wired to a sink, and its only reference was to `notifications/message`, an MCP logging capability this server intentionally doesn't implement.
+- Remove the vestigial `allowScripts` field from `package.json`; it's a pnpm/lavamoat concept with no effect under npm, carried over from the shared template.
+- Remove the dead `auth.configured` config field; nothing read it (production uses `AniListClient.isConfigured()`, which also accounts for a token-store login obtained after startup).
+
+### Security
+
+- Re-assert `0600` on the token store file after every write (POSIX), not only when it's first created, so overwriting a pre-existing `tokens.json` left with looser permissions tightens it back to owner-only.
+- Route the fatal startup-error message in `index.ts` through `redact()`, closing the one stderr path that bypassed it so a future error carrying a credential can't leak it.
+
 ## [0.7.0] - 2026-07-30
 
 ### Changed

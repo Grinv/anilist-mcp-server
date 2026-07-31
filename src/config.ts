@@ -60,13 +60,6 @@ const ConfigSchema = EnvSchema.transform((env) => ({
      *  issues both together for every app; there is no MAL-style "public vs
      *  confidential app type" pitfall here. */
     canLogin: Boolean(env.ANILIST_CLIENT_ID && env.ANILIST_CLIENT_SECRET),
-    /** Has an env-provided access token → personal/mutation tools are usable.
-     *  This is a startup snapshot from env only — it does NOT see a token
-     *  obtained later via login_anilist (that lives in the on-disk token
-     *  store). Nothing in this codebase currently reads this field; use
-     *  `AniListClient.isConfigured()` for the live answer, which does account
-     *  for a token store loaded after startup. */
-    configured: Boolean(env.ANILIST_ACCESS_TOKEN),
   },
 }));
 

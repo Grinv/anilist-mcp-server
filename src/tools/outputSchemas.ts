@@ -65,9 +65,11 @@ export const paginationFields = (defaultPerPage: number) => ({
     .positive()
     .default(1)
     .describe(
-      "Page number for pagination. AniList caps pagination depth at " +
-        "page × perPage ≤ 5000 entries; a deeper page returns an upstream " +
-        "error rather than more results.",
+      "Page number for pagination. AniList's paginated connections (search " +
+        "results, a title's characters/staff/reviews, activity feeds, forum " +
+        "comments) reject a page whose page × perPage exceeds ~5000 entries " +
+        "with an upstream error, so paging that deep fails rather than " +
+        "returning more results.",
     ),
   perPage: z
     .int()

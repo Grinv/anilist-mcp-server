@@ -12,7 +12,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
-- Document AniList's `page × perPage ≤ 5000` pagination-depth cap on the shared `page` field: a deeper page returns an upstream error rather than more results (confirmed live on both a top-level search and a nested media connection).
+- Document AniList's `page × perPage ≤ 5000` pagination-depth cap on the shared `page` field: for AniList's paginated connections a deeper page returns an upstream error rather than more results (confirmed live on a top-level search and a nested media connection; flat lists like `get_media_tags` page client-side and aren't subject to it).
 - `search_media` no longer defaults `sort` to SEARCH_MATCH for a term-less (or whitespace-only) query, where a relevance ranking against no term is meaningless; such a query now browses in AniList's own default order, and a term is trimmed before it's sent.
 - Model `get_todays_birthdays` output as a single loose array instead of a `character | staff` union that was degenerate (a staff entry already validated as a character), matching the lighter shape the query actually returns.
 - Centralize the four AniList enums re-typed across both layers (`MEDIA_TYPES`, `MEDIA_LIST_STATUSES`, `FAVOURITE_KINDS`, birthday kinds) in `clients/anilist/enums.ts`, deriving each domain-function signature type from the same `as const` array the Zod schemas validate against, so a value change can't update one copy and leave the other stale.

@@ -6,12 +6,18 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- Add a `prepublishOnly` build guard so a manual `npm publish` can't ship a stale or missing `dist` (the CI release path already builds first).
+
 ### Changed
 
 - Document AniList's `page × perPage ≤ 5000` pagination-depth cap on the shared `page` field: a deeper page returns an upstream error rather than more results (confirmed live on both a top-level search and a nested media connection).
 - `search_media` no longer defaults `sort` to SEARCH_MATCH for a term-less (or whitespace-only) query, where a relevance ranking against no term is meaningless; such a query now browses in AniList's own default order, and a term is trimmed before it's sent.
 - Model `get_todays_birthdays` output as a single loose array instead of a `character | staff` union that was degenerate (a staff entry already validated as a character), matching the lighter shape the query actually returns.
 - Centralize the four AniList enums re-typed across both layers (`MEDIA_TYPES`, `MEDIA_LIST_STATUSES`, `FAVOURITE_KINDS`, birthday kinds) in `clients/anilist/enums.ts`, deriving each domain-function signature type from the same `as const` array the Zod schemas validate against, so a value change can't update one copy and leave the other stale.
+- Reword `get_anime_schedule`'s description: a manga id is still rejected rather than silently returning an empty schedule, but the error is a plain not-found (the same one a nonexistent id gives), not a message that singles out the manga/anime mismatch.
+- Document that `donatorBadge` comes back as `"Donator"` even when `donatorTier` is 0 (an AniList-side default label), so it isn't a reliable donator signal; check `donatorTier` instead.
 
 ### Removed
 

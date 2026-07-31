@@ -130,6 +130,17 @@ const userOptionsFields = {
     .nullish(),
 };
 
+// AniList returns donatorBadge as the literal string "Donator" even for a
+// non-donator (donatorTier: 0); confirmed live across multiple accounts. It's
+// an AniList-side default label, not a reliable "is a donator" signal.
+const donatorBadgeOut = z
+  .string()
+  .nullish()
+  .describe(
+    'AniList returns "Donator" here even when donatorTier is 0 (an upstream default label), ' +
+      "so it does not prove the user is a donator; check donatorTier > 0 for that.",
+  );
+
 /** USER_FIELDS — only `id` is guaranteed; the rest is nullable/absent
  *  depending on what the account has actually set. */
 const userProfileObject = z
@@ -141,7 +152,7 @@ const userProfileObject = z
     bannerImage: z.httpUrl().nullish(),
     siteUrl: z.httpUrl().nullish(),
     donatorTier: z.int().nonnegative().nullish(),
-    donatorBadge: z.string().nullish(),
+    donatorBadge: donatorBadgeOut,
     isFollowing: z.boolean().nullish(),
     isFollower: z.boolean().nullish(),
     ...userOptionsFields,
@@ -184,7 +195,7 @@ const fullUserObject = z
     bannerImage: z.httpUrl().nullish(),
     siteUrl: z.httpUrl().nullish(),
     donatorTier: z.int().nonnegative().nullish(),
-    donatorBadge: z.string().nullish(),
+    donatorBadge: donatorBadgeOut,
     isFollowing: z.boolean().nullish(),
     isFollower: z.boolean().nullish(),
     ...userOptionsFields,
@@ -204,7 +215,7 @@ const updateUserResult = z
     id: anilistId,
     name: z.string().nullish(),
     about: z.string().nullish(),
-    donatorBadge: z.string().nullish(),
+    donatorBadge: donatorBadgeOut,
     ...userOptionsFields,
   })
   .loose();

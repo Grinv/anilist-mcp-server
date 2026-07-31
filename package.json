@@ -42,6 +42,7 @@
     "typecheck": "tsc --noEmit",
     "typecheck:scripts": "tsc -p tsconfig.scripts.json",
     "build": "npm run typecheck && tsup",
+    "prepublishOnly": "npm run build",
     "build:tests": "node scripts/build-tests.mjs",
     "test": "npm run build:tests && node scripts/run-tests.mjs",
     "test:coverage": "npm run build:tests && node scripts/run-tests.mjs --coverage",

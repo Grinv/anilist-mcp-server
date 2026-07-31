@@ -499,8 +499,9 @@ export function registerMediaTools(server: McpServer, client: AniListClient): vo
         "Get upcoming (or a specific title's) episode air times, soonest-airing first " +
         "(confirmed live). Omit `mediaId` for the site-wide upcoming schedule, or pass it " +
         "(from search_media/get_media) to get one title's next-episode air time. Anime only " +
-        "— manga has no airing schedule; a manga id is rejected with a clear error rather than " +
-        "silently returning an empty schedule.",
+        "— manga has no airing schedule; a manga id (like any non-anime id) is rejected as " +
+        "not-found rather than silently returning an empty schedule, though that error reads the " +
+        "same as a nonexistent id and doesn't single out the manga/anime mismatch.",
       inputSchema: z.object({
         mediaId: mediaId.optional().describe("Restrict to this AniList anime ID (not manga)."),
         notYetAired: z

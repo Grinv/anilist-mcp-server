@@ -6,6 +6,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.7.1] - 2026-07-31
+
 ### Changed
 
 - Stop defaulting `search_media`'s `sort` to SEARCH_MATCH for a term-less or whitespace query; it now browses in AniList's own order, and the term is trimmed. [53c4592](https://github.com/Grinv/anilist-mcp-server/commit/53c4592)

@@ -51,6 +51,25 @@ const staffObject = z
   })
   .loose();
 
+// get_todays_birthdays fetches the lighter CHARACTER_FIELDS/STAFF_FIELDS shape
+// (no media/staffMedia filmography), and a CHARACTER and a STAFF entry share
+// every field except staff's `primaryOccupations`. One loose object models
+// both: a union of the two loose shapes would be degenerate anyway, since a
+// staff object — .loose() with only `id` required — already validates as a
+// character, leaving the staff branch unreachable.
+const birthdayObject = z
+  .object({
+    id: anilistId,
+    name: z.object({ full: z.string().nullish(), native: z.string().nullish() }).nullish(),
+    image: z.object({ large: z.httpUrl().nullish() }).nullish(),
+    description: z.string().nullish(),
+    primaryOccupations: z.array(z.string()).nullish(), // STAFF entries only
+    favourites: z.int().nonnegative().nullish(),
+    isFavourite: favouriteOut("character or staff member"),
+    siteUrl: z.httpUrl().nullish(),
+  })
+  .loose();
+
 const BIRTHDAY_KINDS = ["CHARACTER", "STAFF"] as const;
 
 export function registerPeopleTools(server: McpServer, client: AniListClient): void {
@@ -102,7 +121,7 @@ export function registerPeopleTools(server: McpServer, client: AniListClient): v
         kind: z.enum(BIRTHDAY_KINDS).describe("Whether to list characters or staff members."),
       }),
       outputSchema: z.object({
-        results: z.union([z.array(characterObject), z.array(staffObject)]),
+        results: z.array(birthdayObject),
       }),
       annotations: { readOnlyHint: true, openWorldHint: true },
     },

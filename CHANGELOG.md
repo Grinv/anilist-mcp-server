@@ -10,12 +10,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - Document AniList's `page × perPage ≤ 5000` pagination-depth cap on the shared `page` field: a deeper page returns an upstream error rather than more results (confirmed live on both a top-level search and a nested media connection).
 - `search_media` no longer defaults `sort` to SEARCH_MATCH for a term-less (or whitespace-only) query, where a relevance ranking against no term is meaningless; such a query now browses in AniList's own default order, and a term is trimmed before it's sent.
+- Model `get_todays_birthdays` output as a single loose array instead of a `character | staff` union that was degenerate (a staff entry already validated as a character), matching the lighter shape the query actually returns.
 
 ### Removed
 
 - Remove the unused `LogSink` mirror channel from `lib/logger.ts`; it was never wired to a sink, and its only reference was to `notifications/message`, an MCP logging capability this server intentionally doesn't implement.
 - Remove the vestigial `allowScripts` field from `package.json`; it's a pnpm/lavamoat concept with no effect under npm, carried over from the shared template.
 - Remove the dead `auth.configured` config field; nothing read it (production uses `AniListClient.isConfigured()`, which also accounts for a token-store login obtained after startup).
+- Remove `RateLimiter`'s unused sliding-window `rules`/`RateRule` support; only the min-interval spacer is wired in, and AniList publishes a single per-minute limit that even spacing already satisfies, so the window bookkeeping was dead weight.
 
 ### Security
 

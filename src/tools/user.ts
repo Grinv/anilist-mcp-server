@@ -137,8 +137,9 @@ const donatorBadgeOut = z
   .string()
   .nullish()
   .describe(
-    'AniList returns "Donator" here even when donatorTier is 0 (an upstream default label), ' +
-      "so it does not prove the user is a donator; check donatorTier > 0 for that.",
+    'AniList returns "Donator" here even for a non-donator (donatorTier 0); it\'s an upstream ' +
+      "default label, not proof the user donates. A user's donatorTier (0 = non-donator) is the " +
+      "real signal.",
   );
 
 /** USER_FIELDS — only `id` is guaranteed; the rest is nullable/absent

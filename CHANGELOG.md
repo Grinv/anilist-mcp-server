@@ -6,30 +6,18 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-### Added
-
-- Add a `prepublishOnly` build guard so a manual `npm publish` can't ship a stale or missing `dist` (the CI release path already builds first).
-
 ### Changed
 
-- Document AniList's `page × perPage ≤ 5000` pagination-depth cap on the shared `page` field: for AniList's paginated connections a deeper page returns an upstream error rather than more results (confirmed live on a top-level search and a nested media connection; flat lists like `get_media_tags` page client-side and aren't subject to it).
-- `search_media` no longer defaults `sort` to SEARCH_MATCH for a term-less (or whitespace-only) query, where a relevance ranking against no term is meaningless; such a query now browses in AniList's own default order, and a term is trimmed before it's sent.
-- Model `get_todays_birthdays` output as a single loose array instead of a `character | staff` union that was degenerate (a staff entry already validated as a character), matching the lighter shape the query actually returns.
-- Centralize the four AniList enums re-typed across both layers (`MEDIA_TYPES`, `MEDIA_LIST_STATUSES`, `FAVOURITE_KINDS`, birthday kinds) in `clients/anilist/enums.ts`, deriving each domain-function signature type from the same `as const` array the Zod schemas validate against, so a value change can't update one copy and leave the other stale.
-- Reword `get_anime_schedule`'s description: a manga id is still rejected rather than silently returning an empty schedule, but the error is a plain not-found (the same one a nonexistent id gives), not a message that singles out the manga/anime mismatch.
-- Document that `donatorBadge` comes back as `"Donator"` even when `donatorTier` is 0 (an AniList-side default label), so it isn't a reliable donator signal; check `donatorTier` instead.
-
-### Removed
-
-- Remove the unused `LogSink` mirror channel from `lib/logger.ts`; it was never wired to a sink, and its only reference was to `notifications/message`, an MCP logging capability this server intentionally doesn't implement.
-- Remove the vestigial `allowScripts` field from `package.json`; it's a pnpm/lavamoat concept with no effect under npm, carried over from the shared template.
-- Remove the dead `auth.configured` config field; nothing read it (production uses `AniListClient.isConfigured()`, which also accounts for a token-store login obtained after startup).
-- Remove `RateLimiter`'s unused sliding-window `rules`/`RateRule` support; only the min-interval spacer is wired in, and AniList publishes a single per-minute limit that even spacing already satisfies, so the window bookkeeping was dead weight.
+- Stop defaulting `search_media`'s `sort` to SEARCH_MATCH for a term-less or whitespace query; it now browses in AniList's own order, and the term is trimmed. [53c4592](https://github.com/Grinv/anilist-mcp-server/commit/53c4592)
+- Model `get_todays_birthdays`' output as a single list instead of a degenerate `character | staff` union. [3f2f93b](https://github.com/Grinv/anilist-mcp-server/commit/3f2f93b)
+- Reword `get_anime_schedule`: a manga id is rejected as not-found, not silently returned as an empty schedule. [53c4a8f](https://github.com/Grinv/anilist-mcp-server/commit/53c4a8f)
+- Document AniList's ~5000-entry page-depth cap on paginated connections (search, characters/staff/reviews, activity, comments). [53c4592](https://github.com/Grinv/anilist-mcp-server/commit/53c4592) [513da8d](https://github.com/Grinv/anilist-mcp-server/commit/513da8d)
+- Note that `donatorBadge` reads `"Donator"` even at `donatorTier` 0, so it isn't a donator signal. [53c4a8f](https://github.com/Grinv/anilist-mcp-server/commit/53c4a8f) [0f483e3](https://github.com/Grinv/anilist-mcp-server/commit/0f483e3)
 
 ### Security
 
-- Re-assert `0600` on the token store file after every write (POSIX), not only when it's first created, so overwriting a pre-existing `tokens.json` left with looser permissions tightens it back to owner-only.
-- Route the fatal startup-error message in `index.ts` through `redact()`, closing the one stderr path that bypassed it so a future error carrying a credential can't leak it.
+- Re-assert `0600` on the token store file on every write, so overwriting a looser pre-existing `tokens.json` re-tightens it. [53c4592](https://github.com/Grinv/anilist-mcp-server/commit/53c4592)
+- Route the fatal startup error through `redact()`, closing the one stderr path that bypassed credential redaction. [53c4592](https://github.com/Grinv/anilist-mcp-server/commit/53c4592)
 
 ## [0.7.0] - 2026-07-30
 

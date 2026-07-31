@@ -1,6 +1,7 @@
 import type { AniListContext } from "./context.js";
 import { assertFound } from "../../lib/errors.js";
 import type { CharacterId, StaffId } from "./ids.js";
+import type { BirthdayKind } from "./enums.js";
 import {
   CHARACTER_FIELDS,
   CHARACTER_DETAIL_FIELDS,
@@ -22,7 +23,7 @@ export async function getStaff(ctx: AniListContext, id: StaffId): Promise<unknow
 
 export async function getTodaysBirthdays(
   ctx: AniListContext,
-  kind: "CHARACTER" | "STAFF",
+  kind: BirthdayKind,
 ): Promise<unknown> {
   const field = kind === "CHARACTER" ? "characters" : "staff";
   const fields = kind === "CHARACTER" ? CHARACTER_FIELDS : STAFF_FIELDS;

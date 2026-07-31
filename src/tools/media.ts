@@ -3,6 +3,7 @@ import type { McpServer } from "@modelcontextprotocol/server";
 import type { AniListClient } from "../clients/anilist.js";
 import * as media from "../clients/anilist/media.js";
 import * as favourites from "../clients/anilist/favourites.js";
+import { FAVOURITE_KINDS } from "../clients/anilist/enums.js";
 import { jsonResult } from "../lib/result.js";
 import { guard } from "./guard.js";
 import {
@@ -329,8 +330,6 @@ const scheduleItem = z
       .nullish(),
   })
   .loose();
-
-const FAVOURITE_KINDS = ["ANIME", "MANGA", "CHARACTER", "STAFF", "STUDIO"] as const;
 
 export function registerMediaTools(server: McpServer, client: AniListClient): void {
   server.registerTool(

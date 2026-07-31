@@ -1,11 +1,12 @@
 import type { AniListContext } from "./context.js";
 import { ApiError } from "../../lib/errors.js";
 import type { MediaId, ListEntryId, UserId } from "./ids.js";
+import type { MediaType, MediaListStatus } from "./enums.js";
 
 export interface MediaListEntryInput {
   mediaId?: MediaId;
   listEntryId?: ListEntryId;
-  status?: "CURRENT" | "PLANNING" | "COMPLETED" | "DROPPED" | "PAUSED" | "REPEATING";
+  status?: MediaListStatus;
   /** 0-10 scale (decimals allowed) — converted internally to AniList's raw
    *  0-100 `scoreRaw`, which (unlike `score`) always means the same thing
    *  regardless of the account's configured `scoreFormat`. */
@@ -27,7 +28,7 @@ export interface MediaListEntryInput {
 
 export async function getUserList(
   ctx: AniListContext,
-  type: "ANIME" | "MANGA",
+  type: MediaType,
   user: UserId | string,
   chunk = 1,
   perChunk = 25,
@@ -114,10 +115,10 @@ async function resolveMediaType(
   ctx: AniListContext,
   header: Record<string, string>,
   input: MediaListEntryInput,
-): Promise<"ANIME" | "MANGA" | undefined> {
+): Promise<MediaType | undefined> {
   if (input.mediaId !== undefined) {
     const query = `query($id:Int){Media(id:$id){type}}`;
-    const data = await ctx.gql.request<{ Media: { type: "ANIME" | "MANGA" } | null }>(
+    const data = await ctx.gql.request<{ Media: { type: MediaType } | null }>(
       query,
       { id: input.mediaId },
       header,
@@ -127,7 +128,7 @@ async function resolveMediaType(
   }
   const query = `query($id:Int){MediaList(id:$id){media{type}}}`;
   const data = await ctx.gql.request<{
-    MediaList: { media: { type: "ANIME" | "MANGA" } | null } | null;
+    MediaList: { media: { type: MediaType } | null } | null;
   }>(query, { id: input.listEntryId }, header, { skipCache: true });
   return data.MediaList?.media?.type;
 }
@@ -139,7 +140,7 @@ async function resolveMediaType(
  *  silently landing on the wrong category. */
 function orderAdvancedScores(
   advancedScores: Record<string, number>,
-  mediaType: "ANIME" | "MANGA",
+  mediaType: MediaType,
   categoryLists: { anime: string[]; manga: string[]; animeEnabled: boolean; mangaEnabled: boolean },
 ): number[] {
   const isManga = mediaType === "MANGA";

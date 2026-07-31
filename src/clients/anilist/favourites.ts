@@ -1,6 +1,5 @@
 import type { AniListContext } from "./context.js";
-
-export type FavouriteKind = "ANIME" | "MANGA" | "CHARACTER" | "STAFF" | "STUDIO";
+import type { FavouriteKind } from "./enums.js";
 
 const ARG_NAME: Record<FavouriteKind, string> = {
   ANIME: "animeId",

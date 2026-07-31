@@ -5,6 +5,7 @@ import * as people from "../clients/anilist/people.js";
 import { jsonResult } from "../lib/result.js";
 import { guard } from "./guard.js";
 import { anilistId, characterId, staffId, mediaTitleOut, favouriteOut } from "./outputSchemas.js";
+import { BIRTHDAY_KINDS } from "../clients/anilist/enums.js";
 
 const mediaCredit = z
   .object({
@@ -69,8 +70,6 @@ const birthdayObject = z
     siteUrl: z.httpUrl().nullish(),
   })
   .loose();
-
-const BIRTHDAY_KINDS = ["CHARACTER", "STAFF"] as const;
 
 export function registerPeopleTools(server: McpServer, client: AniListClient): void {
   server.registerTool(

@@ -1,6 +1,7 @@
 import type { AniListContext } from "./context.js";
 import { assertFound } from "../../lib/errors.js";
 import type { MediaId } from "./ids.js";
+import type { MediaType } from "./enums.js";
 import {
   MEDIA_FIELDS,
   MEDIA_DESCRIPTION_FIELD,
@@ -11,7 +12,7 @@ import {
 
 export async function getMedia(
   ctx: AniListContext,
-  type: "ANIME" | "MANGA",
+  type: MediaType,
   ids: MediaId | MediaId[],
   includeStreamingEpisodes = false,
 ): Promise<unknown> {
@@ -44,7 +45,7 @@ export async function getMedia(
 
 export async function getMediaStatistics(
   ctx: AniListContext,
-  type: "ANIME" | "MANGA",
+  type: MediaType,
   id: MediaId,
 ): Promise<unknown> {
   const query = `query($id:Int,$type:MediaType){Media(id:$id,type:$type){
@@ -63,7 +64,7 @@ export async function getMediaStatistics(
 
 export async function getMediaCharacters(
   ctx: AniListContext,
-  type: "ANIME" | "MANGA",
+  type: MediaType,
   id: MediaId,
   page = 1,
   perPage = 25,
@@ -88,7 +89,7 @@ export async function getMediaCharacters(
 
 export async function getMediaStaff(
   ctx: AniListContext,
-  type: "ANIME" | "MANGA",
+  type: MediaType,
   id: MediaId,
   page = 1,
   perPage = 25,
@@ -109,7 +110,7 @@ export async function getMediaStaff(
 
 export async function getMediaReviews(
   ctx: AniListContext,
-  type: "ANIME" | "MANGA",
+  type: MediaType,
   id: MediaId,
   page = 1,
   perPage = 10,
@@ -134,7 +135,7 @@ export async function getMediaReviews(
 
 export async function getMediaRelations(
   ctx: AniListContext,
-  type: "ANIME" | "MANGA",
+  type: MediaType,
   id: MediaId,
 ): Promise<unknown> {
   const query = `query($id:Int,$type:MediaType){Media(id:$id,type:$type){

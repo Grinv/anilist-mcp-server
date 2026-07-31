@@ -1,6 +1,7 @@
 import type { AniListContext } from "./context.js";
 import { resolveUserId } from "./user.js";
 import type { CategoryId, MediaId, UserId } from "./ids.js";
+import type { MediaType } from "./enums.js";
 import {
   MEDIA_FIELDS,
   MEDIA_DESCRIPTION_FIELD,
@@ -27,7 +28,7 @@ function encodeFuzzyDateInt(date?: {
 
 export async function searchMedia(
   ctx: AniListContext,
-  type: "ANIME" | "MANGA",
+  type: MediaType,
   opts: {
     term?: string;
     filter?: Record<string, unknown>;

@@ -37,6 +37,14 @@ src/
                   # `number` so e.g. a MediaId can't compile where a
                   # ListEntryId is expected. Compile-time only — see the
                   # file's own comment for why it has no zod runtime import.
+                  # anilist/enums.ts — single source for the AniList enums
+                  # re-typed on both sides of the boundary (MediaType,
+                  # MediaListStatus, FavouriteKind, birthday kinds): one
+                  # `as const` array per enum, feeding z.enum() in tools/ and
+                  # the derived `(typeof X)[number]` type in these domain
+                  # signatures, so runtime validation and the compile-time
+                  # types can't drift. Lives here (not tools/) because
+                  # clients/ can't import from tools/.
   tools/          # misc.ts, activity.ts, list.ts, media.ts, notification.ts,
                   # people.ts, recommendation.ts, search.ts, thread.ts, user.ts,
                   # login.ts, guard.ts (never-throw wrapper), outputSchemas.ts

@@ -9,11 +9,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Added
 
 - Add `includeDescription` to `search_character`, `search_staff` and `get_todays_birthdays`, for the bio they no longer fetch by default. [9e93b12](https://github.com/Grinv/anilist-mcp-server/commit/9e93b12)
-- Return every settable field from `add_list_entry`/`update_list_entry`, so a write can be verified without a follow-up read. [4bd3659](https://github.com/Grinv/anilist-mcp-server/commit/4bd3659)
 
 ### Changed
 
 - Stop fetching each entry's bio by default in `search_character`/`search_staff`/`get_todays_birthdays`, cutting a typical response by 70-80%. [9e93b12](https://github.com/Grinv/anilist-mcp-server/commit/9e93b12)
+- Return every settable field from `add_list_entry`/`update_list_entry`, so a write can be verified without a follow-up read. [4bd3659](https://github.com/Grinv/anilist-mcp-server/commit/4bd3659)
 
 ### Fixed
 

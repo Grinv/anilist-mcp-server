@@ -484,7 +484,14 @@ CONTAINS`) lives on `MediaEdge.relationType`, again not on the node.
   `MEDIA_DETAIL_FIELDS` (appended solely by `get_media`) and `description`
   is its own `MEDIA_DESCRIPTION_FIELD`, always appended by `get_media` but
   only appended by `searchMedia()` when `search_media`'s `includeDescription`
-  is set. Keep this split if you add more variable-length fields.
+  is set. The same split applies to people: `CHARACTER_FIELDS`/`STAFF_FIELDS`
+  exclude the bio, which lives in `PERSON_DESCRIPTION_FIELD` — always
+  appended by `get_character`/`get_staff`, and only on `includeDescription`
+  for `search_character`/`search_staff`/`get_todays_birthdays`. Measured
+  live, the bio was 57-85% of those three tools' whole payload (a 25-result
+  character search ran 29KB with 22KB of it bio). Keep this split if you add
+  more variable-length fields — the trap is a shared fragment that serves as
+  both the single-item and the many-rows-per-page selection.
 - **`Media.streamingEpisodes` takes no pagination args at all** (confirmed
   via introspection — unlike `characters`/`staff`/`reviews`, there's no
   `page`/`perPage`), so a long-running title can return hundreds of entries

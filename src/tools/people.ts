@@ -4,7 +4,14 @@ import type { AniListClient } from "../clients/anilist.js";
 import * as people from "../clients/anilist/people.js";
 import { jsonResult } from "../lib/result.js";
 import { guard } from "./guard.js";
-import { anilistId, characterId, staffId, mediaTitleOut, favouriteOut } from "./outputSchemas.js";
+import {
+  anilistId,
+  characterId,
+  staffId,
+  mediaTitleOut,
+  favouriteOut,
+  personDescriptionField,
+} from "./outputSchemas.js";
 import { BIRTHDAY_KINDS } from "../clients/anilist/enums.js";
 
 const mediaCredit = z
@@ -53,7 +60,8 @@ const staffObject = z
   .loose();
 
 // get_todays_birthdays fetches the lighter CHARACTER_FIELDS/STAFF_FIELDS shape
-// (no media/staffMedia filmography), and a CHARACTER and a STAFF entry share
+// (no media/staffMedia filmography, and no `description` unless the caller
+// opts in), and a CHARACTER and a STAFF entry share
 // every field except staff's `primaryOccupations`. One loose object models
 // both: a union of the two loose shapes would be degenerate anyway, since a
 // staff object — .loose() with only `id` required — already validates as a
@@ -114,19 +122,23 @@ export function registerPeopleTools(server: McpServer, client: AniListClient): v
         "50 results (a fixed cap, not paginated — entries beyond 50 are silently omitted, not " +
         "an error). Returns character-shaped or staff-shaped objects for kind: CHARACTER/STAFF " +
         "respectively, but a lighter fetch than get_character/get_staff: it does NOT include " +
-        "those tools' `media`/`staffMedia` filmography — call get_character/get_staff by ID " +
-        "for an entry's full roles/works, don't read a missing filmography here as 'none'.",
+        "those tools' `media`/`staffMedia` filmography, nor each entry's bio (`description`) " +
+        "unless you set `includeDescription` — call get_character/get_staff by ID for an " +
+        "entry's full roles/works and bio, don't read a missing filmography here as 'none'.",
       inputSchema: z.object({
         kind: z.enum(BIRTHDAY_KINDS).describe("Whether to list characters or staff members."),
+        includeDescription: personDescriptionField("get_character/get_staff"),
       }),
       outputSchema: z.object({
         results: z.array(birthdayObject),
       }),
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
-    ({ kind }) =>
+    ({ kind, includeDescription }) =>
       guard(async () =>
-        jsonResult({ results: await people.getTodaysBirthdays(client.ctx(), kind) }),
+        jsonResult({
+          results: await people.getTodaysBirthdays(client.ctx(), kind, includeDescription),
+        }),
       ),
   );
 }

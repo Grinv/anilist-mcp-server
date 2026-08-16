@@ -79,6 +79,24 @@ export const paginationFields = (defaultPerPage: number) => ({
     .describe("Results per page (max 25)."),
 });
 
+/** The `includeDescription` opt-in shared by the three multi-entry
+ *  character/staff tools (search_character, search_staff,
+ *  get_todays_birthdays). A person's bio is the single largest part of those
+ *  responses — measured live at 57-85% of the payload — so it's fetched only
+ *  on request, the same way search_media gates a synopsis and
+ *  get_media_reviews gates a review body. `singleLookupTool` names the tool
+ *  that always includes it, so the caller has somewhere to go for one
+ *  entry's full bio. */
+export const personDescriptionField = (singleLookupTool: string) =>
+  z
+    .boolean()
+    .default(false)
+    .describe(
+      "Also fetch each result's full bio (`description`). Kept off by default — a bio can " +
+        "run to several thousand characters, and always including it would burn tokens on " +
+        `text you may not need; use ${singleLookupTool} for a single entry's full bio instead.`,
+    );
+
 /** The `isFavourite` viewer field every favouritable domain object exposes
  *  (media, character, staff, studio) — same shape, same confirmed-live
  *  read-after-write lag on AniList's own backend (docs/api-references.md's

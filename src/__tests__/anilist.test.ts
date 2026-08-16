@@ -14,9 +14,18 @@ import * as thread from "../clients/anilist/thread.js";
 import * as misc from "../clients/anilist/misc.js";
 import * as notification from "../clients/anilist/notification.js";
 import * as recommendation from "../clients/anilist/recommendation.js";
+import * as people from "../clients/anilist/people.js";
 import { ApiError } from "../lib/errors.js";
 import type { TokenState } from "../lib/tokenStore.js";
-import type { MediaId, ListEntryId, ThreadId, ActivityId, UserId } from "../clients/anilist/ids.js";
+import type {
+  MediaId,
+  ListEntryId,
+  ThreadId,
+  ActivityId,
+  UserId,
+  CharacterId,
+  StaffId,
+} from "../clients/anilist/ids.js";
 import { silentLogger, jsonResponse, mockFetch, installFetch, testConfig } from "./helpers.js";
 
 // This file calls clients/anilist/*.ts functions directly, bypassing the
@@ -957,4 +966,53 @@ test("CACHE_TTL_MS=0 disables caching (every read hits the network)", async (t) 
   await misc.getGenres(client.ctx());
   await misc.getGenres(client.ctx());
   assert.equal(calls, 2, "caching must be off when CACHE_TTL_MS is 0");
+});
+
+// A person's bio is the single largest part of these three tools' responses
+// (measured live at 57-85% of the payload), so the multi-entry queries must
+// leave it out unless the caller opts in — the same rule MEDIA_FIELDS already
+// follows for a media synopsis.
+test("search/birthday queries only request a bio when the caller opts in", async (t) => {
+  const queries: string[] = [];
+  const mock = mockFetch((_url, init) => {
+    queries.push((JSON.parse(init?.body as string) as { query: string }).query);
+    return jsonResponse({ data: { Page: { characters: [], staff: [] } } });
+  });
+  installFetch(t, mock);
+  const client = new AniListClient(testConfig({}), silentLogger());
+  const ctx = client.ctx();
+
+  await search.searchCharacter(ctx, "frieren");
+  await search.searchStaff(ctx, "hideaki");
+  await people.getTodaysBirthdays(ctx, "CHARACTER");
+  await people.getTodaysBirthdays(ctx, "STAFF");
+  for (const [i, query] of queries.entries()) {
+    assert.ok(!query.includes("description"), `query ${i} must omit the bio by default`);
+  }
+
+  queries.length = 0;
+  await search.searchCharacter(ctx, "frieren", 1, 10, true);
+  await search.searchStaff(ctx, "hideaki", 1, 10, true);
+  await people.getTodaysBirthdays(ctx, "CHARACTER", true);
+  await people.getTodaysBirthdays(ctx, "STAFF", true);
+  for (const [i, query] of queries.entries()) {
+    assert.match(query, /description\(asHtml: false\)/, `query ${i} must include the opted-in bio`);
+  }
+});
+
+test("getCharacter/getStaff always request the bio (single-item lookups)", async (t) => {
+  const queries: string[] = [];
+  const mock = mockFetch((_url, init) => {
+    queries.push((JSON.parse(init?.body as string) as { query: string }).query);
+    return jsonResponse({ data: { Character: { id: 1 }, Staff: { id: 2 } } });
+  });
+  installFetch(t, mock);
+  const client = new AniListClient(testConfig({}), silentLogger());
+
+  await people.getCharacter(client.ctx(), id<CharacterId>(1));
+  await people.getStaff(client.ctx(), id<StaffId>(2));
+  assert.equal(queries.length, 2);
+  for (const [i, query] of queries.entries()) {
+    assert.match(query, /description\(asHtml: false\)/, `query ${i} must include the bio`);
+  }
 });

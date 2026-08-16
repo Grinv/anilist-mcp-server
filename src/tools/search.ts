@@ -13,6 +13,7 @@ import {
   categoryId,
   userIdOrName,
   paginationFields,
+  personDescriptionField,
 } from "./outputSchemas.js";
 
 const FORMATS = [
@@ -294,9 +295,11 @@ export function registerSearchTools(server: McpServer, client: AniListClient): v
     {
       title: "Search characters",
       description:
-        "Search AniList for characters by name. Returns AniList IDs to use with get_character.",
+        "Search AniList for characters by name. Returns AniList IDs to use with get_character. " +
+        "Each result's bio (`description`) is omitted unless you set `includeDescription`.",
       inputSchema: z.object({
         term: z.string().min(1).describe("Character name (or part of it) to search for."),
+        includeDescription: personDescriptionField("get_character"),
         ...paginationFields(10),
       }),
       outputSchema: z.object({
@@ -306,9 +309,17 @@ export function registerSearchTools(server: McpServer, client: AniListClient): v
       }),
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
-    ({ term, page, perPage }) =>
+    ({ term, page, perPage, includeDescription }) =>
       guard(async () =>
-        jsonResult({ results: await search.searchCharacter(client.ctx(), term, page, perPage) }),
+        jsonResult({
+          results: await search.searchCharacter(
+            client.ctx(),
+            term,
+            page,
+            perPage,
+            includeDescription,
+          ),
+        }),
       ),
   );
 
@@ -317,9 +328,11 @@ export function registerSearchTools(server: McpServer, client: AniListClient): v
     {
       title: "Search staff",
       description:
-        "Search AniList for staff members by name. Returns AniList IDs to use with get_staff.",
+        "Search AniList for staff members by name. Returns AniList IDs to use with get_staff. " +
+        "Each result's bio (`description`) is omitted unless you set `includeDescription`.",
       inputSchema: z.object({
         term: z.string().min(1).describe("Staff member name (or part of it) to search for."),
+        includeDescription: personDescriptionField("get_staff"),
         ...paginationFields(10),
       }),
       outputSchema: z.object({
@@ -329,9 +342,11 @@ export function registerSearchTools(server: McpServer, client: AniListClient): v
       }),
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
-    ({ term, page, perPage }) =>
+    ({ term, page, perPage, includeDescription }) =>
       guard(async () =>
-        jsonResult({ results: await search.searchStaff(client.ctx(), term, page, perPage) }),
+        jsonResult({
+          results: await search.searchStaff(client.ctx(), term, page, perPage, includeDescription),
+        }),
       ),
   );
 

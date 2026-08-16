@@ -84,11 +84,14 @@ export const MEDIA_DETAIL_FIELDS = `
  *  when the caller opts in. */
 export const MEDIA_STREAMING_EPISODES_FIELD = `streamingEpisodes { title thumbnail url site }`;
 
+// Kept lean on purpose, same reasoning as MEDIA_FIELDS above:
+// search_character/search_staff return up to 25 entries per call and
+// get_todays_birthdays up to 50, so `description` is excluded here and
+// appended separately — see PERSON_DESCRIPTION_FIELD below.
 export const CHARACTER_FIELDS = `
   id
   name { full native }
   image { large }
-  description(asHtml: false)
   favourites
   isFavourite
   siteUrl
@@ -98,12 +101,20 @@ export const STAFF_FIELDS = `
   id
   name { full native }
   image { large }
-  description(asHtml: false)
   primaryOccupations
   favourites
   isFavourite
   siteUrl
 `;
+
+/** A character's or staff member's bio text — always appended for
+ *  get_character/get_staff (a single-item lookup, where the bio is usually
+ *  the point), but only on request (`includeDescription`) for
+ *  search_character/search_staff/get_todays_birthdays. Same reasoning as
+ *  MEDIA_DESCRIPTION_FIELD above, and measured live on those three: the bio
+ *  ran to 57-85% of the whole response payload (e.g. 22KB of a 29KB
+ *  25-result character search, 23KB of a 35KB 44-entry birthday list). */
+export const PERSON_DESCRIPTION_FIELD = `description(asHtml: false)`;
 
 /** Extra field only worth the token cost on a direct get_character lookup,
  *  not on every row of a search_character result (same reasoning as

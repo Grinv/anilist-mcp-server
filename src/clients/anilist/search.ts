@@ -7,6 +7,7 @@ import {
   MEDIA_DESCRIPTION_FIELD,
   CHARACTER_FIELDS,
   STAFF_FIELDS,
+  PERSON_DESCRIPTION_FIELD,
   USER_FIELDS,
   ACTIVITY_FRAGMENT,
 } from "./fields.js";
@@ -119,10 +120,12 @@ export async function searchCharacter(
   term: string,
   page = 1,
   perPage = 10,
+  includeDescription = false,
 ): Promise<unknown> {
+  const fields = `${CHARACTER_FIELDS}${includeDescription ? PERSON_DESCRIPTION_FIELD : ""}`;
   const query = `query($search:String,$page:Int,$perPage:Int){Page(page:$page,perPage:$perPage){
     pageInfo{total currentPage lastPage hasNextPage}
-    characters(search:$search){${CHARACTER_FIELDS}}
+    characters(search:$search){${fields}}
   }}`;
   const data = await ctx.gql.request<{ Page: unknown }>(
     query,
@@ -137,10 +140,12 @@ export async function searchStaff(
   term: string,
   page = 1,
   perPage = 10,
+  includeDescription = false,
 ): Promise<unknown> {
+  const fields = `${STAFF_FIELDS}${includeDescription ? PERSON_DESCRIPTION_FIELD : ""}`;
   const query = `query($search:String,$page:Int,$perPage:Int){Page(page:$page,perPage:$perPage){
     pageInfo{total currentPage lastPage hasNextPage}
-    staff(search:$search){${STAFF_FIELDS}}
+    staff(search:$search){${fields}}
   }}`;
   const data = await ctx.gql.request<{ Page: unknown }>(
     query,

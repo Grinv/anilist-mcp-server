@@ -1016,3 +1016,29 @@ test("getCharacter/getStaff always request the bio (single-item lookups)", async
     assert.match(query, /description\(asHtml: false\)/, `query ${i} must include the bio`);
   }
 });
+
+// The mutation used to select back only id/status/score/progress/mediaId/
+// hiddenFromStatusLists, so a write to priority, notes, dates, customLists or
+// advancedScores could only be verified with a follow-up read.
+test("saveListEntry asks back for every field the tool can set", async (t) => {
+  const mock = mockFetch(() => jsonResponse({ data: { SaveMediaListEntry: { id: 9 } } }));
+  installFetch(t, mock);
+  const client = new AniListClient(testConfig({ ANILIST_ACCESS_TOKEN: "tok" }), silentLogger());
+
+  await list.saveListEntry(client.ctx(), { mediaId: id<MediaId>(42) });
+  const { query } = JSON.parse(mock.calls[0]!.init?.body as string) as { query: string };
+  const selection = query.slice(query.indexOf("SaveMediaListEntry"));
+  for (const field of [
+    "progressVolumes",
+    "repeat",
+    "priority",
+    "private",
+    "notes",
+    "startedAt",
+    "completedAt",
+    "customLists(asArray: true)",
+    "advancedScores",
+  ]) {
+    assert.ok(selection.includes(field), `${field} must be selected back from the mutation`);
+  }
+});

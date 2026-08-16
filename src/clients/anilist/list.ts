@@ -190,6 +190,12 @@ export async function saveListEntry(
     }
     advancedScores = orderAdvancedScores(input.advancedScores, mediaType, categoryLists);
   }
+  // The selection set covers every field this mutation can set (matching
+  // getUserList's own entry selection, minus its nested `media`), so a caller
+  // can verify what actually landed from this one response instead of
+  // following each write with a read — it matters most for the fields AniList
+  // doesn't store verbatim: `advancedScores` zeroes omitted categories and
+  // `customLists` replaces rather than merges.
   const query = `mutation(
     $id:Int,$mediaId:Int,$status:MediaListStatus,$scoreRaw:Int,$progress:Int,$progressVolumes:Int,
     $repeat:Int,$priority:Int,$private:Boolean,$notes:String,$hiddenFromStatusLists:Boolean,
@@ -199,7 +205,12 @@ export async function saveListEntry(
     id:$id,mediaId:$mediaId,status:$status,scoreRaw:$scoreRaw,progress:$progress,progressVolumes:$progressVolumes,
     repeat:$repeat,priority:$priority,private:$private,notes:$notes,hiddenFromStatusLists:$hiddenFromStatusLists,
     startedAt:$startedAt,completedAt:$completedAt,customLists:$customLists,advancedScores:$advancedScores
-  ){id status score(format:POINT_10_DECIMAL) progress mediaId hiddenFromStatusLists}}`;
+  ){
+    id status score(format:POINT_10_DECIMAL) progress progressVolumes repeat priority private notes
+    hiddenFromStatusLists mediaId
+    startedAt{year month day} completedAt{year month day} updatedAt createdAt
+    customLists(asArray: true) advancedScores
+  }}`;
   const data = await ctx.gql.request<{ SaveMediaListEntry: unknown }>(
     query,
     {

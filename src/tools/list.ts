@@ -111,18 +111,14 @@ const listGroup = z
   })
   .loose();
 
-/** SaveMediaListEntry's own selection set — narrower than a full listEntry
- *  (no dates/notes/etc., since the mutation only asks for these fields back). */
-const savedListEntry = z
-  .object({
-    id: anilistId,
-    status: z.string().nullish(),
-    score: z.number().nonnegative().nullish(),
-    progress: z.int().nonnegative().nullish(),
-    mediaId: anilistId.nullish(),
-    hiddenFromStatusLists: z.boolean().nullish(),
-  })
-  .loose();
+/** SaveMediaListEntry's own selection set: every field add_list_entry/
+ *  update_list_entry can actually set, so one call's response is enough to
+ *  verify what it wrote without a follow-up read. Derived from `listEntry`
+ *  rather than restated, so the two can't drift — minus its nested `media`
+ *  (the mutation doesn't select it) plus the flat `mediaId` it does. */
+const savedListEntry = listEntry.omit({ media: true }).extend({
+  mediaId: anilistId.nullish(),
+});
 
 export function registerListTools(server: McpServer, client: AniListClient): void {
   server.registerTool(
@@ -181,7 +177,10 @@ export function registerListTools(server: McpServer, client: AniListClient): voi
         "entry for it already exists (e.g. previously dropped, with its own score/notes/" +
         "progress), calling this updates that entry in place instead — every field you don't " +
         "set here keeps its previous value, not a default. Use get_user_list first to check " +
-        "for an existing entry if you need a guaranteed-fresh one.",
+        "for an existing entry if you need a guaranteed-fresh one. The response echoes every " +
+        "field this tool can set, as AniList actually stored it — check it instead of assuming " +
+        "the write landed verbatim, especially for `advancedScores` and `customLists`, which " +
+        "AniList zeroes/replaces rather than merges.",
       inputSchema: z.object({
         mediaId: mediaId.describe("AniList anime/manga ID to add (from search_media)."),
         status: z
@@ -265,7 +264,10 @@ export function registerListTools(server: McpServer, client: AniListClient): voi
       description:
         "[Requires login] Update an existing entry on the authenticated user's own AniList " +
         "list by its list-entry ID (NOT the media ID — get it from get_user_list, or from " +
-        "add_list_entry's response). Only set the fields you want to change.",
+        "add_list_entry's response). Only set the fields you want to change. The response " +
+        "echoes every field this tool can set, as AniList actually stored it — check it " +
+        "instead of assuming the write landed verbatim, especially for `advancedScores` and " +
+        "`customLists`, which AniList zeroes/replaces rather than merges.",
       inputSchema: z.object({
         listEntryId: listEntryId.describe("The list ENTRY id to update (not the media id)."),
         status: z.enum(MEDIA_LIST_STATUSES).optional().describe("New list status."),

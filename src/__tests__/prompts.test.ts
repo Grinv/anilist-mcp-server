@@ -76,3 +76,33 @@ test("check_notifications passes markAsRead through only when explicitly request
   );
   assert.match(withMarkAsRead, /markAsRead: true/);
 });
+
+test("hidden_gems pins an explicit sort and score/popularity filters", async (t) => {
+  const { client, close } = await connectServer({});
+  t.after(close);
+
+  // Regression: a term-less search_media with no explicit sort browses in
+  // AniList's own default (id) order, so a plan that only asked for
+  // perPage: 25 had the model picking "underrated" titles out of the 25
+  // oldest entries in the catalog, whatever their score.
+  const cases: Record<string, string>[] = [{}, { type: "MANGA" }, { genre: "Mecha" }];
+  for (const args of cases) {
+    const text = textOf(await client.getPrompt({ name: "hidden_gems", arguments: args }));
+    assert.match(text, /sort: \["SCORE_DESC"\]/, `missing sort for ${JSON.stringify(args)}`);
+    assert.match(
+      text,
+      /averageScore_greater: \d+/,
+      `missing score floor for ${JSON.stringify(args)}`,
+    );
+    assert.match(
+      text,
+      /popularity_lesser: \d+/,
+      `missing popularity cap for ${JSON.stringify(args)}`,
+    );
+  }
+
+  const withGenre = textOf(
+    await client.getPrompt({ name: "hidden_gems", arguments: { genre: "Mecha" } }),
+  );
+  assert.match(withGenre, /genres: \["Mecha"\]/);
+});

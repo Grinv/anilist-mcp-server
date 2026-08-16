@@ -119,6 +119,12 @@ export function registerPrompts(server: McpServer): void {
     ({ type, genre }) => {
       const mediaType = type ?? "ANIME";
       const which = mediaType === "ANIME" ? "anime" : "manga";
+      // The sort and the score/popularity filters are load-bearing, not
+      // decoration: a term-less search_media with no explicit sort browses in
+      // AniList's own default order (confirmed live: ids 1, 5, 6, 7, 8, …),
+      // so a plan that just asked for perPage: 25 and told the model to pick
+      // the underrated ones would be picking from the 25 oldest entries in
+      // the catalog, whatever their score.
       return {
         messages: [
           {
@@ -129,10 +135,14 @@ export function registerPrompts(server: McpServer): void {
                 `Find hidden-gem ${which}: high AniList average score but not widely known.\n` +
                 `Call search_media with type: "${mediaType}"` +
                 (genre ? `, genres: ["${genre}"]` : "") +
-                ` and perPage: 25, then pick the entries whose averageScore is high but whose ` +
-                `popularity is much lower than that score would suggest — those are the underseen ` +
-                `ones. Present 5-8 picks with title, averageScore, popularity, and a one-line reason ` +
-                `each noting why it's underrated.`,
+                `, sort: ["SCORE_DESC"], averageScore_greater: 75, popularity_lesser: 50000 ` +
+                `and perPage: 25 — the sort and both filters matter, since a search_media call ` +
+                `with neither browses AniList's default (id) order rather than anything ` +
+                `score-related. Then pick the entries whose averageScore is highest relative to ` +
+                `how few people have them listed — those are the underseen ones. Widen ` +
+                `popularity_lesser (or lower averageScore_greater) and call again if that comes ` +
+                `back with too few results. Present 5-8 picks with title, averageScore, ` +
+                `popularity, and a one-line reason each noting why it's underrated.`,
             },
           },
         ],

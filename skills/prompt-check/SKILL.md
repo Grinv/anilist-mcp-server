@@ -28,5 +28,11 @@ Run each prompt with:
   filters on the underlying tool).
 - All optional args set together.
 
+Then check the rendered plan against what the prompt claims to deliver, not
+just that it renders: would running those exact tool calls actually produce
+it? A plan that omits a needed `sort`/filter can read fine and still be
+wrong (confirmed: `hidden_gems` told the model to pick underrated titles out
+of a sort-less `search_media` call, i.e. AniList's default id order).
+
 Read-only, no-account-risk — never route this through anything that touches
 mutations.

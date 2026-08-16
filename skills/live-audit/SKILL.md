@@ -136,7 +136,13 @@ supports concurrent subagents/background tasks.
   interpolated into a query — a live check with a 100+-item array once found
   `get_media`'s `ids` had no server-side or client-side cap either). Check the
   actual response size/token count for the largest realistic case, not just
-  that it returns _something_.
+  that it returns _something_. Also diff each shared `fields.ts` fragment
+  against every query using it: a long free-text field (`description`,
+  `about`, `body`) belongs in the DETAIL fragment, and a fragment reused as
+  both the single-item and the many-rows-per-page selection silently puts it
+  on every row (confirmed: `CHARACTER_FIELDS`/`STAFF_FIELDS` carried a bio
+  worth 57-85% of `search_character`/`search_staff`/`get_todays_birthdays`'s
+  whole payload, while `MEDIA_FIELDS` correctly excluded a synopsis).
 - **Documented vs. actual shape**: for anything that looks surprising live,
   grep the field back to its `.describe()` text — does the tool's own
   description promise what you just saw (or promise something you didn't)?
@@ -285,6 +291,11 @@ Sweep every file under `src/tools/`, `src/clients/anilist/`, and `src/lib/`
   when the same code path can also fire for an unrelated reason (e.g. an
   upstream WAF/security block) — especially on tools/queries that don't
   require auth at all, where a token might still be attached incidentally.
+- An error message interpolating a field that can legitimately be empty,
+  leaving a stray separator — read the actual rendered string, not the
+  template (confirmed: `HTTP ${status} ${statusText}: ${detail}` printed
+  "HTTP 404 : Not Found." wherever `statusText` came back empty, which is
+  runtime-dependent, so a direct `dist/index.js` run can hide it).
 - AGENTS.md convention violations: tool failures must go through `guard()`,
   never throw raw; mutation/personal tools must call `ctx.requireAuth()`
   before any network call; `outputSchema` must model top-level keys

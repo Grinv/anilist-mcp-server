@@ -6,6 +6,19 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- Add `includeDescription` to `search_character`, `search_staff` and `get_todays_birthdays`, for the bio they no longer fetch by default. [9e93b12](https://github.com/Grinv/anilist-mcp-server/commit/9e93b12)
+
+### Changed
+
+- Stop fetching each entry's bio by default in `search_character`/`search_staff`/`get_todays_birthdays`, cutting a typical response by 70-80%. [9e93b12](https://github.com/Grinv/anilist-mcp-server/commit/9e93b12)
+
+### Fixed
+
+- Give the `hidden_gems` prompt an explicit score sort and filters; without them its plan browsed AniList's default id order. [3336714](https://github.com/Grinv/anilist-mcp-server/commit/3336714)
+- Drop an empty `statusText` from the upstream error message, which read "HTTP 404 : Not Found." [2ab798b](https://github.com/Grinv/anilist-mcp-server/commit/2ab798b)
+
 ## [0.7.1] - 2026-07-31
 
 ### Changed

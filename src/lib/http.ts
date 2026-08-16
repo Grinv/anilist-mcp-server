@@ -138,12 +138,19 @@ async function toHttpError(res: Response, authenticated: boolean): Promise<ApiEr
   // Prefer a structured `message`/`error` field; fall back to the raw body.
   const detail = parseErrorMessage(raw) ?? raw.slice(0, 500);
   const retryAfter = parseRetryAfter(res.headers.get("retry-after"));
+  // `statusText` is only appended when it's actually there: it comes back
+  // empty over HTTP/2 (and through some proxies), which would otherwise
+  // leave a stray space before the colon — confirmed live via an MCP client
+  // whose server process saw an empty statusText: "HTTP 404 : Not Found."
+  const statusLabel = res.statusText
+    ? `HTTP ${res.status} ${res.statusText}`
+    : `HTTP ${res.status}`;
   return new ApiError({
     code,
     status: res.status,
     retryable,
     authenticated,
-    message: `HTTP ${res.status} ${res.statusText}${detail ? `: ${detail}` : ""}`,
+    message: `${statusLabel}${detail ? `: ${detail}` : ""}`,
     ...(retryAfter === undefined ? {} : { cause: { retryAfterMs: retryAfter } }),
   });
 }

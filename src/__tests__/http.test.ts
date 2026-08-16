@@ -137,3 +137,34 @@ test("caller-supplied signal aborts the request and maps to a network error", as
     (err: unknown) => err instanceof ApiError && err.code === "network",
   );
 });
+
+test("leaves out an empty statusText instead of a stray space before the detail", async (t) => {
+  // `new Response(body, { status })` leaves statusText empty — the same shape
+  // a real response arrives with over HTTP/2 or through some proxies.
+  // Confirmed live through an MCP client whose server process saw one:
+  // the message read "HTTP 404 : Not Found."
+  const mock = mockFetch(() =>
+    jsonResponse({ errors: [{ message: "Not Found." }] }, { status: 404 }),
+  );
+  installFetch(t, mock);
+  await assert.rejects(
+    () => client().getJson("missing"),
+    (err: unknown) => err instanceof ApiError && err.message === "HTTP 404: Not Found.",
+  );
+});
+
+test("keeps statusText in the message when the response actually carries one", async (t) => {
+  const mock = mockFetch(
+    () =>
+      new Response(JSON.stringify({ errors: [{ message: "Not Found." }] }), {
+        status: 404,
+        statusText: "Not Found",
+        headers: { "content-type": "application/json" },
+      }),
+  );
+  installFetch(t, mock);
+  await assert.rejects(
+    () => client().getJson("missing"),
+    (err: unknown) => err instanceof ApiError && err.message === "HTTP 404 Not Found: Not Found.",
+  );
+});

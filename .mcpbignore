@@ -9,12 +9,11 @@ docs/
 coverage/
 
 # Contributor-only instructions and agent/skill tooling — not needed by an
-# installed extension. .claude/ and .agents/ are symlinks to skills/, but
+# installed extension. .claude/skills is a symlink to .agents/skills, but
 # `mcpb pack` resolves symlinks to real file copies instead of skipping them,
-# so each must be excluded explicitly or every skill ships three times over.
+# so both must be excluded explicitly or every skill ships twice over.
 AGENTS.md
 CLAUDE.md
-skills/
 .claude/
 .agents/
 

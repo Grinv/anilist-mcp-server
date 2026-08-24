@@ -10,8 +10,8 @@ a particular harness — see `AGENTS.md`'s own agent-agnostic framing). Use it
 when asked to test/audit the published or just-fixed anilist-mcp-server
 package, hunt for bugs/edge cases, or repeat "the same kind of testing as
 before." Sibling repos (`tmdb-mcp`, `mal-mcp`, `steam-games-mcp`) keep their
-own `skills/live-audit/SKILL.md` — when either this file or a sibling's
-improves, sync the useful parts both ways rather than letting them drift.
+own `live-audit/SKILL.md` — when either this file or a sibling's improves,
+sync the useful parts both ways rather than letting them drift.
 
 Goal: find real bugs/inaccuracies in the live tool behavior (against the real
 AniList API) and in the source, then fix what's found. Read `AGENTS.md` first

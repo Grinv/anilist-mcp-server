@@ -55,16 +55,16 @@ src/
 scripts/          # build-tests.mjs, run-tests.mjs, check-api.mjs, sync-version.mjs
                   # (+ its sync-version.d.mts type-declaration companion),
                   # preversion-check.mjs (npm `preversion` gate — see the `release` skill)
-skills/           # reusable agent workflows for this repo (e.g. live-audit/) —
+.agents/skills/   # reusable agent workflows for this repo (e.g. live-audit/) —
                   # plain Markdown with a YAML frontmatter name/description,
                   # not tied to any one tool's orchestration features, per
                   # this file's agent-agnostic policy; same skill name/layout
                   # as this project's sibling MCP servers (tmdb-mcp, mal-mcp,
                   # steam-games-mcp) — sync improvements both ways rather
-                  # than letting them drift. `.claude/skills` and
-                  # `.agents/skills` are symlinks to this directory, so
-                  # Claude Code/Codex CLI/Gemini CLI pick up every skill here
-                  # without duplicating content per client path.
+                  # than letting them drift. `.claude/skills` is a symlink
+                  # here (Codex CLI/Gemini CLI read `.agents/skills`
+                  # directly, Claude Code the symlink), so no skill content
+                  # is duplicated per client path.
 ```
 
 ## Why this server exists
@@ -209,10 +209,10 @@ typecheck:scripts`, folded into `npm run lint`) instead of the main
 For a full audit of the currently published (or just-fixed) package —
 build/test/lint plus hammering the live MCP tools with edge cases,
 cross-checked against source — follow
-[skills/live-audit/SKILL.md](skills/live-audit/SKILL.md). It covers the
-safety rules for testing mutation tools against a real authenticated
-account, what edge cases to cover, and known bug classes found in past
-passes worth checking don't recur.
+[.agents/skills/live-audit/SKILL.md](.agents/skills/live-audit/SKILL.md).
+It covers the safety rules for testing mutation tools against a real
+authenticated account, what edge cases to cover, and known bug classes
+found in past passes worth checking don't recur.
 
 ## Before opening a PR
 

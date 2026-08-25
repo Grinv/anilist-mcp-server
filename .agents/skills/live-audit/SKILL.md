@@ -123,6 +123,25 @@ supports concurrent subagents/background tasks.
   list, `season`/`seasonYear` used alone vs. together (independent filters,
   not a mandatory pair). These must behave as the tool's own description
   promises, not silently mis-apply.
+- **The same fact from two tools must agree — and be the same quantity on the
+  same scale.** This server surfaces three different "score" numbers across two
+  scales, and only one of them documents which: `search_media` filters on
+  `averageScore_greater`/`_lesser`, described and bounded as **0-100**
+  (`src/tools/search.ts`); `get_media` returns `averageScore` as a bare
+  `z.number().nonnegative()` with no max and no scale in its `.describe()`
+  (`src/tools/media.ts`); the user tools return `meanScore` the same way
+  (`src/tools/user.ts`); and `get_user_list`'s entries carry the viewer's OWN
+  `score`, whose input bound is **max 10** (`src/tools/list.ts`). So an `8` from
+  one tool and an `8` in another's filter are not the same claim. Call
+  `search_media` with a score floor, then `get_media` on a result, and confirm
+  the number the filter applied is the number the detail reports; then check that
+  no `.describe()` invites comparing either against a list entry's score or a
+  user's `meanScore`. Separately, reach one media entry three ways
+  (`search_media`, `get_media`, embedded in `get_user_list` — note the embedded
+  copy is deliberately lite: `id`/`idMal`/`title`/`episodes`/`chapters`/`siteUrl`
+  only) and diff the fields they DO share: the same id must carry the same title,
+  episode and chapter counts each time. A per-tool sweep passes while these
+  diverge, because each answer looks fine alone.
 - **Not-found / empty-result paths**: nonexistent-but-well-formed ids across
   every domain (media, character, staff, studio, thread, activity,
   recommendation, user), a batch call mixing valid + invalid + duplicate
@@ -222,6 +241,14 @@ Sweep every file under `src/tools/`, `src/clients/anilist/`, and `src/lib/`
   when a behavioral disclosure is added to one and not the other — see the
   `tool-description-check` skill's full-replace-vs-partial-merge bullet for
   the confirmed case.
+- A filter measured against one field while the response reports another, or a
+  numeric field whose scale only ONE of its two ends documents. Grep every
+  `*_greater`/`*_lesser`/`_in`/`_not` filter parameter back to the field the same
+  tool returns and confirm they are the same quantity: `averageScore` (0-100 per
+  the filter's own `.describe()`) and `meanScore` are different aggregates, and a
+  list entry's `score` is the viewer's own on a 0-10 input bound — none of the
+  output schemas repeat the scale, so a caller comparing across them gets no
+  error anywhere.
 - A GraphQL query whose single-resource lookup returns AniList's `null`
   instead of erroring — check whether the client function dereferences it
   unguarded (`data.Media.stats` with no null check) instead of using
@@ -322,6 +349,26 @@ gate before calling it done. Re-verify live only after the running MCP
 server process has been restarted (it won't pick up source changes on its
 own) — build/test passing is necessary but re-confirming actual live
 behavior changed is stronger evidence than trusting the diff alone.
+
+**When the bug is "we read the wrong source for a fact", measure how often the
+wrong one is actually wrong before switching sources — and check what the
+replacement gets wrong.** Generalizing from the one example that exposed the bug
+produces a worse bug. Found in steam-games-mcp, whose two price sources this
+cost two wrong fixes: over a 500-item sample (421 priced), the legacy source was
+wrong for 2 while the "modern" one answered with a multi-game bundle's price for
+5, so the obvious "use the newer API" swap broke more than it fixed. Sample a few
+hundred ids, diff the two sources, and read the disagreements one by one — they
+are usually several distinct causes wearing one symptom, needing a rule rather
+than a swap.
+
+**Measure the cost you cite to justify a design, in the unit that matters.** In
+the same repo a narrow follow-up request was justified on payload size (~2.2 KB →
+~10.2 KB per item) with nobody timing it; measured interleaved, asking up front
+cost ~+40 ms on a 50-item batch — inside run-to-run noise — against ~+300 ms for
+the extra round-trip, so the "optimization" was a pessimization plus an extra
+failure path. Interleave the A/B runs (5 each, compare medians AND minimums):
+sequential blocks drift enough on these APIs to invent a difference that isn't
+there.
 
 ## 7. Commit + changelog, if asked
 

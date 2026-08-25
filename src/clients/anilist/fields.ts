@@ -64,17 +64,25 @@ export const MEDIA_DESCRIPTION_FIELD = `description(asHtml: false)`;
 /** Extra fields only worth the token cost on a direct get_media lookup, not
  *  on every row of a multi-item search/list result. mediaListEntry is
  *  viewer-relative — it resolves to null when no token is sent, rather than
- *  erroring, so it's safe to always request. `streamingEpisodes` is
- *  deliberately excluded — AniList's field takes no pagination args at all,
- *  so a long-running title can return hundreds of entries; it's appended
- *  separately, only on request (see getMedia()'s includeStreamingEpisodes). */
+ *  erroring, so it's safe to always request. Its `score` is pinned to
+ *  `POINT_10_DECIMAL` for the same reason getUserList() pins it (see
+ *  list.ts): unformatted, AniList returns a list entry's score in the
+ *  account's own display `scoreFormat`, so the SAME personal score would
+ *  read back as 94 here and 9.4 from get_user_list on a POINT_100 account
+ *  (confirmed live against a public POINT_100 list: `score` 94 vs
+ *  `score(format:POINT_10_DECIMAL)` 9.4). Pinning keeps every personal score
+ *  this server emits on the 0-10 scale its write side already documents.
+ *  `streamingEpisodes` is deliberately excluded — AniList's field takes no
+ *  pagination args at all, so a long-running title can return hundreds of
+ *  entries; it's appended separately, only on request (see getMedia()'s
+ *  includeStreamingEpisodes). */
 export const MEDIA_DETAIL_FIELDS = `
   tags { name rank isMediaSpoiler }
   rankings { rank type format year season allTime context }
   nextAiringEpisode { id airingAt timeUntilAiring episode }
   externalLinks { id url site type language icon notes isDisabled }
   mediaListEntry {
-    id status score progress progressVolumes repeat priority private notes
+    id status score(format:POINT_10_DECIMAL) progress progressVolumes repeat priority private notes
     hiddenFromStatusLists customLists(asArray: true) advancedScores
     startedAt { year month day } completedAt { year month day } updatedAt createdAt
   }

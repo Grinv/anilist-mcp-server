@@ -15,6 +15,7 @@ import {
   userIdOrName,
   mediaTitleOut,
   deleteToolAnnotations,
+  personalScoreOut,
 } from "./outputSchemas.js";
 
 const fuzzyDate = z
@@ -60,7 +61,7 @@ const listEntry = z
   .object({
     id: anilistId,
     status: z.string().nullish(),
-    score: z.number().nonnegative().nullish(),
+    score: personalScoreOut("This user's own score for the entry, on"),
     progress: z.int().nonnegative().nullish(),
     progressVolumes: z.int().nonnegative().nullish(),
     repeat: z.int().nonnegative().nullish(),

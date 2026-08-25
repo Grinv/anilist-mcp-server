@@ -16,6 +16,8 @@ import {
   paginationFields,
   mediaTitleOut,
   favouriteOut,
+  communityScoreOut,
+  personalScoreOut,
 } from "./outputSchemas.js";
 
 const mediaType = z.enum(MEDIA_TYPES).describe("Whether `id` refers to anime or manga.");
@@ -50,7 +52,7 @@ const mediaObject = z
     volumes: z.int().positive().nullish(),
     duration: z.int().positive().nullish(),
     genres: z.array(z.string()).nullish(),
-    averageScore: z.number().nonnegative().nullish(),
+    averageScore: communityScoreOut("The weighted community rating across all AniList users, on"),
     popularity: z.number().nonnegative().nullish(),
     isAdult: z.boolean().nullish(),
     isFavourite: favouriteOut("title"),
@@ -146,7 +148,7 @@ const mediaObject = z
       .object({
         id: anilistId,
         status: z.string().nullish(),
-        score: z.number().nonnegative().nullish(),
+        score: personalScoreOut("The caller's own score for this title, on"),
         progress: z.int().nonnegative().nullish(),
         progressVolumes: z.int().nonnegative().nullish(),
         repeat: z.int().nonnegative().nullish(),
@@ -179,8 +181,15 @@ const statisticsObject = z
       .array(
         z
           .object({
-            score: z.number().nonnegative().nullish(),
-            amount: z.int().nonnegative().nullish(),
+            score: communityScoreOut(
+              "The upper edge of this histogram bucket (confirmed live: buckets come back " +
+                "as 10, 20, ... 100, i.e. ten-point bands), on",
+            ),
+            amount: z
+              .int()
+              .nonnegative()
+              .nullish()
+              .describe("How many users scored the title within this bucket."),
           })
           .loose(),
       )
@@ -275,11 +284,10 @@ const reviewsConnection = z
               .nonnegative()
               .nullish()
               .describe("Total votes cast on this review's helpfulness (helpful + unhelpful)."),
-            score: z
-              .number()
-              .nonnegative()
-              .nullish()
-              .describe("The reviewer's own 0-100 rating of the title itself, not a vote count."),
+            score: communityScoreOut(
+              "The reviewer's own rating of the title itself (not a vote count, that's " +
+                "`rating`/`ratingAmount` above), on",
+            ),
             siteUrl: z.httpUrl().nullish(),
             user: z.object({ id: anilistId, name: z.string().nullish() }).loose().nullish(),
           })

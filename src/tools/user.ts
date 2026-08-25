@@ -11,6 +11,7 @@ import {
   userId,
   userIdOrName,
   MEDIA_LIST_STATUSES,
+  communityScoreOut,
 } from "./outputSchemas.js";
 import { NOTIFICATION_TYPES } from "./notification.js";
 import { activityItem } from "./activity.js";
@@ -163,7 +164,7 @@ const userProfileObject = z
 const animeStats = z
   .object({
     count: z.int().nonnegative().nullish(),
-    meanScore: z.number().nonnegative().nullish(),
+    meanScore: communityScoreOut("The average of this user's own anime scores, on"),
     minutesWatched: z.int().nonnegative().nullish(),
     episodesWatched: z.int().nonnegative().nullish(),
   })
@@ -172,7 +173,7 @@ const animeStats = z
 const mangaStats = z
   .object({
     count: z.int().nonnegative().nullish(),
-    meanScore: z.number().nonnegative().nullish(),
+    meanScore: communityScoreOut("The average of this user's own manga scores, on"),
     chaptersRead: z.int().nonnegative().nullish(),
     volumesRead: z.int().nonnegative().nullish(),
   })
@@ -399,9 +400,12 @@ export function registerUserTools(server: McpServer, client: AniListClient): voi
           .enum(SCORE_FORMATS)
           .optional()
           .describe(
-            "Preferred list score format (affects how scores DISPLAY on anilist.co only — " +
-              "add_list_entry/update_list_entry's `score` parameter always stays on a 0-10 " +
-              "scale regardless of this setting, so no conversion is needed on your end).",
+            "Preferred list score format. It affects how scores DISPLAY on anilist.co only: " +
+              "every score crossing this server stays on its own documented scale whatever " +
+              "this is set to, so no conversion is needed on your end. A personal list-entry " +
+              "score is 0-10 both on write (add_list_entry/update_list_entry) and on read " +
+              "(get_user_list, get_media's `mediaListEntry`); `averageScore`/`meanScore` and " +
+              "the search filters are 0-100.",
           ),
         rowOrder: z
           .string()

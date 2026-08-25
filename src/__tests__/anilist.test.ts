@@ -356,6 +356,41 @@ test("saveListEntry converts the 0-10 `score` to AniList's raw 0-100 scoreRaw (n
   assert.match(query, /scoreRaw:\$scoreRaw/);
 });
 
+test("every read path that returns a personal list-entry score pins POINT_10_DECIMAL, so the scale can't follow the account's display scoreFormat", async (t) => {
+  // Regression: get_media's mediaListEntry.score used to be requested with no
+  // `format` arg, which makes AniList return it in the account's own
+  // scoreFormat — the same entry read back as 94 there and 9.4 from
+  // get_user_list on a POINT_100 account (confirmed live against a public
+  // POINT_100 list). Every path that emits a personal score must pin the
+  // format so the 0-10 scale the write side documents holds everywhere.
+  const mock = mockFetch(() =>
+    jsonResponse({
+      data: {
+        Media: { id: 1 },
+        MediaListCollection: { lists: [], hasNextChunk: false },
+        SaveMediaListEntry: { id: 9 },
+      },
+    }),
+  );
+  installFetch(t, mock);
+  const client = new AniListClient(testConfig({ ANILIST_ACCESS_TOKEN: "tok" }), silentLogger());
+
+  await media.getMedia(client.ctx(), "ANIME", id<MediaId>(1));
+  await list.getUserList(client.ctx(), "ANIME", "someone");
+  await list.saveListEntry(client.ctx(), { mediaId: id<MediaId>(42), status: "PLANNING" });
+
+  for (const call of mock.calls) {
+    const { query } = JSON.parse(call.init?.body as string) as { query: string };
+    assert.doesNotMatch(
+      query,
+      // Case-sensitive on purpose: only the bare `score` GraphQL field is a
+      // personal score — `averageScore`/`advancedScores` capitalize theirs.
+      /(?<![A-Za-z$])score(?!Raw|Format|Distribution|\(format:POINT_10_DECIMAL\))/,
+      `a personal score must never be selected unformatted:\n${query}`,
+    );
+  }
+});
+
 test("saveListEntry resolves advancedScores against the account's own configured category order for the entry's actual media type", async (t) => {
   const mock = mockFetch((_url, init) => {
     const body = JSON.parse(init?.body as string) as { query: string };

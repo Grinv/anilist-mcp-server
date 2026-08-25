@@ -214,6 +214,15 @@ completedAt: FuzzyDateInput)` — note **`advancedScores`** is plural (a
   normalize the score regardless of the user's own list settings —
   `getUserList()` requests `POINT_10_DECIMAL` for a consistent 0-10 scale.
   `ScoreFormat` enum: `POINT_100, POINT_10_DECIMAL, POINT_10, POINT_5, POINT_3`.
+  **Left unformatted, the field follows the list owner's own display
+  `scoreFormat`** — confirmed live against a public `POINT_100` list, where
+  one entry returned `score` 94 and `score(format:POINT_10_DECIMAL)` 9.4 in
+  the same response. So every selection of this field has to pin the format,
+  not just the obvious one: `Media.mediaListEntry.score` (`fields.ts`'s
+  `MEDIA_DETAIL_FIELDS`, behind `get_media`) shipped unformatted through
+  0.8.0, which made the same personal score read back on two different
+  scales depending on which tool the caller used — invisible on a
+  `POINT_10_DECIMAL` account, wrong by 10× on a `POINT_100` one.
 - **On write, `score` and `scoreRaw` are NOT equivalent.** `SaveMediaListEntry`'s
   `score` arg description is literally _"The score of the media in the user's
   chosen scoring method"_ — it's interpreted according to the account's own
@@ -597,6 +606,23 @@ search:...)` connection uses. `get_studio`'s own description used to imply
 mediaList, airingSchedules, mediaTrends, notifications, followers,
 following, activities, activityReplies, threads, threadComments, reviews,
 recommendations, likes`.
+- **Two score scales, three unrelated fields, no marker on any of them.**
+  AniList reports every _community_ score on a fixed **0-100** scale and every
+  _personal_ list-entry score on whatever the account displays. Confirmed live
+  on one account in one sitting: `Media.averageScore` 86 for Cowboy Bebop,
+  that account's own `mediaListEntry.score` for it 8, and its
+  `User.statistics.anime.meanScore` 74.18 while every score on its list was
+  5-9. `Media.stats.scoreDistribution`'s `score` is the bucket's upper edge on
+  the same 0-100 scale (buckets come back as 10, 20, … 100), and
+  `Review.score` is 0-100 too. `meanScore` is 0-100 regardless of the
+  account's `scoreFormat` (confirmed live on a `POINT_10_DECIMAL` account) —
+  it is _not_ an average of what the site displays. None of these is
+  distinguishable from a personal score by type or by name, so every one of
+  them names its scale in its tool `outputSchema` via
+  `outputSchemas.ts`'s `communityScoreOut`/`personalScoreOut`; the search
+  filter `averageScore_greater`/`_lesser` (0-100, bounded in its input schema)
+  is on the community scale despite reading like a score the user could type
+  from their own list.
 - **`Delete*` mutations** (`DeleteMediaListEntry(id)`, `DeleteActivity(id)`,
   `DeleteThread(id)`, `DeleteThreadComment(id)`) each return
   `Deleted { deleted: Boolean }`.

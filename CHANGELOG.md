@@ -6,6 +6,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- Name the scale on every score a tool returns: 0-100 for `averageScore`/`meanScore`/score-distribution buckets/review scores, 0-10 for a personal list-entry score.
+- Reword `update_user`'s `scoreFormat`: it changes display on anilist.co only, and every score this server returns keeps its documented scale on read as well as on write.
+
+### Fixed
+
+- Pin `get_media`'s `mediaListEntry.score` to a 0-10 scale; it followed the account's display score format, so the same personal score read back as 94 there and 9.4 from `get_user_list` on a 100-point account.
+
 ## [0.8.0] - 2026-08-16
 
 ### Added

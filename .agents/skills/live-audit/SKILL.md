@@ -124,24 +124,39 @@ supports concurrent subagents/background tasks.
   not a mandatory pair). These must behave as the tool's own description
   promises, not silently mis-apply.
 - **The same fact from two tools must agree — and be the same quantity on the
-  same scale.** This server surfaces three different "score" numbers across two
-  scales, and only one of them documents which: `search_media` filters on
-  `averageScore_greater`/`_lesser`, described and bounded as **0-100**
-  (`src/tools/search.ts`); `get_media` returns `averageScore` as a bare
-  `z.number().nonnegative()` with no max and no scale in its `.describe()`
-  (`src/tools/media.ts`); the user tools return `meanScore` the same way
-  (`src/tools/user.ts`); and `get_user_list`'s entries carry the viewer's OWN
-  `score`, whose input bound is **max 10** (`src/tools/list.ts`). So an `8` from
-  one tool and an `8` in another's filter are not the same claim. Call
-  `search_media` with a score floor, then `get_media` on a result, and confirm
-  the number the filter applied is the number the detail reports; then check that
-  no `.describe()` invites comparing either against a list entry's score or a
-  user's `meanScore`. Separately, reach one media entry three ways
-  (`search_media`, `get_media`, embedded in `get_user_list` — note the embedded
-  copy is deliberately lite: `id`/`idMal`/`title`/`episodes`/`chapters`/`siteUrl`
-  only) and diff the fields they DO share: the same id must carry the same title,
-  episode and chapter counts each time. A per-tool sweep passes while these
-  diverge, because each answer looks fine alone.
+  same scale.** This server surfaces scores on two scales: **0-100** community
+  numbers (`get_media`'s `averageScore`, the user tools' `meanScore`,
+  `get_media_statistics`' histogram buckets, a review's own score,
+  `search_media`'s `averageScore_greater`/`_lesser` filter) and a **0-10**
+  personal list-entry `score` (`get_user_list`, `get_media`'s
+  `mediaListEntry`, and what `add_list_entry`/`update_list_entry` take on
+  write). Since 0.8.0+ every one of those output fields names its scale via
+  `outputSchemas.ts`'s `communityScoreOut`/`personalScoreOut` — so the check
+  now is that a NEW score field uses one of those helpers rather than a bare
+  `z.number().nonnegative()`, and that no `.describe()` invites comparing a
+  number on one scale against a number on the other. Live: call `search_media`
+  with a score floor, then `get_media` on a result, and confirm the number the
+  filter applied is the number the detail reports.
+- **A field whose scale is an ACCOUNT SETTING must be pinned in the query,
+  everywhere it is selected.** AniList returns `MediaList.score` in the list
+  owner's own display `scoreFormat` unless the selection passes
+  `score(format:POINT_10_DECIMAL)`. `getUserList()` pinned it from the start;
+  `fields.ts`'s `MEDIA_DETAIL_FIELDS` (behind `get_media`) did not, so through
+  0.8.0 the same personal score read back as 94 from `get_media` and 9.4 from
+  `get_user_list` on a `POINT_100` account. This is invisible on a
+  `POINT_10_DECIMAL` account, which is what the test account uses — a live
+  sweep alone will never surface it. So audit it at the source: grep every
+  GraphQL selection of a format/locale/unit-sensitive field and check each one
+  passes the normalizing argument, and cross-check a public account whose
+  setting differs (`User(name:...){mediaListOptions{scoreFormat}}` finds one)
+  rather than trusting the account you are logged into. A regression test now
+  asserts no query selects a bare `score` (`anilist.test.ts`).
+- Separately, reach one media entry three ways (`search_media`, `get_media`,
+  embedded in `get_user_list` — note the embedded copy is deliberately lite:
+  `id`/`idMal`/`title`/`episodes`/`chapters`/`siteUrl` only) and diff the
+  fields they DO share: the same id must carry the same title, episode and
+  chapter counts each time. A per-tool sweep passes while these diverge,
+  because each answer looks fine alone.
 - **Not-found / empty-result paths**: nonexistent-but-well-formed ids across
   every domain (media, character, staff, studio, thread, activity,
   recommendation, user), a batch call mixing valid + invalid + duplicate

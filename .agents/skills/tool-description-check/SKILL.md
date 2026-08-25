@@ -158,6 +158,16 @@ Purpose — double-check those two first on any new or edited tool.
   sibling it was copied from and wrong here (e.g. a tool that computes its
   own exact count client-side doesn't inherit AniList's degraded-pagination
   caveat).
+- **Name the unit or scale of any bare number a tool returns**, and use the
+  shared helper if one exists rather than re-describing it per call site
+  (`outputSchemas.ts`'s `communityScoreOut`/`personalScoreOut` for the two
+  score scales). A number with no unit is not self-documenting just because
+  its name reads familiar: `averageScore` 86 and a list entry's `score` 8 sat
+  next to each other in one `get_media` response for eight releases, both as
+  bare `z.number().nonnegative()`, and nothing in either field said they were
+  on different scales. Check the same way for anything else measured:
+  durations (minutes vs. seconds), timestamps (epoch seconds vs. ISO), sizes,
+  and percentages vs. fractions.
 - Disclose the return shape's real substance, not just the auth/key caveat —
   fixed caps (`get_studio`'s 10 titles), ordering, and which nested fields a
   specific tool omits that a same-shaped sibling includes (e.g.

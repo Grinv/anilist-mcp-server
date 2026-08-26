@@ -222,7 +222,26 @@ completedAt: FuzzyDateInput)` — note **`advancedScores`** is plural (a
   `MEDIA_DETAIL_FIELDS`, behind `get_media`) shipped unformatted through
   0.8.0, which made the same personal score read back on two different
   scales depending on which tool the caller used — invisible on a
-  `POINT_10_DECIMAL` account, wrong by 10× on a `POINT_100` one.
+  `POINT_10_DECIMAL` account, wrong by 10× on a `POINT_100` one. Confirmed
+  live per format, same entries read two ways: a `POINT_5` account's entries
+  come back as 4/5 unformatted and 7/9 pinned; a `POINT_3` account's as 1/2/3
+  unformatted and 3/6/8/8.5/9.9/10 pinned.
+- **Careful verifying that with one request: aliasing `score` more than once
+  with different `format` args does NOT give per-alias formats.** Confirmed
+  live on a `POINT_100` list — a request selecting
+  `raw:score(format:POINT_100)`, `ten:score(format:POINT_10_DECIMAL)` and a
+  bare `own:score` returned `own` on the _pinned_ 0-10 scale (9.2), while the
+  same list queried with a bare `score` as the only selection returned 92.
+  The format appears to be applied per request rather than per field
+  instance, so a multi-alias probe can make an unformatted selection look
+  correctly normalized when it isn't. Verify one selection per request.
+- **A stored score is raw 0-100 and is never rewritten when the account
+  changes `scoreFormat`** — confirmed live: a `POINT_5` account holds raw 70
+  and 90, values its own 5-star display can't produce (its steps are
+  multiples of 20), left over from whatever format was configured when those
+  entries were scored. So a coarse display format does not imply coarse
+  stored data, and `saveListEntry()`'s `scoreRaw` writes aren't quantized to
+  the account's format either.
 - **On write, `score` and `scoreRaw` are NOT equivalent.** `SaveMediaListEntry`'s
   `score` arg description is literally _"The score of the media in the user's
   chosen scoring method"_ — it's interpreted according to the account's own

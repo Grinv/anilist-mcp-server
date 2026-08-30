@@ -157,14 +157,13 @@ export const STUDIO_FIELDS = `
 // Kept lean on purpose (same reasoning as MEDIA_FIELDS above): search.ts's
 // searchUser returns many users per call. get_user_profile/get_full_user_info/
 // get_authorized_user (single-user fetches) additionally append
-// USER_DETAIL_FIELDS — confirmed live that options/mediaListOptions are NOT
-// viewer-gated: they resolve for any user, not just the caller, so a lookup
-// of a third party also exposes that person's notification/list-display
-// settings, not just their public profile fields.
+// USER_DESCRIPTION_FIELD (below) and USER_DETAIL_FIELDS — confirmed live that
+// options/mediaListOptions are NOT viewer-gated: they resolve for any user,
+// not just the caller, so a lookup of a third party also exposes that person's
+// notification/list-display settings, not just their public profile fields.
 export const USER_FIELDS = `
   id
   name
-  about(asHtml: false)
   avatar { large }
   bannerImage
   siteUrl
@@ -173,6 +172,13 @@ export const USER_FIELDS = `
   isFollowing
   isFollower
 `;
+
+/** A user's bio text — always appended for get_user_profile/get_full_user_info/
+ *  get_authorized_user (single-user fetches, where the bio is usually the
+ *  point), but only on request (`includeDescription`) for search_user, whose
+ *  results can run to 25 users per call. Same reasoning as
+ *  MEDIA_DESCRIPTION_FIELD/PERSON_DESCRIPTION_FIELD above. */
+export const USER_DESCRIPTION_FIELD = `about(asHtml: false)`;
 
 /** Exposes what update_user actually changes (titleLanguage,
  *  displayAdultContent, scoreFormat, rowOrder, and the anime/manga list

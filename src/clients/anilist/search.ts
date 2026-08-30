@@ -11,6 +11,7 @@ import {
   STAFF_FIELDS,
   PERSON_DESCRIPTION_FIELD,
   USER_FIELDS,
+  USER_DESCRIPTION_FIELD,
   ACTIVITY_FRAGMENT,
 } from "./fields.js";
 
@@ -180,10 +181,12 @@ export async function searchUser(
   term: string,
   page = 1,
   perPage = 10,
+  includeDescription = false,
 ): Promise<unknown> {
+  const fields = `${USER_FIELDS}${includeDescription ? USER_DESCRIPTION_FIELD : ""}`;
   const query = `query($search:String,$page:Int,$perPage:Int){Page(page:$page,perPage:$perPage){
     pageInfo{total currentPage lastPage hasNextPage}
-    users(search:$search){${USER_FIELDS}}
+    users(search:$search){${fields}}
   }}`;
   const data = await ctx.gql.request<{ Page: unknown }>(
     query,

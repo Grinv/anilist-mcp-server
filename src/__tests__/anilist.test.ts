@@ -1034,12 +1034,12 @@ test("CACHE_TTL_MS=0 disables caching (every read hits the network)", async (t) 
 // A person's bio is the single largest part of these three tools' responses
 // (measured live at 57-85% of the payload), so the multi-entry queries must
 // leave it out unless the caller opts in — the same rule MEDIA_FIELDS already
-// follows for a media synopsis.
-test("search/birthday queries only request a bio when the caller opts in", async (t) => {
+// follows for a media synopsis. search_user's `about` follows the same rule.
+test("search/birthday/user queries only request a bio when the caller opts in", async (t) => {
   const queries: string[] = [];
   const mock = mockFetch((_url, init) => {
     queries.push((JSON.parse(init?.body as string) as { query: string }).query);
-    return jsonResponse({ data: { Page: { characters: [], staff: [] } } });
+    return jsonResponse({ data: { Page: { characters: [], staff: [], users: [] } } });
   });
   installFetch(t, mock);
   const client = new AniListClient(testConfig({}), silentLogger());
@@ -1047,36 +1047,57 @@ test("search/birthday queries only request a bio when the caller opts in", async
 
   await search.searchCharacter(ctx, "frieren");
   await search.searchStaff(ctx, "hideaki");
+  await search.searchUser(ctx, "grinv");
   await people.getTodaysBirthdays(ctx, "CHARACTER");
   await people.getTodaysBirthdays(ctx, "STAFF");
   for (const [i, query] of queries.entries()) {
     assert.ok(!query.includes("description"), `query ${i} must omit the bio by default`);
+    assert.ok(!query.includes("about"), `query ${i} must omit the about field by default`);
   }
 
   queries.length = 0;
   await search.searchCharacter(ctx, "frieren", 1, 10, true);
   await search.searchStaff(ctx, "hideaki", 1, 10, true);
+  await search.searchUser(ctx, "grinv", 1, 10, true);
   await people.getTodaysBirthdays(ctx, "CHARACTER", true);
   await people.getTodaysBirthdays(ctx, "STAFF", true);
   for (const [i, query] of queries.entries()) {
-    assert.match(query, /description\(asHtml: false\)/, `query ${i} must include the opted-in bio`);
+    assert.match(
+      query,
+      /description\(asHtml: false\)|about\(asHtml: false\)/,
+      `query ${i} must include the opted-in bio`,
+    );
   }
 });
 
-test("getCharacter/getStaff always request the bio (single-item lookups)", async (t) => {
+test("getCharacter/getStaff/getUserProfile/getFullUserInfo/getAuthorizedUser always request the bio (single-item lookups)", async (t) => {
   const queries: string[] = [];
   const mock = mockFetch((_url, init) => {
     queries.push((JSON.parse(init?.body as string) as { query: string }).query);
-    return jsonResponse({ data: { Character: { id: 1 }, Staff: { id: 2 } } });
+    return jsonResponse({
+      data: {
+        Character: { id: 1 },
+        Staff: { id: 2 },
+        User: { id: 3 },
+        Viewer: { id: 4 },
+      },
+    });
   });
   installFetch(t, mock);
-  const client = new AniListClient(testConfig({}), silentLogger());
+  const client = new AniListClient(testConfig({ ANILIST_ACCESS_TOKEN: "tok" }), silentLogger());
 
   await people.getCharacter(client.ctx(), id<CharacterId>(1));
   await people.getStaff(client.ctx(), id<StaffId>(2));
-  assert.equal(queries.length, 2);
+  await user.getUserProfile(client.ctx(), id<UserId>(3));
+  await user.getFullUserInfo(client.ctx(), id<UserId>(3));
+  await user.getAuthorizedUser(client.ctx());
+  assert.equal(queries.length, 5);
   for (const [i, query] of queries.entries()) {
-    assert.match(query, /description\(asHtml: false\)/, `query ${i} must include the bio`);
+    assert.match(
+      query,
+      /description\(asHtml: false\)|about\(asHtml: false\)/,
+      `query ${i} must include the bio`,
+    );
   }
 });
 

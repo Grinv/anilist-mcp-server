@@ -1,7 +1,7 @@
 import type { AniListContext } from "./context.js";
 import { assertFound } from "../../lib/errors.js";
 import type { UserId } from "./ids.js";
-import { USER_FIELDS, USER_DETAIL_FIELDS } from "./fields.js";
+import { USER_FIELDS, USER_DESCRIPTION_FIELD, USER_DETAIL_FIELDS } from "./fields.js";
 
 /** Resolves a username to its numeric AniList UserId — shared by
  *  activity.ts's getUserActivity and search.ts's searchActivity, which both
@@ -21,7 +21,7 @@ export async function resolveUserId(
 
 export async function getUserProfile(ctx: AniListContext, user: UserId | string): Promise<unknown> {
   const byId = typeof user === "number";
-  const fields = `${USER_FIELDS}${USER_DETAIL_FIELDS}`;
+  const fields = `${USER_FIELDS}${USER_DESCRIPTION_FIELD}${USER_DETAIL_FIELDS}`;
   const query = byId
     ? `query($id:Int){User(id:$id){${fields}}}`
     : `query($name:String){User(name:$name){${fields}}}`;
@@ -52,7 +52,7 @@ export async function getFullUserInfo(
   user: UserId | string,
 ): Promise<unknown> {
   const byId = typeof user === "number";
-  const fields = `${USER_FIELDS}${USER_DETAIL_FIELDS} statistics{anime{count meanScore minutesWatched episodesWatched}manga{count meanScore chaptersRead volumesRead}}`;
+  const fields = `${USER_FIELDS}${USER_DESCRIPTION_FIELD}${USER_DETAIL_FIELDS} statistics{anime{count meanScore minutesWatched episodesWatched}manga{count meanScore chaptersRead volumesRead}}`;
   const query = byId
     ? `query($id:Int){User(id:$id){${fields}}}`
     : `query($name:String){User(name:$name){${fields}}}`;
@@ -66,7 +66,7 @@ export async function getFullUserInfo(
 
 export async function getAuthorizedUser(ctx: AniListContext): Promise<unknown> {
   const header = ctx.requireAuth();
-  const query = `query{Viewer{${USER_FIELDS}${USER_DETAIL_FIELDS}}}`;
+  const query = `query{Viewer{${USER_FIELDS}${USER_DESCRIPTION_FIELD}${USER_DETAIL_FIELDS}}}`;
   const data = await ctx.gql.request<{ Viewer: unknown }>(query, {}, header);
   return data.Viewer;
 }

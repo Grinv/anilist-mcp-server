@@ -386,6 +386,7 @@ export function registerSearchTools(server: McpServer, client: AniListClient): v
         "get_user_list (their public list), or toggle_follow_user.",
       inputSchema: z.object({
         term: z.string().min(1).describe("Username (or part of it) to search for."),
+        includeDescription: personDescriptionField("get_user_profile/get_full_user_info"),
         ...paginationFields(10),
       }),
       outputSchema: z.object({
@@ -395,9 +396,11 @@ export function registerSearchTools(server: McpServer, client: AniListClient): v
       }),
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
-    ({ term, page, perPage }) =>
+    ({ term, page, perPage, includeDescription }) =>
       guard(async () =>
-        jsonResult({ results: await search.searchUser(client.ctx(), term, page, perPage) }),
+        jsonResult({
+          results: await search.searchUser(client.ctx(), term, page, perPage, includeDescription),
+        }),
       ),
   );
 

@@ -6,13 +6,21 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- Add `includeDescription` to `search_user`, for the `about` bio it no longer fetches by default.
+
 ### Changed
 
+- Stop fetching each result's `about` bio by default in `search_user`; use `includeDescription` to opt in, same pattern as `search_character`/`search_staff`.
 - Name the scale on every score a tool returns: 0-100 for `averageScore`/`meanScore`/score-distribution buckets/review scores, 0-10 for a personal list-entry score.
 - Reword `update_user`'s `scoreFormat`: it changes display on anilist.co only, and every score this server returns keeps its documented scale on read as well as on write.
 
 ### Fixed
 
+- `search_activity` with an unknown numeric user ID now errors with not_found instead of silently returning an empty result, matching `get_user_activity`.
+- Return a clean not_found from `get_media` when a single ID resolves to null, matching its sibling tools.
+- Guard `get_recommendations_for_media`'s `excludeInList` filter against a null `nodes` field instead of crashing.
 - Pin `get_media`'s `mediaListEntry.score` to a 0-10 scale; it followed the account's display score format, so the same personal score read back as 94 there and 9.4 from `get_user_list` on a 100-point account.
 
 ## [0.8.0] - 2026-08-16

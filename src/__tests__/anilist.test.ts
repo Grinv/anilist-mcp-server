@@ -309,6 +309,50 @@ test("getRecommendationsForMedia requests mediaListEntry and, when excludeInList
   );
 });
 
+test("getRecommendationsForMedia doesn't crash when nodes is null and excludeInList is set", async (t) => {
+  // AniList normally returns `nodes` as an array, but the outputSchema
+  // models it as `.nullish()` — excludeInList's `.filter()` must guard
+  // against null rather than crashing.
+  const mock = mockFetch(() =>
+    jsonResponse({
+      data: {
+        Media: {
+          recommendations: {
+            pageInfo: { hasNextPage: false },
+            nodes: null,
+          },
+        },
+      },
+    }),
+  );
+  installFetch(t, mock);
+  const client = new AniListClient(testConfig({}), silentLogger());
+
+  const result = (await recommendation.getRecommendationsForMedia(
+    client.ctx(),
+    id<MediaId>(1),
+    1,
+    10,
+    true,
+  )) as { nodes: unknown[] };
+  assert.deepEqual(result.nodes, [], "must return an empty array, not crash");
+});
+
+test("getMedia rejects with not_found when Media returns null on a single-id lookup", async (t) => {
+  // AniList returns HTTP 404 (not 200+null) for a bad id live, so the HTTP
+  // layer throws before data.Media is read — but assertFound() guards the
+  // case where a type-mismatch or future API change returns 200 with
+  // {Media: null}, matching every sibling (getMediaStatistics/Characters/etc).
+  const mock = mockFetch(() => jsonResponse({ data: { Media: null } }));
+  installFetch(t, mock);
+  const client = new AniListClient(testConfig({}), silentLogger());
+
+  await assert.rejects(
+    () => media.getMedia(client.ctx(), "ANIME", id<MediaId>(99999999)),
+    (err: unknown) => err instanceof ApiError && err.code === "not_found",
+  );
+});
+
 test("saveListEntry refuses without a configured access token", async () => {
   const client = new AniListClient(testConfig({}), silentLogger());
   await assert.rejects(

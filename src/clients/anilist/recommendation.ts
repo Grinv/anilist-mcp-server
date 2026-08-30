@@ -40,6 +40,6 @@ export async function getRecommendationsForMedia(
   if (!excludeInList) return recommendations;
   return {
     ...recommendations,
-    nodes: recommendations.nodes.filter((n) => !n.mediaRecommendation?.mediaListEntry),
+    nodes: (recommendations.nodes ?? []).filter((n) => !n.mediaRecommendation?.mediaListEntry),
   };
 }

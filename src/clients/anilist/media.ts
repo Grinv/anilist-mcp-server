@@ -40,7 +40,7 @@ export async function getMedia(
     { id: ids, type },
     ctx.authHeader(),
   );
-  return data.Media;
+  return assertFound(data.Media, `No anime/manga found with ID ${ids}.`);
 }
 
 export async function getMediaStatistics(

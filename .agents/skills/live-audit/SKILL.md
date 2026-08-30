@@ -176,7 +176,11 @@ supports concurrent subagents/background tasks.
   both the single-item and the many-rows-per-page selection silently puts it
   on every row (confirmed: `CHARACTER_FIELDS`/`STAFF_FIELDS` carried a bio
   worth 57-85% of `search_character`/`search_staff`/`get_todays_birthdays`'s
-  whole payload, while `MEDIA_FIELDS` correctly excluded a synopsis).
+  whole payload, while `MEDIA_FIELDS` correctly excluded a synopsis). Fixing
+  one `*_FIELDS` fragment doesn't fix them all — grep every shared fragment
+  for a free-text field, not just the one that was caught (confirmed:
+  `USER_FIELDS`/`about` was missed when `CHARACTER_FIELDS`/`STAFF_FIELDS`
+  were fixed).
 - **Documented vs. actual shape**: for anything that looks surprising live,
   grep the field back to its `.describe()` text — does the tool's own
   description promise what you just saw (or promise something you didn't)?
@@ -272,7 +276,9 @@ Sweep every file under `src/tools/`, `src/clients/anilist/`, and `src/lib/`
   for the same ID reliably 404s — don't assume one implies the other; check
   every function that shares the query shape (a crash found in one function
   often has 3-5 siblings with the identical bug, including ones fixed in a
-  previous pass of this same audit).
+  previous pass of this same audit). Also check the inverse: the ONE function
+  in a family missing `assertFound()` while all siblings have it (confirmed:
+  `getMedia`'s single-id path lacked it while its 5 siblings all had it).
 - A `Page`-based connection (`Page(...) { someConnection(parentId) }`) that
   returns an empty-but-successful page for a nonexistent parent ID instead
   of erroring, indistinguishable from "genuinely zero results". Separately,
@@ -283,11 +289,13 @@ Sweep every file under `src/tools/`, `src/clients/anilist/`, and `src/lib/`
   workflow actually round-trips before documenting it as reliable. Also flag a
   function that's already correctness-safe via a _separate_ existence-check
   request instead of an aliased one — `getThreadComments`/`getSchedule`/
-  `getUserActivity` all share this pattern via `fields.ts`'s
-  `existsFragment()` helper as of a later refactor, so check any _new_
+  `getUserActivity`/`searchActivity` all share this pattern via
+  `fields.ts`'s `existsFragment()` helper, so check any _new_
   function with this shape against that helper instead of hand-rolling the
   fragment again — same inefficiency this bullet targets, just not a
-  correctness bug. Fix by aliasing a cheap singular existence check (e.g.
+  correctness bug. A documented limitation in the tool description (e.g.
+  "an unknown numeric ID does NOT error") is still a finding when a sibling
+  tool already proves the fix works — don't skip it as intentional. Fix by aliasing a cheap singular existence check (e.g.
   `exists:Media(id:$id){id}`) into the _same_ request as the real query, not
   a separate round-trip —
   confirmed live (`docs/api-references.md`) that AniList 404s the _entire_
@@ -343,6 +351,10 @@ Sweep every file under `src/tools/`, `src/clients/anilist/`, and `src/lib/`
   before any network call; `outputSchema` must model top-level keys
   precisely but stay loose enough not to reject a legitimate real API
   response shape.
+- A client-side `.filter()`/`.map()`/`.find()` on a field the `outputSchema`
+  models as `.nullish()`/`.nullable()` — guard with `?? []` / `?` or it
+  crashes on a null that's rare live but valid per the schema (confirmed:
+  `getRecommendationsForMedia`'s `nodes.filter(...)` with no null-guard).
 
 ## 5. Docs/metadata consistency
 

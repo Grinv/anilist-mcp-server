@@ -666,17 +666,45 @@ test("getUserActivity rejects with not_found when a numeric user id doesn't reso
   assert.equal(mock.calls.length, 1, "the not-found check costs no extra request");
 });
 
-test("searchActivity passes a numeric user straight through as the userId filter", async (t) => {
-  const mock = mockFetch(() => jsonResponse({ data: { Page: { activities: [] } } }));
+test("searchActivity aliases a numeric id's existence check into the same request as activities(userId:...)", async (t) => {
+  const mock = mockFetch(() =>
+    jsonResponse({
+      data: {
+        exists: { id: 7640432 },
+        feed: { pageInfo: { hasNextPage: false }, activities: [{ id: 1 }] },
+      },
+    }),
+  );
   installFetch(t, mock);
   const client = new AniListClient(testConfig({}), silentLogger());
 
-  await search.searchActivity(client.ctx(), id<UserId>(7640432));
-  assert.equal(mock.calls.length, 1);
-  const { variables } = JSON.parse(mock.calls[0]!.init?.body as string) as {
-    variables: Record<string, unknown>;
+  const result = (await search.searchActivity(client.ctx(), id<UserId>(7640432))) as {
+    activities: unknown[];
   };
-  assert.equal(variables.userId, 7640432);
+  assert.equal(mock.calls.length, 1, "the existence check and activities query are one request");
+  const query = JSON.parse(mock.calls[0]!.init?.body as string).query as string;
+  assert.match(query, /exists:User\(id:\$userId\)/);
+  assert.ok(result.activities, "must return the feed, not the raw {exists,feed} envelope");
+});
+
+test("searchActivity rejects with not_found when a numeric user id doesn't resolve to any user, instead of silently returning an empty page", async (t) => {
+  // Confirmed live: AniList 404s the *entire* HTTP response (not just the
+  // aliased `exists` field) when User(id) doesn't resolve, even combined
+  // with other root fields in the same request — see docs/api-references.md.
+  const mock = mockFetch(() =>
+    jsonResponse(
+      { errors: [{ message: "Not Found.", status: 404 }], data: { exists: null, feed: null } },
+      { status: 404 },
+    ),
+  );
+  installFetch(t, mock);
+  const client = new AniListClient(testConfig({}), silentLogger());
+
+  await assert.rejects(
+    () => search.searchActivity(client.ctx(), id<UserId>(999999999)),
+    (err: unknown) => err instanceof ApiError && err.code === "not_found",
+  );
+  assert.equal(mock.calls.length, 1, "the not-found check costs no extra request");
 });
 
 test("searchActivity resolves a username to an id first, since activities() has no userName argument", async (t) => {

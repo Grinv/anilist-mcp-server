@@ -1,5 +1,7 @@
 import type { AniListContext } from "./context.js";
 import { resolveUserId } from "./user.js";
+import { assertFound } from "../../lib/errors.js";
+import { existsFragment } from "./fields.js";
 import type { CategoryId, MediaId, UserId } from "./ids.js";
 import type { MediaType } from "./enums.js";
 import {
@@ -231,9 +233,28 @@ export async function searchActivity(
   // resolution request first — same constraint as getUserActivity. Leaving a
   // username unresolved would make AniList treat the `userId` filter as
   // absent and silently return the *global* activity feed instead of
-  // erroring on an unknown username.
+  // erroring on an unknown username. A raw numeric id that doesn't resolve
+  // to any user would also silently return an empty page (not error) —
+  // existsFragment() aliases the existence check into the same request,
+  // same pattern as getUserActivity.
+  if (typeof user === "number") {
+    const query = `query($userId:Int,$type:ActivityType,$page:Int,$perPage:Int){
+      ${existsFragment("User", "userId")}
+      feed:Page(page:$page,perPage:$perPage){
+        pageInfo{total currentPage lastPage hasNextPage}
+        activities(userId:$userId,type:$type,sort:ID_DESC){${ACTIVITY_FRAGMENT}}
+      }
+    }`;
+    const data = await ctx.gql.request<{ exists: { id: number } | null; feed: unknown }>(
+      query,
+      { userId: user, type, page, perPage },
+      header,
+    );
+    assertFound(data.exists, `No AniList user found with ID ${user}.`);
+    return data.feed;
+  }
   const userId: UserId | undefined =
-    typeof user === "string" ? await resolveUserId(ctx, user, header) : user;
+    typeof user === "string" ? await resolveUserId(ctx, user, header) : undefined;
   const query = `query($userId:Int,$type:ActivityType,$page:Int,$perPage:Int){Page(page:$page,perPage:$perPage){
     pageInfo{total currentPage lastPage hasNextPage}
     activities(userId:$userId,type:$type,sort:ID_DESC){${ACTIVITY_FRAGMENT}}

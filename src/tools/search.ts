@@ -474,11 +474,8 @@ export function registerSearchTools(server: McpServer, client: AniListClient): v
           .describe(
             "Restrict results to this AniList user — numeric ID or exact username (resolved " +
               "to an id with one extra internal lookup; no need to call search_user first " +
-              "unless you only have a partial/fuzzy name). Validation is asymmetric: an " +
-              "unknown USERNAME errors ('No AniList user named ... was found'), but an " +
-              "unknown numeric ID does NOT — it silently returns an empty result, " +
-              "indistinguishable from 'this user has no matching activity'. Resolve a numeric " +
-              "ID via search_user first if you need to confirm the account actually exists. " +
+              "unless you only have a partial/fuzzy name). An unknown ID or username errors " +
+              "with not_found rather than silently returning an empty result. " +
               "Use get_user_activity instead if you only need one user's feed without the " +
               "type filter.",
           ),

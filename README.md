@@ -76,7 +76,7 @@ Once it's connected, just ask your agent in natural language.
 | `get_activity`, `get_user_activity`                                                                   | none  |
 | `get_user_list`                                                                                       | none  |
 | `toggle_favourite`                                                                                    | token |
-| `add_list_entry`, `update_list_entry`, `remove_list_entry`                                            | token |
+| `add_list_entry`, `update_list_entry`, `update_list_entries`, `remove_list_entry`                     | token |
 | `post_text_activity`, `post_message_activity`, `delete_activity`                                      | token |
 | `post_thread`, `post_thread_comment`, `delete_thread`, `delete_thread_comment`                        | token |
 | `get_authorized_user`, `toggle_follow_user`, `update_user`                                            | token |

@@ -31,6 +31,7 @@ const EXPECTED_TOOLS = [
   "get_user_list",
   "add_list_entry",
   "update_list_entry",
+  "update_list_entries",
   "remove_list_entry",
   "get_media",
   "get_media_statistics",

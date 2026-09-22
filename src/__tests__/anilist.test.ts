@@ -435,6 +435,98 @@ test("every read path that returns a personal list-entry score pins POINT_10_DEC
   }
 });
 
+test("getUserList's compact format flattens the grouped response into unique TSV rows", async (t) => {
+  // Fixture mirrors a real MediaListCollection compact response (verified live
+  // against a public list): AniList repeats the SAME entry once per group it
+  // belongs to, so an entry filed under a custom list arrives twice — 325 rows
+  // for 324 unique entries on the list this was taken from.
+  const entry = (id: number, status: string, score: number, progress: number, title: string) => ({
+    id,
+    status,
+    score,
+    progress,
+    media: { id: id * 10, idMal: id * 100, title: { romaji: title, english: null } },
+  });
+  const duplicated = entry(3, "COMPLETED", 9, 12, "Filed under a custom list");
+  const mock = mockFetch(() =>
+    jsonResponse({
+      data: {
+        MediaListCollection: {
+          hasNextChunk: false,
+          lists: [
+            {
+              entries: [
+                entry(1, "CURRENT", 8.5, 4, "A title"),
+                // Whitespace that would otherwise break the TSV apart.
+                entry(2, "PLANNING", 0, 0, "Tabbed\tand\nbroken   title"),
+                duplicated,
+              ],
+            },
+            { entries: [duplicated] },
+            { entries: null },
+          ],
+        },
+      },
+    }),
+  );
+  installFetch(t, mock);
+  const client = new AniListClient(testConfig(), silentLogger());
+
+  const result = await list.getUserList(client.ctx(), "ANIME", "someone");
+  assert.equal(result.format, "compact");
+  if (result.format !== "compact") return;
+
+  assert.equal(result.columns, "entryId\tmediaId\tidMal\tstatus\tscore\tprogress\ttitle");
+  assert.equal(result.count, 3, "the entry repeated across two groups must be counted once");
+  const rows = result.rows.split("\n");
+  assert.equal(rows.length, 3);
+  assert.equal(rows[0], "1\t10\t100\tCURRENT\t8.5\t4\tA title");
+  assert.equal(
+    rows[1],
+    "2\t20\t200\tPLANNING\t0\t0\tTabbed and broken title",
+    "a title's own whitespace must never introduce extra columns or rows",
+  );
+  for (const row of rows) assert.equal(row.split("\t").length, 7);
+});
+
+test("getUserList requests only the fields its format needs, and filters by status server-side", async (t) => {
+  const mock = mockFetch(() =>
+    jsonResponse({ data: { MediaListCollection: { hasNextChunk: false, lists: [] } } }),
+  );
+  installFetch(t, mock);
+  const client = new AniListClient(testConfig(), silentLogger());
+
+  await list.getUserList(client.ctx(), "ANIME", "someone", { statuses: ["CURRENT"] });
+  await list.getUserList(client.ctx(), "ANIME", "someone", { format: "full" });
+
+  const sent = mock.calls.map(
+    (call) => JSON.parse(call.init?.body as string) as { query: string; variables: object },
+  );
+  assert.equal(sent.length, 2);
+  const [compact, full] = sent as [(typeof sent)[number], (typeof sent)[number]];
+  // Compact must not pay for the heavy per-entry fields upstream — trimming
+  // the response after the fact would still cost the bandwidth and the
+  // upstream work.
+  for (const field of ["notes", "advancedScores", "customLists", "createdAt", "priority"]) {
+    assert.doesNotMatch(
+      compact.query,
+      new RegExp(field),
+      `compact must not select ${field}:\n${compact.query}`,
+    );
+    assert.match(full.query, new RegExp(field), `full must still select ${field}`);
+  }
+  assert.deepEqual(
+    (compact.variables as { statusIn?: string[] }).statusIn,
+    ["CURRENT"],
+    "statuses must reach AniList as status_in, not be filtered client-side",
+  );
+  assert.equal(
+    "statusIn" in full.variables,
+    false,
+    "an absent status filter must be omitted from the request, not sent as null",
+  );
+});
+
 test("saveListEntry resolves advancedScores against the account's own configured category order for the entry's actual media type", async (t) => {
   const mock = mockFetch((_url, init) => {
     const body = JSON.parse(init?.body as string) as { query: string };
@@ -1148,14 +1240,22 @@ test("getCharacter/getStaff/getUserProfile/getFullUserInfo/getAuthorizedUser alw
 // The mutation used to select back only id/status/score/progress/mediaId/
 // hiddenFromStatusLists, so a write to priority, notes, dates, customLists or
 // advancedScores could only be verified with a follow-up read.
-test("saveListEntry asks back for every field the tool can set", async (t) => {
+/** The mutation's own ARGUMENT list also mentions customLists/advancedScores
+ *  (`customLists:$customLists`), so a naive substring check on the whole
+ *  query passes even when the selection set omits them — slice from the
+ *  arguments' closing `){` to test what's actually asked back. */
+function savedSelection(query: string): string {
+  const afterName = query.slice(query.indexOf("SaveMediaListEntry"));
+  return afterName.slice(afterName.indexOf("){") + 2);
+}
+
+test("saveListEntry asks back for the fields AniList doesn't store verbatim, but only when they were sent", async (t) => {
   const mock = mockFetch(() => jsonResponse({ data: { SaveMediaListEntry: { id: 9 } } }));
   installFetch(t, mock);
   const client = new AniListClient(testConfig({ ANILIST_ACCESS_TOKEN: "tok" }), silentLogger());
 
-  await list.saveListEntry(client.ctx(), { mediaId: id<MediaId>(42) });
-  const { query } = JSON.parse(mock.calls[0]!.init?.body as string) as { query: string };
-  const selection = query.slice(query.indexOf("SaveMediaListEntry"));
+  await list.saveListEntry(client.ctx(), { mediaId: id<MediaId>(42), customLists: ["Favourites"] });
+  const withLists = savedSelection(JSON.parse(mock.calls[0]!.init?.body as string).query as string);
   for (const field of [
     "progressVolumes",
     "repeat",
@@ -1167,6 +1267,64 @@ test("saveListEntry asks back for every field the tool can set", async (t) => {
     "customLists(asArray: true)",
     "advancedScores",
   ]) {
-    assert.ok(selection.includes(field), `${field} must be selected back from the mutation`);
+    assert.ok(withLists.includes(field), `${field} must be selected back when customLists was set`);
   }
+
+  // Nothing that AniList stores verbatim needs echoing on the common path —
+  // and `notes` is up to 6000 characters the caller just supplied.
+  await list.saveListEntry(client.ctx(), { mediaId: id<MediaId>(42), progress: 3 });
+  const trimmed = savedSelection(JSON.parse(mock.calls[1]!.init?.body as string).query as string);
+  for (const field of ["customLists", "advancedScores", "notes", "createdAt", "updatedAt"]) {
+    assert.ok(
+      !trimmed.includes(field),
+      `${field} must not be echoed when the caller didn't set it:\n${trimmed}`,
+    );
+  }
+  // Still enough to confirm the write, including the one field AniList fills
+  // in by itself (startedAt is auto-set on a new CURRENT entry).
+  for (const field of ["id", "mediaId", "status", "progress", "startedAt"]) {
+    assert.ok(trimmed.includes(field), `${field} must still be echoed`);
+  }
+});
+
+test("updateListEntries sends one bulk mutation and never customLists or advancedScores", async (t) => {
+  const mock = mockFetch(() =>
+    jsonResponse({ data: { UpdateMediaListEntries: [{ id: 1 }, { id: 2 }] } }),
+  );
+  installFetch(t, mock);
+  const client = new AniListClient(testConfig({ ANILIST_ACCESS_TOKEN: "tok" }), silentLogger());
+
+  const result = await list.updateListEntries(
+    client.ctx(),
+    [id<ListEntryId>(1), id<ListEntryId>(2)],
+    { status: "COMPLETED", score: 8.5 },
+  );
+  assert.deepEqual(result, { updated: 2, listEntryIds: [1, 2] });
+  assert.equal(mock.calls.length, 1, "a batch must cost exactly one request");
+
+  const body = JSON.parse(mock.calls[0]!.init?.body as string) as {
+    query: string;
+    variables: Record<string, unknown>;
+  };
+  assert.match(body.query, /UpdateMediaListEntries/);
+  // AniList's bulk mutation has no customLists argument at all, and
+  // advancedScores is excluded on purpose (it zeroes omitted categories —
+  // across a whole batch that is silent data loss).
+  assert.doesNotMatch(body.query, /customLists|advancedScores/);
+  assert.deepEqual(body.variables.ids, [1, 2]);
+  // 0-10 in, AniList's raw 0-100 out — same conversion saveListEntry does.
+  assert.equal(body.variables.scoreRaw, 85);
+  assert.equal("score" in body.variables, false);
+});
+
+test("updateListEntries refuses a call that would write nothing", async (t) => {
+  const mock = mockFetch(() => jsonResponse({ data: { UpdateMediaListEntries: [] } }));
+  installFetch(t, mock);
+  const client = new AniListClient(testConfig({ ANILIST_ACCESS_TOKEN: "tok" }), silentLogger());
+
+  await assert.rejects(
+    () => list.updateListEntries(client.ctx(), [id<ListEntryId>(1)], {}),
+    /No values to apply/,
+  );
+  assert.equal(mock.calls.length, 0, "an empty update must not reach AniList at all");
 });

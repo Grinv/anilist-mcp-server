@@ -88,6 +88,10 @@
       "description": "Update an entry on your list (requires token)."
     },
     {
+      "name": "update_list_entries",
+      "description": "Update many list entries to the same values in one request (requires token)."
+    },
+    {
       "name": "remove_list_entry",
       "description": "Delete an entry from your list (requires token)."
     },

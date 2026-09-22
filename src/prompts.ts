@@ -170,8 +170,11 @@ export function registerPrompts(server: McpServer): void {
             text:
               `Summarize what AniList user "${user}" has been up to lately.\n` +
               `Call get_user_activity for their recent activity posts (list updates, text posts), ` +
-              `and get_user_list with type: "ANIME" and again with type: "MANGA" for their ` +
-              `CURRENT (watching/reading) status groups. Combine all of that into a short digest: ` +
+              `and get_user_list with statuses: ["CURRENT"] — once with type: "ANIME" and again ` +
+              `with type: "MANGA" — for what they're currently watching/reading. Filtering by ` +
+              `status server-side matters here: chunks are counted across ALL statuses at once, ` +
+              `so an unfiltered call can page through hundreds of completed entries without ` +
+              `reaching a single current one. Combine all of that into a short digest: ` +
               `what they've recently updated, what they're currently watching/reading and how far ` +
               `along, and any notable text posts. Omit a list from the digest if it has no CURRENT entries.`,
           },

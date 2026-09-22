@@ -8,12 +8,18 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Add `update_list_entries`: apply one set of values (status, score, progress, dates, …) to many list entries in a single request, via AniList's own `UpdateMediaListEntries`. Returns a summary rather than echoing every entry, and is all-or-nothing — an unknown id fails the call without changing anything.
+- Add `statuses` to `get_user_list`, filtering entries server-side via AniList's own `status_in` instead of fetching a whole list and discarding most of it.
 - Add `includeDescription` to `search_user`, for the `about` bio it no longer fetches by default.
 
 ### Changed
 
+- `add_list_entry`/`update_list_entry` no longer echo `customLists`, `advancedScores`, `notes`, `createdAt` and `updatedAt` unless the call actually set `customLists`/`advancedScores` — the fields AniList doesn't store verbatim are still readable back when they matter. Measured live: 278 bytes per write instead of 474.
+- `get_user_list` now returns a compact tab-separated table by default (`format: "compact"`): entry id, media id, MAL id, status, score, progress and title, one de-duplicated row per entry. Measured live on a 324-entry list: 20KB versus 208KB for the previous shape, which is still available as `format: "full"`.
+- Remove `get_user_list`'s 25-entry cap on `perChunk`; AniList imposes no per-chunk limit on `MediaListCollection`, so a whole list can now be fetched in one call instead of paging through it. The default stays 25.
 - Stop fetching each result's `about` bio by default in `search_user`; use `includeDescription` to opt in, same pattern as `search_character`/`search_staff`.
 - Name the scale on every score a tool returns: 0-100 for `averageScore`/`meanScore`/score-distribution buckets/review scores, 0-10 for a personal list-entry score.
+- `summarize_user_activity` now asks `get_user_list` for `statuses: ["CURRENT"]`; chunks are counted across all statuses at once, so an unfiltered call could page through hundreds of completed entries without reaching a current one.
 - Reword `update_user`'s `scoreFormat`: it changes display on anilist.co only, and every score this server returns keeps its documented scale on read as well as on write.
 
 ### Fixed

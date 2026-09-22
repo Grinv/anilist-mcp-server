@@ -26,13 +26,108 @@ export interface MediaListEntryInput {
   advancedScores?: Record<string, number>;
 }
 
+/** Response shape per `format`. `full` is the original grouped GraphQL
+ *  passthrough; `compact` is a flat, de-duplicated TSV of the six fields a
+ *  sync/comparison task actually uses, which is roughly a tenth the size —
+ *  measured live on a 325-entry list: 210KB of grouped JSON vs ~21KB of rows. */
+export type UserListFormat = "compact" | "full";
+
+export interface UserListOptions {
+  chunk?: number;
+  perChunk?: number;
+  format?: UserListFormat;
+  /** Server-side `status_in` filter. Omitted entirely when absent, so the
+   *  default stays "every status". */
+  statuses?: MediaListStatus[];
+}
+
+export type UserListResult =
+  | { format: "full"; lists: unknown; hasNextChunk: boolean | null }
+  | {
+      format: "compact";
+      count: number;
+      columns: string;
+      rows: string;
+      hasNextChunk: boolean | null;
+    };
+
+/** Tab-separated, in the order `COMPACT_SELECTION` builds them. */
+const COMPACT_COLUMNS = "entryId\tmediaId\tidMal\tstatus\tscore\tprogress\ttitle";
+
+// `score` is pinned to POINT_10_DECIMAL here for the same reason the full
+// selection pins it (see fields.ts) — unformatted, AniList returns it in the
+// account's own display scoreFormat.
+const COMPACT_SELECTION = `id status score(format:POINT_10_DECIMAL) progress
+      media{id idMal title{romaji english}}`;
+
+const FULL_SELECTION = `id status score(format:POINT_10_DECIMAL) progress progressVolumes repeat priority private notes
+      hiddenFromStatusLists
+      startedAt{year month day} completedAt{year month day} updatedAt createdAt
+      customLists(asArray: true) advancedScores
+      media{id idMal title{romaji english} episodes chapters siteUrl}`;
+
+interface CompactEntry {
+  id: number;
+  status: string | null;
+  score: number | null;
+  progress: number | null;
+  media: {
+    id: number | null;
+    idMal: number | null;
+    title: { romaji: string | null; english: string | null } | null;
+  } | null;
+}
+
+/** Collapses any whitespace (a title can carry a newline or a stray tab) so a
+ *  row can never break the TSV it sits in. */
+function oneLine(value: string): string {
+  return value.replace(/\s+/g, " ").trim();
+}
+
+function cell(value: string | number | null | undefined): string {
+  return value === null || value === undefined ? "" : String(value);
+}
+
+/** Flattens the grouped response into unique rows. Deduplicated by entry id on
+ *  purpose: AniList lists the SAME entry once per group it belongs to, so an
+ *  entry filed under a custom list arrives twice (confirmed live: 325 rows for
+ *  324 unique entries on a public list). The grouping itself is dropped —
+ *  every row carries its own `status`, and custom-list membership is only
+ *  available in `full`. */
+function toCompactRows(lists: { entries: CompactEntry[] | null }[] | null): {
+  count: number;
+  rows: string;
+} {
+  const seen = new Set<number>();
+  const rows: string[] = [];
+  for (const group of lists ?? []) {
+    for (const entry of group?.entries ?? []) {
+      if (!entry || seen.has(entry.id)) continue;
+      seen.add(entry.id);
+      const title = entry.media?.title;
+      rows.push(
+        [
+          cell(entry.id),
+          cell(entry.media?.id),
+          cell(entry.media?.idMal),
+          cell(entry.status),
+          cell(entry.score),
+          cell(entry.progress),
+          oneLine(title?.english ?? title?.romaji ?? ""),
+        ].join("\t"),
+      );
+    }
+  }
+  return { count: rows.length, rows: rows.join("\n") };
+}
+
 export async function getUserList(
   ctx: AniListContext,
   type: MediaType,
   user: UserId | string,
-  chunk = 1,
-  perChunk = 25,
-): Promise<{ lists: unknown; hasNextChunk: boolean | null }> {
+  opts: UserListOptions = {},
+): Promise<UserListResult> {
+  const { chunk = 1, perChunk = 25, format = "compact", statuses } = opts;
   const byId = typeof user === "number";
   // No existence check needed here — confirmed live (see docs/api-references.md's
   // "Page connection filtered by a parent id" section) that MediaListCollection
@@ -46,28 +141,44 @@ export async function getUserList(
   // middle of a status group. Unpaginated, this field returns the account's
   // entire list (up to AniList's own 11,000-entry cap) in one response,
   // which for an active account is large enough to blow a calling agent's
-  // context budget.
-  const query = `query($userId:Int,$userName:String,$type:MediaType,$chunk:Int,$perChunk:Int){MediaListCollection(userId:$userId,userName:$userName,type:$type,chunk:$chunk,perChunk:$perChunk){
+  // context budget — hence the modest DEFAULT `perChunk` here and in the
+  // tool schema. There is deliberately no maximum: AniList imposes none
+  // (confirmed live at `perChunk: 5000`), so a caller that knowingly wants
+  // a whole list in one call can ask for it.
+  // `status_in` is AniList's own server-side filter (confirmed live: it
+  // narrows the entries AND still returns the custom-list groups whose
+  // entries match), so a status-scoped read never pays for the rest of the
+  // list. `undefined` is stripped from variables before sending, so omitting
+  // it means "every status" rather than "none".
+  // Compact skips the group metadata entirely — toCompactRows() discards it,
+  // so there's no reason to pay for it upstream either.
+  const groupFields = format === "compact" ? "" : "name isCustomList isSplitCompletedList status ";
+  const selection = format === "compact" ? COMPACT_SELECTION : FULL_SELECTION;
+  const query = `query($userId:Int,$userName:String,$type:MediaType,$chunk:Int,$perChunk:Int,$statusIn:[MediaListStatus]){MediaListCollection(userId:$userId,userName:$userName,type:$type,chunk:$chunk,perChunk:$perChunk,status_in:$statusIn){
     hasNextChunk
-    lists{name isCustomList isSplitCompletedList status entries{
-      id status score(format:POINT_10_DECIMAL) progress progressVolumes repeat priority private notes
-      hiddenFromStatusLists
-      startedAt{year month day} completedAt{year month day} updatedAt createdAt
-      customLists(asArray: true) advancedScores
-      media{id idMal title{romaji english} episodes chapters siteUrl}
+    lists{${groupFields}entries{
+      ${selection}
     }}
   }}`;
+  const variables = {
+    ...(byId ? { userId: user } : { userName: user }),
+    type,
+    chunk,
+    perChunk,
+    statusIn: statuses,
+  };
   // Authenticated (when available) so the caller's own private entries and
   // viewer-relative fields resolve correctly, not just what an anonymous
   // request would see.
   const data = await ctx.gql.request<{
-    MediaListCollection: { lists: unknown; hasNextChunk: boolean | null };
-  }>(
-    query,
-    byId ? { userId: user, type, chunk, perChunk } : { userName: user, type, chunk, perChunk },
-    ctx.authHeader(),
-  );
-  return data.MediaListCollection;
+    MediaListCollection: {
+      lists: { entries: CompactEntry[] | null }[] | null;
+      hasNextChunk: boolean | null;
+    };
+  }>(query, variables, ctx.authHeader());
+  const { lists, hasNextChunk } = data.MediaListCollection;
+  if (format === "full") return { format: "full", lists, hasNextChunk };
+  return { format: "compact", ...toCompactRows(lists), columns: COMPACT_COLUMNS, hasNextChunk };
 }
 
 /** Both anime- and manga-list advanced scoring categories, in the account's
@@ -190,12 +301,24 @@ export async function saveListEntry(
     }
     advancedScores = orderAdvancedScores(input.advancedScores, mediaType, categoryLists);
   }
-  // The selection set covers every field this mutation can set (matching
-  // getUserList's own entry selection, minus its nested `media`), so a caller
-  // can verify what actually landed from this one response instead of
-  // following each write with a read — it matters most for the fields AniList
-  // doesn't store verbatim: `advancedScores` zeroes omitted categories and
-  // `customLists` replaces rather than merges.
+  // Two selection sets, chosen by what the caller actually sent. The full one
+  // exists so a caller can verify what landed without a follow-up read, and
+  // that only matters for the fields AniList does NOT store verbatim:
+  // `advancedScores` zeroes omitted categories and `customLists` replaces
+  // rather than merges. When neither was sent, echoing them back (plus
+  // `notes`, which can run to 6000 characters the caller just supplied) is
+  // pure cost on every single write — and a list sync is hundreds of writes.
+  // Everything still echoed is a field AniList either stores verbatim or
+  // fills in itself (`startedAt` is auto-set on a new CURRENT entry), so the
+  // trimmed response is still enough to confirm the write.
+  const echoesStoredShape = input.customLists !== undefined || input.advancedScores !== undefined;
+  const selection = echoesStoredShape
+    ? `id status score(format:POINT_10_DECIMAL) progress progressVolumes repeat priority private notes
+    hiddenFromStatusLists mediaId
+    startedAt{year month day} completedAt{year month day} updatedAt createdAt
+    customLists(asArray: true) advancedScores`
+    : `id mediaId status score(format:POINT_10_DECIMAL) progress progressVolumes repeat priority
+    private hiddenFromStatusLists startedAt{year month day} completedAt{year month day}`;
   const query = `mutation(
     $id:Int,$mediaId:Int,$status:MediaListStatus,$scoreRaw:Int,$progress:Int,$progressVolumes:Int,
     $repeat:Int,$priority:Int,$private:Boolean,$notes:String,$hiddenFromStatusLists:Boolean,
@@ -206,10 +329,7 @@ export async function saveListEntry(
     repeat:$repeat,priority:$priority,private:$private,notes:$notes,hiddenFromStatusLists:$hiddenFromStatusLists,
     startedAt:$startedAt,completedAt:$completedAt,customLists:$customLists,advancedScores:$advancedScores
   ){
-    id status score(format:POINT_10_DECIMAL) progress progressVolumes repeat priority private notes
-    hiddenFromStatusLists mediaId
-    startedAt{year month day} completedAt{year month day} updatedAt createdAt
-    customLists(asArray: true) advancedScores
+    ${selection}
   }}`;
   const data = await ctx.gql.request<{ SaveMediaListEntry: unknown }>(
     query,
@@ -235,6 +355,94 @@ export async function saveListEntry(
     header,
   );
   return data.SaveMediaListEntry;
+}
+
+/** Every value `UpdateMediaListEntries` can set on a whole batch at once.
+ *  Deliberately excludes `advancedScores`, which AniList's own mutation does
+ *  accept: it zeroes every category the caller didn't list, and doing that
+ *  silently across dozens of entries in one call is data loss, not a bulk
+ *  edit. `customLists` isn't here because AniList's bulk mutation has no such
+ *  argument at all — which is why a batch can't disturb custom-list
+ *  membership (confirmed live: a 31-entry custom list was byte-identical
+ *  before and after a bulk update of three of its members). */
+export interface BulkListEntryValues {
+  status?: MediaListStatus;
+  /** 0-10 scale, converted to AniList's raw 0-100 `scoreRaw` exactly as
+   *  saveListEntry does. */
+  score?: number;
+  progress?: number;
+  progressVolumes?: number;
+  repeat?: number;
+  priority?: number;
+  private?: boolean;
+  notes?: string;
+  hiddenFromStatusLists?: boolean;
+  startedAt?: { year?: number; month?: number; day?: number };
+  completedAt?: { year?: number; month?: number; day?: number };
+}
+
+/** Applies ONE set of values to many list entries in a single request, via
+ *  AniList's own `UpdateMediaListEntries` ("Update multiple media list
+ *  entries to the same values", per its schema description).
+ *
+ *  Confirmed live against a real account:
+ *  - `ids` are list-ENTRY ids, not media ids (passing entry 581991087
+ *    updated that entry and echoed back its `mediaId` 1887).
+ *  - The call is atomic on validation: a single unknown id fails the whole
+ *    request with `400 validation {ids: ["The selected ids is invalid."]}`
+ *    and applies NOTHING — a real entry batched alongside a bad id was
+ *    verified unchanged afterwards. So there is no partial-batch state to
+ *    reconcile, and no need to report per-entry outcomes.
+ *  - The 400 does not say WHICH id was rejected, only that one was. */
+export async function updateListEntries(
+  ctx: AniListContext,
+  listEntryIds: ListEntryId[],
+  values: BulkListEntryValues,
+): Promise<{ updated: number; listEntryIds: number[] }> {
+  const header = ctx.requireAuth();
+  // An ids-only call would still be a write (AniList has no "change nothing"
+  // semantics to rely on), so refuse it here rather than touching every
+  // named entry for no reason.
+  if (Object.values(values).every((value) => value === undefined)) {
+    throw new ApiError({
+      code: "bad_request",
+      message:
+        "No values to apply — set at least one of status, score, progress, progressVolumes, " +
+        "repeat, priority, private, notes, hiddenFromStatusLists, startedAt or completedAt.",
+    });
+  }
+  // Only `id` is selected: the caller gets a summary, not an echo. AniList
+  // returns [MediaList], which at the full per-entry shape would be ~451
+  // bytes times the batch size — the exact cost this tool exists to avoid.
+  const query = `mutation(
+    $ids:[Int],$status:MediaListStatus,$scoreRaw:Int,$progress:Int,$progressVolumes:Int,
+    $repeat:Int,$priority:Int,$private:Boolean,$notes:String,$hiddenFromStatusLists:Boolean,
+    $startedAt:FuzzyDateInput,$completedAt:FuzzyDateInput
+  ){UpdateMediaListEntries(
+    ids:$ids,status:$status,scoreRaw:$scoreRaw,progress:$progress,progressVolumes:$progressVolumes,
+    repeat:$repeat,priority:$priority,private:$private,notes:$notes,
+    hiddenFromStatusLists:$hiddenFromStatusLists,startedAt:$startedAt,completedAt:$completedAt
+  ){id}}`;
+  const data = await ctx.gql.request<{ UpdateMediaListEntries: { id: number }[] | null }>(
+    query,
+    {
+      ids: listEntryIds,
+      status: values.status,
+      scoreRaw: values.score === undefined ? undefined : Math.round(values.score * 10),
+      progress: values.progress,
+      progressVolumes: values.progressVolumes,
+      repeat: values.repeat,
+      priority: values.priority,
+      private: values.private,
+      notes: values.notes,
+      hiddenFromStatusLists: values.hiddenFromStatusLists,
+      startedAt: values.startedAt,
+      completedAt: values.completedAt,
+    },
+    header,
+  );
+  const updated = data.UpdateMediaListEntries ?? [];
+  return { updated: updated.length, listEntryIds: updated.map((entry) => entry.id) };
 }
 
 export async function deleteListEntry(

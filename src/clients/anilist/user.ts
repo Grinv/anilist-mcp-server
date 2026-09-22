@@ -1,4 +1,11 @@
 import type { AniListContext } from "./context.js";
+import type {
+  TitleLanguage,
+  ScoreFormat,
+  StaffNameLanguage,
+  NotificationType,
+  MediaListStatus,
+} from "./enums.js";
 import { assertFound } from "../../lib/errors.js";
 import type { UserId } from "./ids.js";
 import { USER_FIELDS, USER_DESCRIPTION_FIELD, USER_DETAIL_FIELDS } from "./fields.js";
@@ -88,28 +95,28 @@ export interface MediaListOptionsFieldsInput {
 }
 
 export interface NotificationOptionFieldInput {
-  type: string;
+  type: NotificationType;
   enabled?: boolean;
 }
 
 export interface ListActivityOptionFieldInput {
-  type: string;
+  type: MediaListStatus;
   disabled?: boolean;
 }
 
 export interface UpdateUserFields {
   about?: string;
-  titleLanguage?: string;
+  titleLanguage?: TitleLanguage;
   displayAdultContent?: boolean;
   airingNotifications?: boolean;
-  scoreFormat?: string;
+  scoreFormat?: ScoreFormat;
   rowOrder?: string;
   profileColor?: string;
   donatorBadge?: string;
   notificationOptions?: NotificationOptionFieldInput[];
   timezone?: string;
   activityMergeTime?: number;
-  staffNameLanguage?: string;
+  staffNameLanguage?: StaffNameLanguage;
   restrictMessagesToFollowing?: boolean;
   disabledListActivity?: ListActivityOptionFieldInput[];
   // Confirmed live: AniList's MediaListOptionsInput IS a partial merge, not

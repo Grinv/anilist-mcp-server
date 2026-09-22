@@ -5,29 +5,10 @@ import * as notification from "../clients/anilist/notification.js";
 import { jsonResult } from "../lib/result.js";
 import { guard } from "./guard.js";
 import { idOnly, paginationFields } from "./outputSchemas.js";
-
-export const NOTIFICATION_TYPES = [
-  "ACTIVITY_MESSAGE",
-  "ACTIVITY_REPLY",
-  "FOLLOWING",
-  "ACTIVITY_MENTION",
-  "THREAD_COMMENT_MENTION",
-  "THREAD_SUBSCRIBED",
-  "THREAD_COMMENT_REPLY",
-  "AIRING",
-  "ACTIVITY_LIKE",
-  "ACTIVITY_REPLY_LIKE",
-  "THREAD_LIKE",
-  "THREAD_COMMENT_LIKE",
-  "ACTIVITY_REPLY_SUBSCRIBED",
-  "RELATED_MEDIA_ADDITION",
-  "MEDIA_DATA_CHANGE",
-  "MEDIA_MERGE",
-  "MEDIA_DELETION",
-  "MEDIA_SUBMISSION_UPDATE",
-  "STAFF_SUBMISSION_UPDATE",
-  "CHARACTER_SUBMISSION_UPDATE",
-] as const;
+// Re-exported so the tools that build notification schemas keep importing it
+// from here, while clients/anilist/enums.ts stays the single definition.
+export { NOTIFICATION_TYPES } from "../clients/anilist/enums.js";
+import { NOTIFICATION_TYPES } from "../clients/anilist/enums.js";
 
 // idOnly matches the NOTIFICATION_FIELDS union (20 possible notification
 // types); only `id` is common to every branch — the rest depends on `type`.

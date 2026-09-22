@@ -2,6 +2,8 @@ import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/server";
 import type { AniListClient } from "../clients/anilist.js";
 import * as user from "../clients/anilist/user.js";
+import type { UpdateUserFields } from "../clients/anilist/user.js";
+import { TITLE_LANGUAGES, SCORE_FORMATS, STAFF_NAME_LANGUAGES } from "../clients/anilist/enums.js";
 import * as activity from "../clients/anilist/activity.js";
 import { jsonResult } from "../lib/result.js";
 import { guard } from "./guard.js";
@@ -15,17 +17,6 @@ import {
 } from "./outputSchemas.js";
 import { NOTIFICATION_TYPES } from "./notification.js";
 import { activityItem } from "./activity.js";
-
-const TITLE_LANGUAGES = [
-  "ROMAJI",
-  "ENGLISH",
-  "NATIVE",
-  "ROMAJI_STYLISED",
-  "ENGLISH_STYLISED",
-  "NATIVE_STYLISED",
-] as const;
-const SCORE_FORMATS = ["POINT_100", "POINT_10_DECIMAL", "POINT_10", "POINT_5", "POINT_3"] as const;
-const STAFF_NAME_LANGUAGES = ["ROMAJI_WESTERN", "ROMAJI", "NATIVE"] as const;
 
 const mediaListOptionsInput = z
   .object({
@@ -382,159 +373,161 @@ export function registerUserTools(server: McpServer, client: AniListClient): voi
         "PLUS `animeListOptions`/`mangaListOptions`'s nested `customLists` — a third: that " +
         "one field's ARRAY VALUE is a full replace even though its sibling fields and the " +
         "other list type merge normally).",
-      inputSchema: z.object({
-        about: z.string().optional().describe("New profile 'about' text."),
-        titleLanguage: z
-          .enum(TITLE_LANGUAGES)
-          .optional()
-          .describe("Preferred title display language."),
-        displayAdultContent: z
-          .boolean()
-          .optional()
-          .describe("Whether to show adult content in search/browse."),
-        airingNotifications: z
-          .boolean()
-          .optional()
-          .describe("Whether to notify about new episode airings for anime on your list."),
-        scoreFormat: z
-          .enum(SCORE_FORMATS)
-          .optional()
-          .describe(
-            "Preferred list score format. It affects how scores DISPLAY on anilist.co only: " +
-              "every score crossing this server stays on its own documented scale whatever " +
-              "this is set to, so no conversion is needed on your end. A personal list-entry " +
-              "score is 0-10 both on write (add_list_entry/update_list_entry) and on read " +
-              "(get_user_list, get_media's `mediaListEntry`); `averageScore`/`meanScore` and " +
-              "the search filters are 0-100.",
+      inputSchema: z.toZod<UpdateUserFields>()(
+        z.object({
+          about: z.string().optional().describe("New profile 'about' text."),
+          titleLanguage: z
+            .enum(TITLE_LANGUAGES)
+            .optional()
+            .describe("Preferred title display language."),
+          displayAdultContent: z
+            .boolean()
+            .optional()
+            .describe("Whether to show adult content in search/browse."),
+          airingNotifications: z
+            .boolean()
+            .optional()
+            .describe("Whether to notify about new episode airings for anime on your list."),
+          scoreFormat: z
+            .enum(SCORE_FORMATS)
+            .optional()
+            .describe(
+              "Preferred list score format. It affects how scores DISPLAY on anilist.co only: " +
+                "every score crossing this server stays on its own documented scale whatever " +
+                "this is set to, so no conversion is needed on your end. A personal list-entry " +
+                "score is 0-10 both on write (add_list_entry/update_list_entry) and on read " +
+                "(get_user_list, get_media's `mediaListEntry`); `averageScore`/`meanScore` and " +
+                "the search filters are 0-100.",
+            ),
+          rowOrder: z
+            .string()
+            .optional()
+            .describe(
+              "Internal list-table row ordering key — reads back from " +
+                "`mediaListOptions.rowOrder` in the profile tools/this tool's own response. " +
+                "Confirmed live: AniList validates this server-side and rejects an unrecognized " +
+                'value with a clear error ("The selected row order is invalid.") rather than ' +
+                "silently ignoring it — unlike `profileColor` below.",
+            ),
+          profileColor: z
+            .string()
+            .optional()
+            .describe(
+              "Profile accent color (name or hex). Confirmed live: AniList silently ignores an " +
+                "unrecognized value instead of erroring — the account's existing color is left " +
+                "unchanged, with no error surfaced and no way to detect the value was rejected " +
+                "other than re-checking with get_authorized_user.",
+            ),
+          donatorBadge: z
+            .string()
+            .max(24)
+            .optional()
+            .describe(
+              "Custom donator badge text, up to 24 characters per AniList's own schema (only " +
+                "takes effect on a donator account).",
+            ),
+          notificationOptions: z
+            .array(
+              z.object({
+                type: z.enum(NOTIFICATION_TYPES).describe("Notification type to configure."),
+                enabled: z
+                  .boolean()
+                  .optional()
+                  .describe(
+                    "Whether this notification type is on. Optional per entry, but not really — " +
+                      "omitting it doesn't error and doesn't inherit the previous value either; " +
+                      `confirmed live it's written as \`enabled: null\`, effectively unsetting the ` +
+                      `type. Always pass an explicit true/false for every one of the ${NOTIFICATION_TYPES.length} types.`,
+                  ),
+              }),
+            )
+            .refine(
+              (opts) =>
+                opts.length === NOTIFICATION_TYPES.length &&
+                new Set(opts.map((o) => o.type)).size === NOTIFICATION_TYPES.length,
+              `Must include every one of the ${NOTIFICATION_TYPES.length} notification types exactly once.`,
+            )
+            .optional()
+            .describe(
+              `ALL ${NOTIFICATION_TYPES.length} notification types, every time — confirmed live this is a full replace, ` +
+                "not a partial merge: AniList silently drops every type you don't list (not just " +
+                "resets it to default, removes it) with no error. Fetch the account's current " +
+                "list first (get_authorized_user's `options.notificationOptions`) and resend it " +
+                "in full with just your changes applied.",
+            ),
+          timezone: z
+            .string()
+            .regex(
+              /^-?\d{2}:\d{2}$/,
+              'Must be a timezone offset in AniList\'s own documented "-?HH:MM" format, e.g. ' +
+                '"09:00" or "-05:00".',
+            )
+            .optional()
+            .describe(
+              'Display timezone as an offset, in AniList\'s own documented "-?HH:MM" format ' +
+                '(e.g. "09:00", "-05:00"). Confirmed live that AniList validates this ' +
+                'server-side and rejects a malformed value with a clear error ("The timezone ' +
+                'format is invalid.") — whether a leading "+" is also accepted wasn\'t tested ' +
+                "live (this tool has no way to explicitly clear timezone back to unset, so a " +
+                "wrong guess here risked an unrevertable change); this regex follows AniList's " +
+                "own literal grammar, which mentions only an optional leading minus.",
+            ),
+          activityMergeTime: z
+            .int()
+            .min(0)
+            .optional()
+            .describe(
+              "Minutes within which consecutive list activity posts get merged into one. Per " +
+                "AniList's own schema: 0 = never merge, 20160+ (2 weeks) = always merge.",
+            ),
+          staffNameLanguage: z
+            .enum(STAFF_NAME_LANGUAGES)
+            .optional()
+            .describe("Preferred staff/character name display language."),
+          restrictMessagesToFollowing: z
+            .boolean()
+            .optional()
+            .describe("Only allow message activity from users you follow."),
+          disabledListActivity: z
+            .array(
+              z.object({
+                type: z.enum(MEDIA_LIST_STATUSES).describe("List status this toggle applies to."),
+                disabled: z
+                  .boolean()
+                  .optional()
+                  .describe(
+                    "Whether posting activity for this status is suppressed. Optional in the " +
+                      "schema, but NOT safe to omit: confirmed live, leaving it out on even one " +
+                      `of the ${MEDIA_LIST_STATUSES.length} statuses makes the whole call fail with a 500 Internal Server ` +
+                      "Error on AniList's side (not a clean validation error, and not this " +
+                      "server's bug) — always pass an explicit true/false for every status.",
+                  ),
+              }),
+            )
+            .refine(
+              (opts) =>
+                opts.length === MEDIA_LIST_STATUSES.length &&
+                new Set(opts.map((o) => o.type)).size === MEDIA_LIST_STATUSES.length,
+              `Must include every one of the ${MEDIA_LIST_STATUSES.length} list statuses exactly once — AniList rejects a partial list.`,
+            )
+            .optional()
+            .describe(
+              `ALL ${MEDIA_LIST_STATUSES.length} list statuses, every time — confirmed live: AniList rejects this with a ` +
+                '400 error if any status is missing ("Incorrect number of disabled list activity ' +
+                "options\"), it's not a partial per-status update. Fetch the current list first " +
+                "(get_authorized_user's `options.disabledListActivity`) and resend it in full " +
+                "with just your changes applied.",
+            ),
+          animeListOptions: mediaListOptionsInput.describe(
+            "New anime-list display/scoring options — only the fields you set are changed " +
+              "(confirmed live: this is a partial merge, unlike add_list_entry's advancedScores).",
           ),
-        rowOrder: z
-          .string()
-          .optional()
-          .describe(
-            "Internal list-table row ordering key — reads back from " +
-              "`mediaListOptions.rowOrder` in the profile tools/this tool's own response. " +
-              "Confirmed live: AniList validates this server-side and rejects an unrecognized " +
-              'value with a clear error ("The selected row order is invalid.") rather than ' +
-              "silently ignoring it — unlike `profileColor` below.",
+          mangaListOptions: mediaListOptionsInput.describe(
+            "New manga-list display/scoring options — same partial-merge behavior as " +
+              "`animeListOptions` above.",
           ),
-        profileColor: z
-          .string()
-          .optional()
-          .describe(
-            "Profile accent color (name or hex). Confirmed live: AniList silently ignores an " +
-              "unrecognized value instead of erroring — the account's existing color is left " +
-              "unchanged, with no error surfaced and no way to detect the value was rejected " +
-              "other than re-checking with get_authorized_user.",
-          ),
-        donatorBadge: z
-          .string()
-          .max(24)
-          .optional()
-          .describe(
-            "Custom donator badge text, up to 24 characters per AniList's own schema (only " +
-              "takes effect on a donator account).",
-          ),
-        notificationOptions: z
-          .array(
-            z.object({
-              type: z.enum(NOTIFICATION_TYPES).describe("Notification type to configure."),
-              enabled: z
-                .boolean()
-                .optional()
-                .describe(
-                  "Whether this notification type is on. Optional per entry, but not really — " +
-                    "omitting it doesn't error and doesn't inherit the previous value either; " +
-                    `confirmed live it's written as \`enabled: null\`, effectively unsetting the ` +
-                    `type. Always pass an explicit true/false for every one of the ${NOTIFICATION_TYPES.length} types.`,
-                ),
-            }),
-          )
-          .refine(
-            (opts) =>
-              opts.length === NOTIFICATION_TYPES.length &&
-              new Set(opts.map((o) => o.type)).size === NOTIFICATION_TYPES.length,
-            `Must include every one of the ${NOTIFICATION_TYPES.length} notification types exactly once.`,
-          )
-          .optional()
-          .describe(
-            `ALL ${NOTIFICATION_TYPES.length} notification types, every time — confirmed live this is a full replace, ` +
-              "not a partial merge: AniList silently drops every type you don't list (not just " +
-              "resets it to default, removes it) with no error. Fetch the account's current " +
-              "list first (get_authorized_user's `options.notificationOptions`) and resend it " +
-              "in full with just your changes applied.",
-          ),
-        timezone: z
-          .string()
-          .regex(
-            /^-?\d{2}:\d{2}$/,
-            'Must be a timezone offset in AniList\'s own documented "-?HH:MM" format, e.g. ' +
-              '"09:00" or "-05:00".',
-          )
-          .optional()
-          .describe(
-            'Display timezone as an offset, in AniList\'s own documented "-?HH:MM" format ' +
-              '(e.g. "09:00", "-05:00"). Confirmed live that AniList validates this ' +
-              'server-side and rejects a malformed value with a clear error ("The timezone ' +
-              'format is invalid.") — whether a leading "+" is also accepted wasn\'t tested ' +
-              "live (this tool has no way to explicitly clear timezone back to unset, so a " +
-              "wrong guess here risked an unrevertable change); this regex follows AniList's " +
-              "own literal grammar, which mentions only an optional leading minus.",
-          ),
-        activityMergeTime: z
-          .int()
-          .min(0)
-          .optional()
-          .describe(
-            "Minutes within which consecutive list activity posts get merged into one. Per " +
-              "AniList's own schema: 0 = never merge, 20160+ (2 weeks) = always merge.",
-          ),
-        staffNameLanguage: z
-          .enum(STAFF_NAME_LANGUAGES)
-          .optional()
-          .describe("Preferred staff/character name display language."),
-        restrictMessagesToFollowing: z
-          .boolean()
-          .optional()
-          .describe("Only allow message activity from users you follow."),
-        disabledListActivity: z
-          .array(
-            z.object({
-              type: z.enum(MEDIA_LIST_STATUSES).describe("List status this toggle applies to."),
-              disabled: z
-                .boolean()
-                .optional()
-                .describe(
-                  "Whether posting activity for this status is suppressed. Optional in the " +
-                    "schema, but NOT safe to omit: confirmed live, leaving it out on even one " +
-                    `of the ${MEDIA_LIST_STATUSES.length} statuses makes the whole call fail with a 500 Internal Server ` +
-                    "Error on AniList's side (not a clean validation error, and not this " +
-                    "server's bug) — always pass an explicit true/false for every status.",
-                ),
-            }),
-          )
-          .refine(
-            (opts) =>
-              opts.length === MEDIA_LIST_STATUSES.length &&
-              new Set(opts.map((o) => o.type)).size === MEDIA_LIST_STATUSES.length,
-            `Must include every one of the ${MEDIA_LIST_STATUSES.length} list statuses exactly once — AniList rejects a partial list.`,
-          )
-          .optional()
-          .describe(
-            `ALL ${MEDIA_LIST_STATUSES.length} list statuses, every time — confirmed live: AniList rejects this with a ` +
-              '400 error if any status is missing ("Incorrect number of disabled list activity ' +
-              "options\"), it's not a partial per-status update. Fetch the current list first " +
-              "(get_authorized_user's `options.disabledListActivity`) and resend it in full " +
-              "with just your changes applied.",
-          ),
-        animeListOptions: mediaListOptionsInput.describe(
-          "New anime-list display/scoring options — only the fields you set are changed " +
-            "(confirmed live: this is a partial merge, unlike add_list_entry's advancedScores).",
-        ),
-        mangaListOptions: mediaListOptionsInput.describe(
-          "New manga-list display/scoring options — same partial-merge behavior as " +
-            "`animeListOptions` above.",
-        ),
-      }),
+        }),
+      ),
       outputSchema: z.object({ user: updateUserResult }),
       annotations: {
         readOnlyHint: false,

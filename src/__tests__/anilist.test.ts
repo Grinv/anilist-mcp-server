@@ -20,6 +20,7 @@ import type { TokenState } from "../lib/tokenStore.js";
 import type {
   MediaId,
   ListEntryId,
+  MalId,
   ThreadId,
   ActivityId,
   UserId,
@@ -47,6 +48,43 @@ function id<T>(n: number): T {
 function tempStorePath(name: string): string {
   return join(tmpdir(), `anilist-mcp-server-test-${name}.json`);
 }
+
+test("getMediaByMalId filters on idMal and re-keys results by idMal, not id", async (t) => {
+  // The AniList id and the MAL id of the same title are different numbers
+  // (fixture mirrors the real pairing: AniList 30001 is MONSTER, MAL 1).
+  // Re-keying by the wrong field would silently return null for everything.
+  const mock = mockFetch(() =>
+    jsonResponse({
+      data: {
+        Page: {
+          media: [
+            { id: 30001, idMal: 1 },
+            { id: 30002, idMal: 2 },
+          ],
+        },
+      },
+    }),
+  );
+  installFetch(t, mock);
+  const client = new AniListClient(testConfig(), silentLogger());
+
+  // Requested out of ascending order: AniList returns id_in/idMal_in results
+  // sorted by its own id, so the caller-order promise has to be restored here.
+  const many = (await media.getMediaByMalId(client.ctx(), "MANGA", [
+    id<MalId>(2),
+    id<MalId>(1),
+    id<MalId>(999),
+  ])) as ({ idMal: number } | null)[];
+  assert.deepEqual(
+    many.map((m) => m?.idMal ?? null),
+    [2, 1, null],
+    "results must follow the requested MAL-id order, with null for one that didn't resolve",
+  );
+
+  const { query } = JSON.parse(mock.calls[0]!.init?.body as string) as { query: string };
+  assert.match(query, /idMal_in:\$ids/);
+  assert.doesNotMatch(query, /[^M]id_in:/, "must not fall back to the AniList-id filter");
+});
 
 test("getMedia(single id) queries Media(), getMedia(array) queries Page.media()", async (t) => {
   const mock = mockFetch((_url, init) => {

@@ -6,6 +6,8 @@ import * as favourites from "../clients/anilist/favourites.js";
 import { FAVOURITE_KINDS } from "../clients/anilist/enums.js";
 import { jsonResult } from "../lib/result.js";
 import { guard } from "./guard.js";
+import { ApiError } from "../lib/errors.js";
+import type { MediaId, MalId } from "../clients/anilist/ids.js";
 import {
   pageInfoSchema,
   toggleFavouriteResult,
@@ -13,6 +15,7 @@ import {
   fuzzyDateOut,
   anilistId,
   mediaId,
+  malId,
   paginationFields,
   mediaTitleOut,
   favouriteOut,
@@ -22,21 +25,72 @@ import {
 
 const mediaType = z.enum(MEDIA_TYPES).describe("Whether `id` refers to anime or manga.");
 
+/** 50, not a round number of our choosing: the batch path builds
+ *  `Page(perPage: ids.length)`, and AniList silently clamps `perPage` above
+ *  50 (confirmed live), which would turn the surplus ids into nulls that look
+ *  exactly like "no such title". See media.ts's fetchMedia(). */
+const MAX_BATCH = 50;
+
 const idsSchema = z
-  .union([mediaId, z.array(mediaId).min(1).max(25)], {
+  .union([mediaId, z.array(mediaId).min(1).max(MAX_BATCH)], {
     // A plain string `error` fires for every union-mismatch reason alike, so a
     // wrong-but-present value (e.g. a decimal) would get told "is required" —
     // misleading when something WAS passed. Branch on `issue.input` instead.
     error: (issue) =>
       issue.input === undefined
-        ? "ids is required — pass a single AniList ID (number), or a non-empty array of IDs."
-        : "ids must be a single AniList ID (number), or a non-empty array of up to 25 IDs.",
+        ? "ids must be a single AniList ID (number), or a non-empty array of IDs."
+        : `ids must be a single AniList ID (number), or a non-empty array of up to ${MAX_BATCH} IDs.`,
   })
+  .optional()
   .describe(
-    "A single AniList anime/manga ID, or an array of up to 25 IDs to fetch in one call " +
-      "(same cap as this codebase's paginated list tools — each entry returned here includes " +
-      "the full synopsis/tags/rankings, so an uncapped batch could return a very large response).",
+    `A single AniList anime/manga ID, or an array of up to ${MAX_BATCH} IDs to fetch in one ` +
+      "call (AniList's own per-page ceiling; it clamps anything higher, which would silently " +
+      "drop the surplus). Pass this OR `malIds`, not both. Each entry includes the full " +
+      "synopsis/tags/rankings, so a large batch is a large response.",
   );
+
+const malIdsSchema = z
+  .union([malId, z.array(malId).min(1).max(MAX_BATCH)], {
+    error: (issue) =>
+      issue.input === undefined
+        ? "malIds must be a single MyAnimeList ID (number), or a non-empty array of IDs."
+        : `malIds must be a single MyAnimeList ID (number), or a non-empty array of up to ${MAX_BATCH} IDs.`,
+  })
+  .optional()
+  .describe(
+    `A single MyAnimeList ID (\`idMal\`), or an array of up to ${MAX_BATCH}, to resolve ` +
+      "straight to AniList titles — use this instead of searching by title when you already " +
+      "have MAL IDs (e.g. syncing a MAL list), since a title search costs one call per title " +
+      "and can match the wrong entry. Pass this OR `ids`, not both. MAL numbers anime and " +
+      "manga separately, so the SAME ID is a different title depending on `type` — passing " +
+      "the wrong `type` returns the wrong title, not an error.",
+  );
+
+/** `ids` and `malIds` are two ways of naming the same thing, so exactly one
+ *  must be given. Zod can't express that here without a refinement (which the
+ *  SDK's JSON-Schema bridge would have to represent), so it's enforced in the
+ *  handler and stated in both fields' descriptions — an ApiError, which
+ *  guard() turns into a normal actionable tool error rather than a throw. */
+async function fetchByEitherId(
+  client: AniListClient,
+  type: (typeof MEDIA_TYPES)[number],
+  ids: MediaId | MediaId[] | undefined,
+  malIds: MalId | MalId[] | undefined,
+  includeStreamingEpisodes: boolean,
+): Promise<unknown> {
+  if ((ids === undefined) === (malIds === undefined)) {
+    throw new ApiError({
+      code: "bad_request",
+      message:
+        ids === undefined
+          ? "Pass `ids` (AniList IDs) or `malIds` (MyAnimeList IDs) — one of them is required."
+          : "Pass either `ids` or `malIds`, not both — they name the same titles two ways.",
+    });
+  }
+  return ids === undefined
+    ? media.getMediaByMalId(client.ctx(), type, malIds!, includeStreamingEpisodes)
+    : media.getMedia(client.ctx(), type, ids, includeStreamingEpisodes);
+}
 
 /** MEDIA_FIELDS(+MEDIA_DETAIL_FIELDS) — only `id` is guaranteed; every other
  *  AniList field is nullable, so it's modeled as `.nullish()` here. */
@@ -352,13 +406,20 @@ export function registerMediaTools(server: McpServer, client: AniListClient): vo
         "currently appears in. Also returns `nextAiringEpisode` (for currently-releasing anime), " +
         "`externalLinks` (official sites, streaming platforms), and — [requires login] — " +
         "`mediaListEntry`, the authenticated user's own list entry for this title, or null if " +
-        "it isn't on their list. Use search_media first to resolve a title to its AniList ID. " +
-        "Returns a single object if `ids` is a single ID, or an array (same order as `ids`, " +
-        "with `null` in place of any ID that didn't resolve to a real anime/manga) if `ids` " +
-        "is an array.",
+        "it isn't on their list. Identify titles by AniList ID (`ids`) or by MyAnimeList ID " +
+        "(`malIds`) — exactly one of the two, and either accepts a batch. Use search_media " +
+        "first only when you have neither: a title search costs a call per title and can match " +
+        "the wrong entry, so prefer `malIds` whenever you already have MAL IDs. " +
+        "Returns a single object if you passed a single ID, or an array (same order as the IDs " +
+        "you passed, with `null` in place of any that didn't resolve to a real anime/manga) if " +
+        "you passed an array.",
       inputSchema: z.object({
-        type: mediaType.describe("Whether `ids` refers to anime or manga."),
+        type: mediaType.describe(
+          "Whether the IDs refer to anime or manga. Required for `malIds` in particular: MAL " +
+            "numbers the two separately, so the same ID means different titles.",
+        ),
         ids: idsSchema,
+        malIds: malIdsSchema,
         includeStreamingEpisodes: z
           .boolean()
           .default(false)
@@ -371,10 +432,10 @@ export function registerMediaTools(server: McpServer, client: AniListClient): vo
       outputSchema: z.object({ media: z.union([mediaObject, z.array(mediaObject.nullable())]) }),
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
-    ({ type, ids, includeStreamingEpisodes }) =>
+    ({ type, ids, malIds, includeStreamingEpisodes }) =>
       guard(async () =>
         jsonResult({
-          media: await media.getMedia(client.ctx(), type, ids, includeStreamingEpisodes),
+          media: await fetchByEitherId(client, type, ids, malIds, includeStreamingEpisodes),
         }),
       ),
   );

@@ -12,6 +12,13 @@
 import type { $brand } from "zod";
 
 export type MediaId = number & $brand<"MediaId">;
+/** A MyAnimeList id (`Media.idMal`), NOT an AniList one — the two number
+ *  spaces are unrelated, and MAL's own anime and manga ids collide with each
+ *  other (confirmed live: `idMal: 1` is Cowboy Bebop as ANIME and MONSTER,
+ *  AniList 30001, as MANGA), which is why every lookup by one also takes a
+ *  MediaType. Branded separately so a MAL id can never land in a slot that
+ *  wants an AniList MediaId. */
+export type MalId = number & $brand<"MalId">;
 export type ListEntryId = number & $brand<"ListEntryId">;
 export type UserId = number & $brand<"UserId">;
 export type CharacterId = number & $brand<"CharacterId">;

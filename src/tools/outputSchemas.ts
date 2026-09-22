@@ -31,6 +31,8 @@ export const anilistId = z.int32().positive();
  *  own mutation doesn't validate that `id` matches `kind` either (confirmed
  *  live), so no single brand would be accurate there. */
 export const mediaId = anilistId.brand<"MediaId">();
+/** A MyAnimeList id, not an AniList one — see clients/anilist/ids.ts's MalId. */
+export const malId = anilistId.brand<"MalId">();
 export const listEntryId = anilistId.brand<"ListEntryId">();
 export const userId = anilistId.brand<"UserId">();
 export const characterId = anilistId.brand<"CharacterId">();
@@ -71,12 +73,20 @@ export const paginationFields = (defaultPerPage: number) => ({
         "with an upstream error, so paging that deep fails rather than " +
         "returning more results.",
     ),
+  // 50 is AniList's own ceiling, not a house preference: confirmed live that
+  // `Page(perPage: 50)` reports `pageInfo.perPage` 50, while `perPage: 100`
+  // is silently clamped back to 50. Asking for more therefore returns fewer
+  // items than requested with no error, so the bound has to stay at 50 —
+  // unlike get_user_list's `perChunk`, where upstream imposes nothing and a
+  // cap of ours would only reject calls AniList would have served.
   perPage: z
     .int()
     .positive()
-    .max(25)
+    .max(50)
     .default(defaultPerPage)
-    .describe("Results per page (max 25)."),
+    .describe(
+      "Results per page (max 50, AniList's own ceiling — it silently clamps anything higher).",
+    ),
 });
 
 /** The `includeDescription` opt-in shared by the three multi-entry

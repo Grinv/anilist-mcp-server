@@ -1,6 +1,6 @@
 import type { AniListContext } from "./context.js";
 import { assertFound } from "../../lib/errors.js";
-import type { MediaId } from "./ids.js";
+import type { MediaId, MalId } from "./ids.js";
 import type { MediaType } from "./enums.js";
 import {
   MEDIA_FIELDS,
@@ -10,37 +10,75 @@ import {
   existsFragment,
 } from "./fields.js";
 
+/** Shared implementation behind getMedia (AniList ids) and getMediaByMalId
+ *  (MyAnimeList ids). The two differ only in which id field AniList is asked
+ *  to filter on and which one the results are re-keyed by — everything else,
+ *  including the order-preserving reorder below, is identical. */
+async function fetchMedia(
+  ctx: AniListContext,
+  type: MediaType,
+  ids: number | number[],
+  idField: "id" | "idMal",
+  includeStreamingEpisodes: boolean,
+): Promise<unknown> {
+  const fields = `${MEDIA_FIELDS}${MEDIA_DESCRIPTION_FIELD}${MEDIA_DETAIL_FIELDS}${includeStreamingEpisodes ? MEDIA_STREAMING_EPISODES_FIELD : ""}`;
+  if (Array.isArray(ids)) {
+    // `perPage` is set from the batch size, so the tool's own cap on that
+    // array MUST stay at or below 50: AniList silently clamps a larger
+    // `perPage` back to 50 (confirmed live), which here would drop the
+    // surplus ids into the `?? null` branch below — indistinguishable from
+    // "this id doesn't exist". Raising the tool-side cap past 50 without
+    // paginating would therefore lose data with no error.
+    const query = `query($ids:[Int],$type:MediaType){Page(perPage:${ids.length}){media(${idField}_in:$ids,type:$type){${fields}}}}`;
+    const data = await ctx.gql.request<{ Page: { media: Record<string, number>[] } }>(
+      query,
+      { ids, type },
+      ctx.authHeader(),
+    );
+    // AniList's `id_in`/`idMal_in` filter does NOT preserve the requested
+    // order (it came back sorted by id ascending in live testing, regardless
+    // of the caller's array order) — reorder client-side so the "same order
+    // as ids" this tool promises is actually true. An id that didn't resolve
+    // becomes `null` in that position (rather than being silently dropped)
+    // so the array stays the same length as `ids` and a caller can tell
+    // "this ID doesn't exist" apart from "this title just has sparse data".
+    const byId = new Map(data.Page.media.map((m) => [m[idField], m]));
+    return ids.map((id) => byId.get(id) ?? null);
+  }
+  const query = `query($id:Int,$type:MediaType){Media(${idField}:$id,type:$type){${fields}}}`;
+  const data = await ctx.gql.request<{ Media: unknown }>(
+    query,
+    { id: ids, type },
+    ctx.authHeader(),
+  );
+  const label = idField === "idMal" ? "MyAnimeList ID" : "ID";
+  return assertFound(
+    data.Media,
+    `No ${type === "MANGA" ? "manga" : "anime"} found with ${label} ${ids}.`,
+  );
+}
+
 export async function getMedia(
   ctx: AniListContext,
   type: MediaType,
   ids: MediaId | MediaId[],
   includeStreamingEpisodes = false,
 ): Promise<unknown> {
-  const fields = `${MEDIA_FIELDS}${MEDIA_DESCRIPTION_FIELD}${MEDIA_DETAIL_FIELDS}${includeStreamingEpisodes ? MEDIA_STREAMING_EPISODES_FIELD : ""}`;
-  if (Array.isArray(ids)) {
-    const query = `query($ids:[Int],$type:MediaType){Page(perPage:${ids.length}){media(id_in:$ids,type:$type){${fields}}}}`;
-    const data = await ctx.gql.request<{ Page: { media: { id: MediaId }[] } }>(
-      query,
-      { ids, type },
-      ctx.authHeader(),
-    );
-    // AniList's `id_in` filter does NOT preserve the requested order (it
-    // came back sorted by id ascending in live testing, regardless of the
-    // caller's array order) — reorder client-side so the "same order as
-    // ids" this tool promises is actually true. An id that didn't resolve
-    // becomes `null` in that position (rather than being silently dropped)
-    // so the array stays the same length as `ids` and a caller can tell
-    // "this ID doesn't exist" apart from "this title just has sparse data".
-    const byId = new Map(data.Page.media.map((m) => [m.id, m]));
-    return ids.map((id) => byId.get(id) ?? null);
-  }
-  const query = `query($id:Int,$type:MediaType){Media(id:$id,type:$type){${fields}}}`;
-  const data = await ctx.gql.request<{ Media: unknown }>(
-    query,
-    { id: ids, type },
-    ctx.authHeader(),
-  );
-  return assertFound(data.Media, `No anime/manga found with ID ${ids}.`);
+  return fetchMedia(ctx, type, ids, "id", includeStreamingEpisodes);
+}
+
+/** Resolve MyAnimeList ids to full AniList media. `type` is not optional
+ *  padding: MAL numbers anime and manga independently, so the SAME idMal is a
+ *  different title depending on it (confirmed live — `idMal: 1` is Cowboy
+ *  Bebop as ANIME and MONSTER as MANGA), and AniList returns the wrong title
+ *  rather than an error if the wrong one is passed. */
+export async function getMediaByMalId(
+  ctx: AniListContext,
+  type: MediaType,
+  malIds: MalId | MalId[],
+  includeStreamingEpisodes = false,
+): Promise<unknown> {
+  return fetchMedia(ctx, type, malIds, "idMal", includeStreamingEpisodes);
 }
 
 export async function getMediaStatistics(

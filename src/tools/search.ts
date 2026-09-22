@@ -224,7 +224,7 @@ const mediaSearchInput = z.object({
     .default(false)
     .describe(
       "Also fetch each result's full synopsis (`description`). Kept off by default — with " +
-        "up to 25 results per call, always including it would burn tokens on text you may not " +
+        "up to 50 results per call, always including it would burn tokens on text you may not " +
         "need; use get_media for a single title's full synopsis instead.",
     ),
   ...paginationFields(10),

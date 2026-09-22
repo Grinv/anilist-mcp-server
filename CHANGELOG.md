@@ -8,12 +8,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `get_media` now also accepts `malIds` — resolve MyAnimeList IDs straight to AniList titles (singly or in batches), instead of one title search per entry. `type` matters here: MAL numbers anime and manga separately, so the same ID is a different title in each.
 - Add `update_list_entries`: apply one set of values (status, score, progress, dates, …) to many list entries in a single request, via AniList's own `UpdateMediaListEntries`. Returns a summary rather than echoing every entry, and is all-or-nothing — an unknown id fails the call without changing anything.
 - Add `statuses` to `get_user_list`, filtering entries server-side via AniList's own `status_in` instead of fetching a whole list and discarding most of it.
 - Add `includeDescription` to `search_user`, for the `about` bio it no longer fetches by default.
 
 ### Changed
 
+- Raise the `perPage` cap on every paginated tool from 25 to 50, AniList's own ceiling — it clamps anything higher, so 25 was halving the results available per call for no reason. `get_media`'s ID batch rises from 25 to 50 for the same reason, and must not go higher: beyond 50 AniList truncates silently and the surplus IDs read back as "no such title".
 - `add_list_entry`/`update_list_entry` no longer echo `customLists`, `advancedScores`, `notes`, `createdAt` and `updatedAt` unless the call actually set `customLists`/`advancedScores` — the fields AniList doesn't store verbatim are still readable back when they matter. Measured live: 278 bytes per write instead of 474.
 - `get_user_list` now returns a compact tab-separated table by default (`format: "compact"`): entry id, media id, MAL id, status, score, progress and title, one de-duplicated row per entry. Measured live on a 324-entry list: 20KB versus 208KB for the previous shape, which is still available as `format: "full"`.
 - Remove `get_user_list`'s 25-entry cap on `perChunk`; AniList imposes no per-chunk limit on `MediaListCollection`, so a whole list can now be fetched in one call instead of paging through it. The default stays 25.

@@ -351,23 +351,31 @@ test("update_user's timezone regex accepts AniList's documented -?HH:MM format a
   assert.equal(badMock.calls.length, 0);
 });
 
-test("get_media's ids validation error distinguishes a missing value from a wrongly-typed one", async (t) => {
+test("get_media requires exactly one of ids/malIds, and still distinguishes a wrongly-typed value", async (t) => {
   // Regression: idsSchema's z.union used a single string `error`, which fires
   // for EVERY union-mismatch reason alike — so a wrongly-typed-but-present
-  // value (e.g. a decimal) used to get the same "ids is required" message as
+  // value (e.g. a decimal) used to get the same "required" message as
   // omitting it entirely, which is misleading since something WAS passed.
   // Input validation failures come back as a normal isError:true tool result
   // (not a rejected callTool()), same as get_studio's own validation test.
   const { client, close } = await connectServer({});
   t.after(close);
+  const textOf = (r: Awaited<ReturnType<typeof client.callTool>>) =>
+    (r.content as { type: "text"; text: string }[])[0]!.text;
 
-  const missing = await client.callTool({ name: "get_media", arguments: { type: "ANIME" } });
-  assert.equal(missing.isError, true);
-  assert.match(
-    (missing.content as { type: "text"; text: string }[])[0]!.text,
-    /ids is required — pass a single AniList ID/,
-    "omitting ids entirely must say it's required",
-  );
+  // Neither id form: the two name the same thing, so this is "pick one",
+  // not "ids is required" — checked in the handler, since Zod can't express
+  // exactly-one-of without a refinement the JSON-Schema bridge must carry.
+  const neither = await client.callTool({ name: "get_media", arguments: { type: "ANIME" } });
+  assert.equal(neither.isError, true);
+  assert.match(textOf(neither), /Pass `ids` \(AniList IDs\) or `malIds`/);
+
+  const both = await client.callTool({
+    name: "get_media",
+    arguments: { type: "ANIME", ids: 1, malIds: 1 },
+  });
+  assert.equal(both.isError, true);
+  assert.match(textOf(both), /not both/);
 
   const wrongType = await client.callTool({
     name: "get_media",
@@ -375,30 +383,35 @@ test("get_media's ids validation error distinguishes a missing value from a wron
   });
   assert.equal(wrongType.isError, true);
   assert.match(
-    (wrongType.content as { type: "text"; text: string }[])[0]!.text,
+    textOf(wrongType),
     /ids must be a single AniList ID/,
     'a wrongly-typed (non-integer) ids must not be told it\'s "required" — it WAS provided',
   );
 });
 
-test("get_media's ids array rejects a batch larger than 25", async (t) => {
-  // Regression: idsSchema's array branch had .min(1) but no upper bound —
-  // confirmed live an unbounded batch (up to at least 1000 ids) succeeds
-  // against AniList with no server-side rejection, so nothing but this
-  // client-side cap protects a caller from an unboundedly large response
-  // (each entry includes the full synopsis/tags/rankings).
+test("get_media's id batches stop at AniList's own 50-per-page ceiling", async (t) => {
+  // NOT a comfort cap. The batch path builds `Page(perPage: ids.length)`, and
+  // AniList clamps perPage to 50: confirmed live that 60 ids *all known to
+  // exist* came back as exactly 50 media with `pageInfo.perPage` 50 and no
+  // error at all. The surplus would land in fetchMedia's `?? null` branch,
+  // i.e. reported to the caller as "no such title". An earlier version of
+  // this test recorded that a 1000-id batch "succeeds with no server-side
+  // rejection" — it does, by silently truncating, which is the bug this
+  // bound exists to prevent, not evidence against it.
   const { client, close } = await connectServer({});
   t.after(close);
 
-  const tooMany = await client.callTool({
-    name: "get_media",
-    arguments: { type: "ANIME", ids: Array.from({ length: 26 }, (_, i) => i + 1) },
-  });
-  assert.equal(tooMany.isError, true);
-  assert.match(
-    (tooMany.content as { type: "text"; text: string }[])[0]!.text,
-    /ids: Too big: expected array to have <=25 items/,
-  );
+  for (const field of ["ids", "malIds"]) {
+    const tooMany = await client.callTool({
+      name: "get_media",
+      arguments: { type: "ANIME", [field]: Array.from({ length: 51 }, (_, i) => i + 1) },
+    });
+    assert.equal(tooMany.isError, true, `${field} must reject a batch over 50`);
+    assert.match(
+      (tooMany.content as { type: "text"; text: string }[])[0]!.text,
+      new RegExp(`${field}: Too big: expected array to have <=50 items`),
+    );
+  }
 });
 
 test("get_user_profile's user validation error distinguishes a missing value from a wrongly-typed one", async (t) => {

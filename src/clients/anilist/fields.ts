@@ -27,7 +27,7 @@ export function existsFragment(typeName: string, idVar: string, extraArgs?: stri
 // (tags can run 20-30 entries per title). get_media (single or few items)
 // additionally appends MEDIA_DETAIL_FIELDS — see media.ts's getMedia().
 // `description` is deliberately excluded here too — it can run to several
-// hundred/thousand characters, and search_media returns up to 25 media
+// hundred/thousand characters, and search_media returns up to 50 media
 // items per call — see MEDIA_DESCRIPTION_FIELD below.
 export const MEDIA_FIELDS = `
   id
@@ -57,7 +57,7 @@ export const MEDIA_FIELDS = `
 
 /** Synopsis text — always appended for get_media (a single/few-item lookup,
  *  where the description is usually the point), but only on request
- *  (`includeDescription`) for search_media, whose results can run to 25
+ *  (`includeDescription`) for search_media, whose results can run to 50
  *  media items per call. */
 export const MEDIA_DESCRIPTION_FIELD = `description(asHtml: false)`;
 
@@ -93,7 +93,7 @@ export const MEDIA_DETAIL_FIELDS = `
 export const MEDIA_STREAMING_EPISODES_FIELD = `streamingEpisodes { title thumbnail url site }`;
 
 // Kept lean on purpose, same reasoning as MEDIA_FIELDS above:
-// search_character/search_staff return up to 25 entries per call and
+// search_character/search_staff return up to 50 entries per call and
 // get_todays_birthdays up to 50, so `description` is excluded here and
 // appended separately — see PERSON_DESCRIPTION_FIELD below.
 export const CHARACTER_FIELDS = `
@@ -176,7 +176,7 @@ export const USER_FIELDS = `
 /** A user's bio text — always appended for get_user_profile/get_full_user_info/
  *  get_authorized_user (single-user fetches, where the bio is usually the
  *  point), but only on request (`includeDescription`) for search_user, whose
- *  results can run to 25 users per call. Same reasoning as
+ *  results can run to 50 users per call. Same reasoning as
  *  MEDIA_DESCRIPTION_FIELD/PERSON_DESCRIPTION_FIELD above. */
 export const USER_DESCRIPTION_FIELD = `about(asHtml: false)`;
 

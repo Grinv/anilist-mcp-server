@@ -19,11 +19,12 @@ account it's configured with.
 
 ## The mutating tool surface
 
-These 13 tools each write to `graphql.anilist.co` when called, with no
+These 14 tools each write to `graphql.anilist.co` when called, with no
 confirmation step of the server's own. Each one needs the caller's own access
 token; the server can't write to anyone else's account:
 
-- **List entries**: `add_list_entry`, `update_list_entry`, `remove_list_entry`
+- **List entries**: `add_list_entry`, `update_list_entry`, `update_list_entries`,
+  `remove_list_entry`
 - **Favourites and follows**: `toggle_favourite`, `toggle_follow_user`
 - **Posting**: `post_text_activity`, `post_message_activity`, `post_thread`,
   `post_thread_comment`

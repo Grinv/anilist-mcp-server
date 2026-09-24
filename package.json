@@ -56,13 +56,13 @@
     "inspector": "npm run build && npx @modelcontextprotocol/inspector node dist/index.js"
   },
   "dependencies": {
-    "@modelcontextprotocol/server": "2.0.0",
+    "@modelcontextprotocol/server": "2.1.0",
     "zod": "4.6.5"
   },
   "devDependencies": {
     "@anthropic-ai/mcpb": "2.1.2",
     "@eslint/js": "10.0.1",
-    "@modelcontextprotocol/client": "2.0.0",
+    "@modelcontextprotocol/client": "2.1.0",
     "@types/node": "26.1.2",
     "esbuild": "0.28.1",
     "eslint": "10.8.0",

@@ -6,6 +6,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-09-24
+
 ### Added
 
 - Add `update_list_entries`: apply one set of values to many list entries in one atomic call — an unknown id fails it without changing anything. [5e2108c](https://github.com/Grinv/anilist-mcp-server/commit/5e2108c)

@@ -8,31 +8,31 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
-- Add `format: "compact"` to `get_media`, returning only the identifying fields (id, MAL id, type, format, status, episode/chapter count, titles). Measured live: 169 bytes per title against 4,182 for the full card, so a 30-title `malIds` batch is 5KB instead of 125KB. The default stays `"full"` — the whole card is the point of a single lookup.
-- `get_media` now also accepts `malIds` — resolve MyAnimeList IDs straight to AniList titles (singly or in batches), instead of one title search per entry. `type` matters here: MAL numbers anime and manga separately, so the same ID is a different title in each.
-- Add `update_list_entries`: apply one set of values (status, score, progress, dates, …) to many list entries in a single request, via AniList's own `UpdateMediaListEntries`. Returns a summary rather than echoing every entry, and is all-or-nothing — an unknown id fails the call without changing anything.
-- Add `statuses` to `get_user_list`, filtering entries server-side via AniList's own `status_in` instead of fetching a whole list and discarding most of it.
-- Add `includeDescription` to `search_user`, for the `about` bio it no longer fetches by default.
+- Add `update_list_entries`: apply one set of values to many list entries in one atomic call — an unknown id fails it without changing anything. [5e2108c](https://github.com/Grinv/anilist-mcp-server/commit/5e2108c)
+- Add `malIds` to `get_media`, resolving MyAnimeList IDs to AniList titles in one call; set `type`, since MAL numbers anime and manga separately. [7078daa](https://github.com/Grinv/anilist-mcp-server/commit/7078daa)
+- Add `format: "compact"` to `get_media`: only the identifying fields, 169 bytes per title against 4,182 for the full card. The default stays `"full"`. [066718d](https://github.com/Grinv/anilist-mcp-server/commit/066718d)
+- Add `statuses` to `get_user_list`, filtering entries server-side instead of fetching a whole list and discarding most of it. [5e2108c](https://github.com/Grinv/anilist-mcp-server/commit/5e2108c)
+- Add `includeDescription` to `search_user`, for the `about` bio it no longer fetches by default. [7886efa](https://github.com/Grinv/anilist-mcp-server/commit/7886efa)
 
 ### Changed
 
-- Update `@modelcontextprotocol/server`/`client` to 2.1.0. For a stdio server the one relevant change is `StdioServerTransport` now closing itself on stdin EOF; verified that this server already exited cleanly without it, so the fix is insurance rather than a cure. The rest of the release is HTTP transport, OAuth scope challenges and tasks.
-- Update zod to 4.6.5 and pin `update_user`, `add_list_entry`, `update_list_entry` and `update_list_entries`' input schemas to the domain interfaces they are passed into, via zod's new `z.toZod`. Renaming or dropping a field on either side is now a compile error instead of an argument that silently stops being sent — the failure mode behind the 0.2.2 `search_activity` bug. The enums those schemas share (`titleLanguage`, `scoreFormat`, `staffNameLanguage`, notification types) moved to `clients/anilist/enums.ts`, which is what makes the check meaningful: typed as bare `string`, it passed anything.
-- Raise the `perPage` cap on every paginated tool from 25 to 50, AniList's own ceiling — it clamps anything higher, so 25 was halving the results available per call for no reason. `get_media`'s ID batch rises from 25 to 50 for the same reason, and must not go higher: beyond 50 AniList truncates silently and the surplus IDs read back as "no such title".
-- `add_list_entry`/`update_list_entry` no longer echo `customLists`, `advancedScores`, `notes`, `createdAt` and `updatedAt` unless the call actually set `customLists`/`advancedScores` — the fields AniList doesn't store verbatim are still readable back when they matter. Measured live: 278 bytes per write instead of 474.
-- `get_user_list` now returns a compact tab-separated table by default (`format: "compact"`): entry id, media id, MAL id, status, score, progress and title, one de-duplicated row per entry. Measured live on a 324-entry list: 20KB versus 208KB for the previous shape, which is still available as `format: "full"`.
-- Remove `get_user_list`'s 25-entry cap on `perChunk`; AniList imposes no per-chunk limit on `MediaListCollection`, so a whole list can now be fetched in one call instead of paging through it. The default stays 25.
-- Stop fetching each result's `about` bio by default in `search_user`; use `includeDescription` to opt in, same pattern as `search_character`/`search_staff`.
-- Name the scale on every score a tool returns: 0-100 for `averageScore`/`meanScore`/score-distribution buckets/review scores, 0-10 for a personal list-entry score.
-- `summarize_user_activity` now asks `get_user_list` for `statuses: ["CURRENT"]`; chunks are counted across all statuses at once, so an unfiltered call could page through hundreds of completed entries without reaching a current one.
-- Reword `update_user`'s `scoreFormat`: it changes display on anilist.co only, and every score this server returns keeps its documented scale on read as well as on write.
+- `get_user_list` now defaults to a compact tab-separated table — 20KB against 208KB on a 324-entry list. The previous shape is `format: "full"`. [5e2108c](https://github.com/Grinv/anilist-mcp-server/commit/5e2108c)
+- Raise the `perPage` cap on every paginated tool from 25 to 50, AniList's own ceiling; `get_media`'s ID batch rises likewise, and must not go higher. [7078daa](https://github.com/Grinv/anilist-mcp-server/commit/7078daa)
+- Remove `get_user_list`'s 25-entry cap on `perChunk`, so a whole list can be fetched in one call; the default stays 25. [5e2108c](https://github.com/Grinv/anilist-mcp-server/commit/5e2108c)
+- `add_list_entry`/`update_list_entry` echo `customLists`, `advancedScores`, `notes` and timestamps only when the call sets them — 278 bytes, not 474. [5e2108c](https://github.com/Grinv/anilist-mcp-server/commit/5e2108c)
+- Name the scale on every score a tool returns: 0-100 for site-wide averages and review scores, 0-10 for a personal list-entry score. [a71a5ea](https://github.com/Grinv/anilist-mcp-server/commit/a71a5ea)
+- `summarize_user_activity` now asks `get_user_list` for `statuses: ["CURRENT"]`, so its plan no longer pages through completed entries first. [5e2108c](https://github.com/Grinv/anilist-mcp-server/commit/5e2108c)
+- Stop fetching each result's `about` bio by default in `search_user`. [7886efa](https://github.com/Grinv/anilist-mcp-server/commit/7886efa)
+- Reword `update_user`'s `scoreFormat`: it changes display on anilist.co only, not the scale any score this server returns. [a71a5ea](https://github.com/Grinv/anilist-mcp-server/commit/a71a5ea)
+- Update `@modelcontextprotocol/server`/`client` to 2.1.0. [e34e980](https://github.com/Grinv/anilist-mcp-server/commit/e34e980)
+- Update zod to 4.6.5. [a705fa8](https://github.com/Grinv/anilist-mcp-server/commit/a705fa8)
 
 ### Fixed
 
-- `search_activity` with an unknown numeric user ID now errors with not_found instead of silently returning an empty result, matching `get_user_activity`.
-- Return a clean not_found from `get_media` when a single ID resolves to null, matching its sibling tools.
-- Guard `get_recommendations_for_media`'s `excludeInList` filter against a null `nodes` field instead of crashing.
-- Pin `get_media`'s `mediaListEntry.score` to a 0-10 scale; it followed the account's display score format, so the same personal score read back as 94 there and 9.4 from `get_user_list` on a 100-point account.
+- Pin `get_media`'s `mediaListEntry.score` to a 0-10 scale; it followed the account's display format, so 9.4 read back as 94 on a 100-point account. [a71a5ea](https://github.com/Grinv/anilist-mcp-server/commit/a71a5ea)
+- `search_activity` with an unknown numeric user ID now errors with not_found instead of returning an empty result. [47dd014](https://github.com/Grinv/anilist-mcp-server/commit/47dd014)
+- Return a clean not_found from `get_media` when a single ID resolves to null, matching its sibling tools. [acb3175](https://github.com/Grinv/anilist-mcp-server/commit/acb3175)
+- Guard `get_recommendations_for_media`'s `excludeInList` filter against a null `nodes` field instead of crashing. [acb3175](https://github.com/Grinv/anilist-mcp-server/commit/acb3175)
 
 ## [0.8.0] - 2026-08-16
 

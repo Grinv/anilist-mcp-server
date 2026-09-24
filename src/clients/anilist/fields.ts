@@ -55,6 +55,23 @@ export const MEDIA_FIELDS = `
   trailer { id site thumbnail }
 `;
 
+/** Just enough to identify a title and tell two similar ones apart — what a
+ *  caller mapping ids onto titles actually needs. Measured live through the
+ *  tool: 169 bytes per title against 4,182 for the full selection, i.e. a
+ *  30-title batch is 5,083 bytes instead of 125,469.
+ *  Deliberately excludes cover images and siteUrl
+ *  too: both are derivable from `id` and neither helps identification. */
+export const MEDIA_COMPACT_FIELDS = `
+  id
+  idMal
+  type
+  format
+  status
+  episodes
+  chapters
+  title { romaji english }
+`;
+
 /** Synopsis text — always appended for get_media (a single/few-item lookup,
  *  where the description is usually the point), but only on request
  *  (`includeDescription`) for search_media, whose results can run to 50

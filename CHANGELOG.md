@@ -8,6 +8,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Add `format: "compact"` to `get_media`, returning only the identifying fields (id, MAL id, type, format, status, episode/chapter count, titles). Measured live: 169 bytes per title against 4,182 for the full card, so a 30-title `malIds` batch is 5KB instead of 125KB. The default stays `"full"` — the whole card is the point of a single lookup.
 - `get_media` now also accepts `malIds` — resolve MyAnimeList IDs straight to AniList titles (singly or in batches), instead of one title search per entry. `type` matters here: MAL numbers anime and manga separately, so the same ID is a different title in each.
 - Add `update_list_entries`: apply one set of values (status, score, progress, dates, …) to many list entries in a single request, via AniList's own `UpdateMediaListEntries`. Returns a summary rather than echoing every entry, and is all-or-nothing — an unknown id fails the call without changing anything.
 - Add `statuses` to `get_user_list`, filtering entries server-side via AniList's own `status_in` instead of fetching a whole list and discarding most of it.

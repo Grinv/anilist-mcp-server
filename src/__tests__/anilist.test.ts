@@ -49,6 +49,38 @@ function tempStorePath(name: string): string {
   return join(tmpdir(), `anilist-mcp-server-test-${name}.json`);
 }
 
+test("getMedia's compact format asks AniList for only the identifying fields", async (t) => {
+  const mock = mockFetch(() => jsonResponse({ data: { Page: { media: [] } } }));
+  installFetch(t, mock);
+  const client = new AniListClient(testConfig(), silentLogger());
+
+  await media.getMedia(client.ctx(), "ANIME", [id<MediaId>(1)], false, "compact");
+  await media.getMedia(client.ctx(), "ANIME", [id<MediaId>(1)], false);
+
+  const [compact, full] = mock.calls.map(
+    (call) => (JSON.parse(call.init?.body as string) as { query: string }).query,
+  ) as [string, string];
+  // Trimming after the fact would still pay for the bandwidth: measured live
+  // at 4,182 bytes per title full versus 169 compact.
+  for (const field of ["description", "tags", "rankings", "externalLinks", "mediaListEntry"]) {
+    assert.doesNotMatch(compact, new RegExp(field), `compact must not select ${field}`);
+    assert.match(full, new RegExp(field), `full must still select ${field}`);
+  }
+  for (const field of ["idMal", "title", "episodes"]) {
+    assert.match(compact, new RegExp(field), `compact must still identify the title via ${field}`);
+  }
+  // streamingEpisodes is a detail field; asking for it alongside compact is
+  // meaningless rather than an error, so it must simply not appear. A
+  // different id on purpose: with the same one this call produces a
+  // byte-identical query and the read cache answers it without a request,
+  // leaving nothing to assert on.
+  await media.getMedia(client.ctx(), "ANIME", [id<MediaId>(2)], true, "compact");
+  assert.equal(mock.calls.length, 3, "the third lookup must actually reach the network");
+  const withStreaming = (JSON.parse(mock.calls[2]!.init?.body as string) as { query: string })
+    .query;
+  assert.doesNotMatch(withStreaming, /streamingEpisodes/);
+});
+
 test("getMediaByMalId filters on idMal and re-keys results by idMal, not id", async (t) => {
   // The AniList id and the MAL id of the same title are different numbers
   // (fixture mirrors the real pairing: AniList 30001 is MONSTER, MAL 1).

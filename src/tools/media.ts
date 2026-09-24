@@ -8,6 +8,7 @@ import { jsonResult } from "../lib/result.js";
 import { guard } from "./guard.js";
 import { ApiError } from "../lib/errors.js";
 import type { MediaId, MalId } from "../clients/anilist/ids.js";
+import type { MediaFormat } from "../clients/anilist/media.js";
 import {
   pageInfoSchema,
   toggleFavouriteResult,
@@ -77,6 +78,7 @@ async function fetchByEitherId(
   ids: MediaId | MediaId[] | undefined,
   malIds: MalId | MalId[] | undefined,
   includeStreamingEpisodes: boolean,
+  format: MediaFormat,
 ): Promise<unknown> {
   if ((ids === undefined) === (malIds === undefined)) {
     throw new ApiError({
@@ -88,8 +90,8 @@ async function fetchByEitherId(
     });
   }
   return ids === undefined
-    ? media.getMediaByMalId(client.ctx(), type, malIds!, includeStreamingEpisodes)
-    : media.getMedia(client.ctx(), type, ids, includeStreamingEpisodes);
+    ? media.getMediaByMalId(client.ctx(), type, malIds!, includeStreamingEpisodes, format)
+    : media.getMedia(client.ctx(), type, ids, includeStreamingEpisodes, format);
 }
 
 /** MEDIA_FIELDS(+MEDIA_DETAIL_FIELDS) — only `id` is guaranteed; every other
@@ -399,7 +401,8 @@ export function registerMediaTools(server: McpServer, client: AniListClient): vo
     {
       title: "Get anime/manga details",
       description:
-        "Get detailed information about one or more anime or manga by their AniList ID(s): " +
+        "Get information about one or more anime or manga by their AniList ID(s). At the " +
+        'default `format: "full"` that means the whole card: ' +
         "title, format, status, episode/chapter/volume count, genres, score, synopsis, dates, " +
         'and `rankings` — AniList\'s own ranking badges (e.g. "#134 highest rated all time", ' +
         '"#11 highest rated 2024"), one entry per rated/popular ranking window the title ' +
@@ -409,7 +412,11 @@ export function registerMediaTools(server: McpServer, client: AniListClient): vo
         "it isn't on their list. Identify titles by AniList ID (`ids`) or by MyAnimeList ID " +
         "(`malIds`) — exactly one of the two, and either accepts a batch. Use search_media " +
         "first only when you have neither: a title search costs a call per title and can match " +
-        "the wrong entry, so prefer `malIds` whenever you already have MAL IDs. " +
+        "the wrong entry, so prefer `malIds` whenever you already have MAL IDs. For a batch " +
+        "whose point is mapping IDs to titles rather than reading them, pass " +
+        '`format: "compact"` instead, which drops everything above except the identifiers, ' +
+        "titles, type/format/status and episode/chapter counts — measured at 5KB against " +
+        "125KB for the same 30-title batch. " +
         "Returns a single object if you passed a single ID, or an array (same order as the IDs " +
         "you passed, with `null` in place of any that didn't resolve to a real anime/manga) if " +
         "you passed an array.",
@@ -420,11 +427,25 @@ export function registerMediaTools(server: McpServer, client: AniListClient): vo
         ),
         ids: idsSchema,
         malIds: malIdsSchema,
+        format: z
+          .enum(["compact", "full"])
+          .default("full")
+          .describe(
+            "How much of each title to return. `full` (default) is the whole card — synopsis, " +
+              "tags, rankings, external links and your own list entry — which is the point of " +
+              "looking one title up. `compact` returns only id, MAL id, type, format, status, " +
+              "episode/chapter count and titles — measured at 169 bytes per title against " +
+              "4,182 for the full card, and what you " +
+              "actually want when resolving a batch of IDs to titles (notably a `malIds` " +
+              "batch, whose job is mapping one ID space onto the other). `compact` ignores " +
+              "`includeStreamingEpisodes`, which is a detail field.",
+          ),
         includeStreamingEpisodes: z
           .boolean()
           .default(false)
           .describe(
-            "Also fetch `streamingEpisodes` (per-episode streaming links). Kept off by " +
+            "Also fetch `streamingEpisodes` (per-episode streaming links). Has no effect " +
+              'under `format: "compact"`, which returns no detail fields at all. Kept off by ' +
               "default — AniList doesn't paginate this field, so a long-running title can " +
               "return hundreds of entries.",
           ),
@@ -432,10 +453,10 @@ export function registerMediaTools(server: McpServer, client: AniListClient): vo
       outputSchema: z.object({ media: z.union([mediaObject, z.array(mediaObject.nullable())]) }),
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
-    ({ type, ids, malIds, includeStreamingEpisodes }) =>
+    ({ type, ids, malIds, includeStreamingEpisodes, format }) =>
       guard(async () =>
         jsonResult({
-          media: await fetchByEitherId(client, type, ids, malIds, includeStreamingEpisodes),
+          media: await fetchByEitherId(client, type, ids, malIds, includeStreamingEpisodes, format),
         }),
       ),
   );

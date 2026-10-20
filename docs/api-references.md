@@ -26,6 +26,12 @@ before changing `src/clients/anilist/*.ts` or `src/lib/graphql.ts`.
   `Page`-limit note, but it's docs-history, not a formal changelog) and this
   file's own "confirmed live" sections, built by testing the schema directly
   rather than trusting any external doc to stay current.
+- The most useful such commit so far: AniList/docs `b6177f5` ("Update
+  reference", 2026-08-17), effectively a schema-diff record (version-gated
+  `MediaRelation` values incl. `SAME_UNIVERSE`, `isPinned` activities, new
+  `Page` depth note). The 2026-08-18 terms-of-use update extended the ban on
+  use in competing list/tracker services to all data (user _and_ media) and
+  dropped the "authorized on request" exemption.
 - `docs.anilist.co`'s "What's Next?" page is **not** a changelog despite the
   name — it's a getting-started page pointing new API users at query
   examples and community projects.
@@ -145,6 +151,17 @@ not be greater than 100."]}}`. Both `lib/http.ts`'s `parseErrorMessage()`
   nothing in the schema guarantees the latter behavior, `pageInfoSchema`
   (`src/tools/outputSchemas.ts`) models every field `.nullish()`, not just
   `.optional()` — don't narrow it back without re-verifying every consumer.
+- **`perPage` is clamped silently, never rejected — at 50 on top-level `Page`
+  fields but at 25 on nested connections.** Confirmed live (2026-10-20):
+  `Media.characters`, `.staff`, `.reviews` and `.recommendations` asked for
+  `perPage: 50` all report `pageInfo.perPage: 25`. No data is lost (the page
+  offset uses the clamped value), but a tool advertising 50 on a nested
+  connection is lying — `paginationFields()` takes a per-tool max for this.
+- **Page depth is capped at 5000 entries**: `page × perPage > 5000` is a 400
+  "Page depth exceeds maximum allowed for API requests (5000 entries)"
+  (page 100 × 50 is fine; now also stated in the schema's own `Page`
+  description). `*_in` list arguments are capped at 10,000 items (per their
+  schema descriptions).
 - An unprovided GraphQL variable is simply ignored by the server (treated as
   not passed) rather than erroring — confirms `lib/graphql.ts`'s
   `stripUndefined()` approach (omit unset optional variables entirely) is
@@ -281,7 +298,8 @@ completedAt: FuzzyDateInput)` — note **`advancedScores`** is plural (a
 - `ToggleFavourite(animeId, mangaId, characterId, staffId, studioId)` →
   `Favourites { anime: MediaConnection, manga: MediaConnection, characters:
 CharacterConnection, staff: StaffConnection, studios: StudioConnection }`
-  (each a `{nodes: [...]}` connection).
+  (each a `{nodes: [...]}` connection). `toggleFavourite()` selects only the
+  toggled kind's connection — a toggle can't change the other four.
 - **`ToggleFavourite` does not validate that `id` actually belongs to the
   given `kind`** — confirmed live: `ToggleFavourite(characterId: <a real
 anime's id>)` succeeded and added that id to the account's favourited
@@ -469,6 +487,21 @@ The categories field is required when id is not present.)`.
 
 ### Media (`media.ts`)
 
+- **`Page.media`'s length filters share columns across types** — confirmed
+  live (2026-10-20): `chapters_*` is the same column as `episodes_*`
+  (`chapters_greater` with `type: ANIME` filters episode count), and
+  `duration_*` the same as `volumes_*` (`duration_greater` with `type: MANGA`
+  filters volume count). All `_greater`/`_lesser` bounds are strict.
+  `minimumTagRank` applies to both `tag_in` and `tag_not_in`;
+  `countryOfOrigin` is case-sensitive (`"cn"` matches nothing);
+  `licensedBy_in` is case-insensitive; an unknown name in `genre_not_in` is
+  a no-op while one in `genre_in` empties the results.
+- **`Page.threads(sort: [SEARCH_MATCH])` without a `search` term degrades to
+  oldest-id-first** (threads 1, 2, 3 from 2014) — `search_thread` sorts a
+  term-less browse by `REPLIED_AT_DESC` instead. `Page.activities`'
+  `createdAt_greater`/`_lesser` take unix seconds and are strict at the
+  boundary second.
+
 - **`Media` query/filter args** (also valid on `Page.media(...)`, same
   arg set): `search, type, sort: [MediaSort], isAdult, genre_in: [String],
 format_in: [MediaFormat], status_in: [MediaStatus], season: MediaSeason,
@@ -491,17 +524,28 @@ seasonYear`, plus many more (`averageScore_greater`, `tag_in`, …) — see the
   (MAIN/SUPPORTING/BACKGROUND for characters, e.g. "ADR Director" for staff)
   lives on the **edge**, not the node — use `edges { role node {...} }`, not
   `nodes {...}`, or the role is silently lost. `CharacterEdge.voiceActors`
-  returns one `Staff` per dub language (no `language` filter applied in our
-  queries — cheap enough to return all of them). Neither connection is
-  requested with a `sort` argument, and confirmed live (Attack on Titan,
-  `id:16498`): the returned order is not grouped by role either — a MAIN
-  character appeared at edge index 10, after seven SUPPORTING entries ahead
-  of it — so `get_media_characters`/`get_media_staff` can't promise any
-  particular ordering.
+  returns one `Staff` per dub language unless narrowed by
+  `voiceActors(language:)` (`get_media_characters`' `voiceActorLanguage`).
+  Unsorted, the order is not grouped by role (confirmed live on Attack on
+  Titan, `id:16498`: a BACKGROUND "Narrator" came first), so
+  `get_media_characters` requests `characters(sort:[ROLE, RELEVANCE, ID])`
+  (MAIN first) and `voiceActors(sort:[RELEVANCE, ID])`; it also forwards
+  `role:` as a server-side filter. AniList bug, confirmed live: aliasing
+  `voiceActors` twice with different `language` args returns the same result
+  for both aliases — don't rely on aliases there. `Media.staff` is still
+  unsorted.
 - **`Media.relations`** → `MediaConnection`; the relation kind
-  (`MediaRelation` enum: `ADAPTATION, PREQUEL, SEQUEL, PARENT, SIDE_STORY,
-CHARACTER, SUMMARY, ALTERNATIVE, SPIN_OFF, OTHER, SOURCE, COMPILATION,
-CONTAINS`) lives on `MediaEdge.relationType`, again not on the node.
+  (`MediaRelation` enum) lives on `MediaEdge.relationType`, again not on the
+  node. **It is version-gated**: bare `relationType` returns v1 values only
+  (confirmed live: Attack on Titan → its manga is `ADAPTATION`), while
+  `relationType(version:3)` — what we select — returns `SOURCE` there and can
+  also return `COMPILATION`, `CONTAINS` and `SAME_UNIVERSE`.
+- **`Media.status` is version-gated too**: bare `status` reports titles on
+  hiatus as `RELEASING` (confirmed live: Hunter×Hunter manga `30026`,
+  Vagabond `30656`) even though `status_in:[HIATUS]` filters them
+  server-side; `status(version:2)` (`MEDIA_STATUS_FIELD` in `fields.ts`)
+  returns `HIATUS`. `Media.source` is gated likewise (bare → `OTHER` for v3
+  values like `WEB_NOVEL`; select `source(version:3)` if it's ever added).
 - **`Media.stats.scoreDistribution`/`.statusDistribution`** (`MediaStats`,
   each item `{score/status, amount}`) is the AniList equivalent of MAL's
   watch-status/score-distribution endpoint — powers `get_media_statistics`.
@@ -560,11 +604,20 @@ CONTAINS`) lives on `MediaEdge.relationType`, again not on the node.
   root lookup, not something `getRecommendation()`'s query is doing wrong.
   `get_recommendation`'s tool description discloses this so a 404 there
   isn't misread as "this pairing doesn't exist."
+- **`Page.recommendations(onList:)` filters by the _source_ title's list
+  membership, not the recommended one's** — confirmed live with a token
+  (2026-10-20): for source titles not on the viewer's list, `onList: true`
+  returned 0 rows and `onList: false` the full set, regardless of how many
+  recommended titles were on the list. So `excludeInList` can't be pushed
+  server-side; it stays a local filter over the fetched page (which is why a
+  page can come back short while `hasNextPage` is still true).
 
 ### People (`people.ts`)
 
 - **`Character(isBirthday: Boolean)`/`Staff(isBirthday: Boolean)`** power
-  `get_todays_birthdays`.
+  `get_todays_birthdays`, paginated and sorted `FAVOURITES_DESC` — a single
+  day has well over 50 (confirmed live: ~1450 characters on 2026-10-20), so
+  the old fixed `perPage: 50` silently dropped most of them.
 - **`Character.media`/`Staff.staffMedia`** (`MediaConnection`) are each
   person's filmography; the per-credit role lives on the edge, same
   edge-not-node pattern as `Media.characters`/`Media.staff` above —

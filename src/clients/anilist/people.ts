@@ -35,7 +35,7 @@ export async function getCharacter(
   const data = await ctx.gql.request<{ Character: unknown }>(
     query,
     { id, page, perPage, type, onList },
-    ctx.authHeader(),
+    onList !== undefined ? ctx.requireAuth() : ctx.authHeader(),
   );
   return assertFound(data.Character, `No character found with ID ${id}.`);
 }
@@ -63,7 +63,7 @@ export async function getStaff(
   const data = await ctx.gql.request<{ Staff: unknown }>(
     query,
     { id, page, perPage, type, onList },
-    ctx.authHeader(),
+    onList !== undefined ? ctx.requireAuth() : ctx.authHeader(),
   );
   return assertFound(data.Staff, `No staff member found with ID ${id}.`);
 }

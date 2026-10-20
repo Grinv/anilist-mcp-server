@@ -123,7 +123,7 @@ export async function searchMedia(
       volumes_lesser: f.volumes_lesser,
       licensedBy_in: f.licensedBy_in,
     },
-    ctx.authHeader(),
+    f.onList !== undefined ? ctx.requireAuth() : ctx.authHeader(),
   );
   return data.Page;
 }

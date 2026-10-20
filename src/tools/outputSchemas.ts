@@ -125,16 +125,16 @@ export const personDescriptionField = (singleLookupTool: string, field = "descri
  *  (get_character, get_staff, get_studio) — same name and semantics as
  *  search_media's `onList`, applied to the entity's nested media connection.
  *  Confirmed live on Character.media: unauthenticated, `true`/`false`/omitted
- *  all return the identical page, the same silent no-op search_media's own
- *  `onList` documents. */
+ *  all return the identical page — so, like search_media's `onList`, it
+ *  requires login rather than pass that page off as the user's own list. */
 export const filmographyOnListField = z
   .boolean()
   .optional()
   .describe(
     "[Requires login] Restrict the filmography to (true) or exclude (false) titles already " +
-      "on the authenticated user's own list. Omit to ignore list status entirely. Confirmed " +
-      "live: silently no-ops (identical results for true/false/omitted) if not logged in, " +
-      "since there's no list to check against — same behavior as search_media's `onList`.",
+      "on the authenticated user's own list. Omit to ignore list status entirely. Errors if " +
+      "not logged in (AniList would otherwise silently ignore it and return the unfiltered " +
+      "filmography).",
   );
 
 /** The `isFavourite` viewer field every favouritable domain object exposes

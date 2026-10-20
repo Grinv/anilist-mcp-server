@@ -27,7 +27,7 @@ export async function getStudio(
   const data = await ctx.gql.request<{ Studio: unknown }>(
     query,
     { ...(byId ? { id: idOrName } : { search: idOrName }), page, perPage, isMain, onList },
-    ctx.authHeader(),
+    onList !== undefined ? ctx.requireAuth() : ctx.authHeader(),
   );
   return assertFound(data.Studio, `No studio found matching ${JSON.stringify(idOrName)}.`);
 }

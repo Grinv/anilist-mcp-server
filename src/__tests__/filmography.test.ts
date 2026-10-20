@@ -59,7 +59,10 @@ test("get_character forwards filmography page/perPage/type/onList and returns me
     }),
   );
   installFetch(t, mock);
-  const { client, close } = await connectServer({ ANILIST_MIN_INTERVAL_MS: "0" });
+  const { client, close } = await connectServer({
+    ANILIST_ACCESS_TOKEN: "tok",
+    ANILIST_MIN_INTERVAL_MS: "0",
+  });
   t.after(close);
   const res = await client.callTool({
     name: "get_character",
@@ -292,5 +295,28 @@ test('get_staff rejects `type` with credits: "voice" before any request', async 
   });
   assert.equal(res.isError, true);
   assert.match((res.content as { text: string }[])[0]!.text, /only filters production credits/);
+  assert.equal(mock.calls.length, 0);
+});
+
+test("onList without a login errors instead of returning unfiltered results as the user's list", async (t) => {
+  // Confirmed live: unauthenticated, AniList ignores onList entirely.
+  const mock = mockFetch(() => {
+    throw new Error("must not be called — requireAuth() should gate before any fetch");
+  });
+  installFetch(t, mock);
+  const { client, close } = await connectServer({});
+  t.after(close);
+  const calls: [string, Record<string, unknown>][] = [
+    ["search_media", { type: "ANIME", onList: true }],
+    ["get_character", { id: 40, onList: false }],
+    ["get_staff", { id: 95185, onList: true }],
+    ["get_studio", { id: 21, onList: true }],
+  ];
+  for (const [name, args] of calls) {
+    const res = await client.callTool({ name, arguments: args });
+    assert.equal(res.isError, true, `${name} with onList must require login`);
+    const text = (res.content as { type: "text"; text: string }[])[0]!.text;
+    assert.match(text, /login_anilist|ANILIST_ACCESS_TOKEN/);
+  }
   assert.equal(mock.calls.length, 0);
 });

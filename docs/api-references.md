@@ -331,6 +331,9 @@ anime's id>)` succeeded and added that id to the account's favourited
   `Staff.characterMedia`): `true` returns only titles on the viewer's list,
   `false` only titles not on it, no overlap — unlike `Page.recommendations`'
   `onList`, which keys on the source title (see Recommendation below).
+  Without a token, `onList` (here and on `Page.media`) is silently ignored —
+  identical results for `true`/`false`/omitted — so the tools that take it
+  call `requireAuth()` when it's set rather than return an unfiltered page.
 
 - `SaveTextActivity(id, text, locked)`, `SaveMessageActivity(id, message,
 recipientId, private, locked, asMod)`.

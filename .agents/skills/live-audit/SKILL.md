@@ -136,7 +136,9 @@ supports concurrent subagents/background tasks.
   `z.number().nonnegative()`, and that no `.describe()` invites comparing a
   number on one scale against a number on the other. Live: call `search_media`
   with a score floor, then `get_media` on a result, and confirm the number the
-  filter applied is the number the detail reports.
+  filter applied is the number the detail reports. Also round-trip every
+  read field a write tool takes back: a value read must be writable as-is
+  (confirmed: `advancedScores` read 0-100 but wrote 0-10, unflagged by any schema).
 - **A field whose scale is an ACCOUNT SETTING must be pinned in the query,
   everywhere it is selected.** AniList returns `MediaList.score` in the list
   owner's own display `scoreFormat` unless the selection passes
@@ -336,7 +338,9 @@ Sweep every file under `src/tools/`, `src/clients/anilist/`, and `src/lib/`
   entirely produced the identical "ids is required" message).
 - `lib/result.ts`'s `messageFor()` — does every error code's branch actually
   surface the specific `err.message` a caller threw, or does a generic
-  per-code string silently discard it?
+  per-code string silently discard it? Check the templated branches too
+  (401/403 dropped it until 0.9.x) — and trigger one live: a WAF 403 body is
+  a Cloudflare HTML page, not JSON.
 - 401/403 messages that confidently blame "the account" or "the token" even
   when the same code path can also fire for an unrelated reason (e.g. an
   upstream WAF/security block) — especially on tools/queries that don't

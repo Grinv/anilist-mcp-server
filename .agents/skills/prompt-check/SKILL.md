@@ -27,6 +27,9 @@ Run each prompt with:
   required `season` to also be present, even though the two are independent
   filters on the underlying tool).
 - All optional args set together.
+- Hostile free text: a quote and a newline in every string arg (`He said "hi"\n…`),
+  and digit strings like `007`/`0` where a value is rendered bare — each must
+  stay one quoted value (confirmed: raw interpolation broke three prompts).
 
 Then check the rendered plan against what the prompt claims to deliver, not
 just that it renders: would running those exact tool calls actually produce

@@ -1881,3 +1881,34 @@ test("searchActivity converts createdAfter/createdBefore to unix seconds on both
   assert.ok(!("createdAtGreater" in callOf(2).variables), "unset bound is omitted");
   assert.ok(!("createdAtLesser" in callOf(2).variables), "unset bound is omitted");
 });
+
+test("a digit-string user that isn't found says it was looked up as a username", async (t) => {
+  // Some MCP clients stringify numbers; "7640432" then goes down the username
+  // branch and 404s (confirmed live: "HTTP 404 Not Found: User not found").
+  const mock = mockFetch(() =>
+    jsonResponse(
+      { errors: [{ message: "User not found", status: 404 }], data: null },
+      { status: 404 },
+    ),
+  );
+  installFetch(t, mock);
+  const client = new AniListClient(testConfig({ CACHE_TTL_MS: "0" }), silentLogger());
+  const calls: [string, () => Promise<unknown>][] = [
+    ["getUserProfile", () => user.getUserProfile(client.ctx(), "7640432")],
+    ["getUserList", () => list.getUserList(client.ctx(), "ANIME", "7640432")],
+    ["searchActivity", () => search.searchActivity(client.ctx(), "7640432")],
+  ];
+  for (const [name, call] of calls) {
+    await assert.rejects(call, (err: unknown) => {
+      assert.ok(err instanceof ApiError && err.code === "not_found", name);
+      assert.match(err.message, /User not found\. "7640432" was looked up as a username/, name);
+      assert.match(err.message, /pass it as a number/, name);
+      return true;
+    });
+  }
+  // A real username keeps the plain message.
+  await assert.rejects(
+    () => user.getUserProfile(client.ctx(), "Grinv"),
+    (err: unknown) => err instanceof ApiError && !/looked up as a username/.test(err.message),
+  );
+});

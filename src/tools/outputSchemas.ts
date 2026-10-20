@@ -299,4 +299,4 @@ export const userIdOrName = z
         ? "user is required — pass an AniList numeric ID or a username string."
         : "user must be an AniList numeric ID or a username string.",
   })
-  .describe("AniList user ID, or username.");
+  .describe("AniList user ID (as a number — a digit string is read as a username), or username.");

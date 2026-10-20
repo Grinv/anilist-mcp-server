@@ -4,6 +4,7 @@ import type { MediaId, ListEntryId, UserId } from "./ids.js";
 import type { MediaType, MediaListStatus, MediaListSort } from "./enums.js";
 import { encodeFuzzyDateInt } from "./fuzzyDate.js";
 import { advancedScoresToPoint10 } from "./fields.js";
+import { withNumericNameHint } from "./user.js";
 
 /** A list-entry date. `year` is required: a date without one (even `{}`)
  *  clears the stored date upstream (confirmed live). */
@@ -217,12 +218,14 @@ export async function getUserList(
   // Authenticated (when available) so the caller's own private entries and
   // viewer-relative fields resolve correctly, not just what an anonymous
   // request would see.
-  const data = await ctx.gql.request<{
-    MediaListCollection: {
-      lists: { entries: CompactEntry[] | null }[] | null;
-      hasNextChunk: boolean | null;
-    };
-  }>(query, variables, ctx.authHeader());
+  const data = await withNumericNameHint(user, () =>
+    ctx.gql.request<{
+      MediaListCollection: {
+        lists: { entries: CompactEntry[] | null }[] | null;
+        hasNextChunk: boolean | null;
+      };
+    }>(query, variables, ctx.authHeader()),
+  );
   const { lists, hasNextChunk } = data.MediaListCollection;
   if (format === "full") {
     const scaled = lists?.map((l) => ({

@@ -6,7 +6,7 @@ import type {
   NotificationType,
   MediaListStatus,
 } from "./enums.js";
-import { assertFound } from "../../lib/errors.js";
+import { ApiError, assertFound } from "../../lib/errors.js";
 import type { UserId } from "./ids.js";
 import { USER_FIELDS, USER_DESCRIPTION_FIELD, USER_DETAIL_FIELDS } from "./fields.js";
 
@@ -22,53 +22,64 @@ export async function resolveUserId(
   header: Record<string, string> | undefined,
 ): Promise<UserId> {
   const query = `query($name:String){User(name:$name){id}}`;
-  const data = await ctx.gql.request<{ User: { id: UserId } | null }>(query, { name }, header);
-  return assertFound(data.User, `No AniList user named "${name}" was found.`).id;
+  return withNumericNameHint(name, async () => {
+    const data = await ctx.gql.request<{ User: { id: UserId } | null }>(query, { name }, header);
+    return assertFound(data.User, `No AniList user named "${name}" was found.`).id;
+  });
 }
 
-export async function getUserProfile(ctx: AniListContext, user: UserId | string): Promise<unknown> {
-  const byId = typeof user === "number";
-  const fields = `${USER_FIELDS}${USER_DESCRIPTION_FIELD}${USER_DETAIL_FIELDS}`;
-  const query = byId
-    ? `query($id:Int){User(id:$id){${fields}}}`
-    : `query($name:String){User(name:$name){${fields}}}`;
-  const data = await ctx.gql.request<{ User: unknown }>(
-    query,
-    byId ? { id: user } : { name: user },
-    ctx.authHeader(),
-  );
-  return assertFound(data.User, `No AniList user found matching ${JSON.stringify(user)}.`);
-}
-
-export async function getUserStats(ctx: AniListContext, user: UserId | string): Promise<unknown> {
-  const byId = typeof user === "number";
-  const statsFields = `statistics{anime{count meanScore minutesWatched episodesWatched}manga{count meanScore chaptersRead volumesRead}}`;
-  const query = byId
-    ? `query($id:Int){User(id:$id){${statsFields}}}`
-    : `query($name:String){User(name:$name){${statsFields}}}`;
-  const data = await ctx.gql.request<{ User: unknown }>(
-    query,
-    byId ? { id: user } : { name: user },
-    ctx.authHeader(),
-  );
-  return assertFound(data.User, `No AniList user found matching ${JSON.stringify(user)}.`);
-}
-
-export async function getFullUserInfo(
-  ctx: AniListContext,
+/** A `user` given as a digit string (some MCP clients stringify numbers) is
+ *  looked up as a USERNAME, not an ID — say so on a not-found instead of
+ *  leaving the caller to conclude user 7640432 doesn't exist. */
+export async function withNumericNameHint<T>(
   user: UserId | string,
-): Promise<unknown> {
+  run: () => Promise<T>,
+): Promise<T> {
+  try {
+    return await run();
+  } catch (err) {
+    if (typeof user !== "string" || !/^\d+$/.test(user)) throw err;
+    if (!(err instanceof ApiError) || err.code !== "not_found") throw err;
+    throw new ApiError({
+      code: "not_found",
+      status: err.status,
+      message:
+        `${err.message.replace(/[.\s]*$/, ".")} "${user}" was looked up as a username; to ` +
+        `look up user ID ${user}, ` +
+        "pass it as a number.",
+      cause: err,
+    });
+  }
+}
+
+const STATS_FIELDS = `statistics{anime{count meanScore minutesWatched episodesWatched}manga{count meanScore chaptersRead volumesRead}}`;
+const PROFILE_FIELDS = `${USER_FIELDS}${USER_DESCRIPTION_FIELD}${USER_DETAIL_FIELDS}`;
+
+function fetchUser(ctx: AniListContext, user: UserId | string, fields: string): Promise<unknown> {
   const byId = typeof user === "number";
-  const fields = `${USER_FIELDS}${USER_DESCRIPTION_FIELD}${USER_DETAIL_FIELDS} statistics{anime{count meanScore minutesWatched episodesWatched}manga{count meanScore chaptersRead volumesRead}}`;
   const query = byId
     ? `query($id:Int){User(id:$id){${fields}}}`
     : `query($name:String){User(name:$name){${fields}}}`;
-  const data = await ctx.gql.request<{ User: unknown }>(
-    query,
-    byId ? { id: user } : { name: user },
-    ctx.authHeader(),
-  );
-  return assertFound(data.User, `No AniList user found matching ${JSON.stringify(user)}.`);
+  return withNumericNameHint(user, async () => {
+    const data = await ctx.gql.request<{ User: unknown }>(
+      query,
+      byId ? { id: user } : { name: user },
+      ctx.authHeader(),
+    );
+    return assertFound(data.User, `No AniList user found matching ${JSON.stringify(user)}.`);
+  });
+}
+
+export function getUserProfile(ctx: AniListContext, user: UserId | string): Promise<unknown> {
+  return fetchUser(ctx, user, PROFILE_FIELDS);
+}
+
+export function getUserStats(ctx: AniListContext, user: UserId | string): Promise<unknown> {
+  return fetchUser(ctx, user, STATS_FIELDS);
+}
+
+export function getFullUserInfo(ctx: AniListContext, user: UserId | string): Promise<unknown> {
+  return fetchUser(ctx, user, `${PROFILE_FIELDS} ${STATS_FIELDS}`);
 }
 
 export async function getAuthorizedUser(ctx: AniListContext): Promise<unknown> {

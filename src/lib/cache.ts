@@ -1,6 +1,6 @@
 // Tiny in-memory TTL cache for read endpoints. Caching cuts latency and eases
-// pressure on rate-limited upstreams. Expired entries are retained (bounded by
-// max size) so they can be served as a stale fallback when the upstream is down.
+// pressure on rate-limited upstreams. Bounded by max size; an expired entry
+// is simply recomputed on its next read.
 
 interface Entry<T> {
   value: T;
@@ -32,11 +32,6 @@ export class TtlCache<T> {
     return hit.expires > Date.now() ? hit.value : undefined;
   }
 
-  /** Any cached value regardless of freshness — used for stale fallback. */
-  getStale(key: string): T | undefined {
-    return this.#map.get(key)?.value;
-  }
-
   /** Drop every cached entry. A successful mutation can change the answer to
    *  any previously-cached read (e.g. `isFavourite`/`isFollowing`, or the
    *  mutated resource itself) — call this after one so the next read is
@@ -61,23 +56,6 @@ export class TtlCache<T> {
     const cached = this.get(key);
     if (cached !== undefined) return cached;
     return this.#dedupe(key, compute);
-  }
-
-  /**
-   * Like wrap, but if `compute` throws and a previously-cached (possibly stale)
-   * value exists, serve that instead of failing. Lets reads degrade gracefully
-   * when the upstream is temporarily down.
-   */
-  async wrapStaleOnError(key: string, compute: () => Promise<T>): Promise<T> {
-    const fresh = this.get(key);
-    if (fresh !== undefined) return fresh;
-    try {
-      return await this.#dedupe(key, compute);
-    } catch (err) {
-      const stale = this.getStale(key);
-      if (stale !== undefined) return stale;
-      throw err;
-    }
   }
 
   // Share one in-flight compute() promise across concurrent callers of the

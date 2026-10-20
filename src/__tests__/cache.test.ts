@@ -43,26 +43,6 @@ test("a compute() in flight across a clear() doesn't cache its pre-clear result"
   assert.equal(cache.get("k"), undefined, "but the pre-clear result must not be cached");
 });
 
-test("wrapStaleOnError serves the stale value when compute fails", async (t) => {
-  t.mock.timers.enable({ apis: ["Date"], now: Date.now() });
-  const cache = new TtlCache<number>(1); // 1ms TTL → expires almost immediately
-  await cache.wrapStaleOnError("k", async () => 1);
-  t.mock.timers.tick(5);
-  const v = await cache.wrapStaleOnError("k", async () => {
-    throw new Error("upstream down");
-  });
-  assert.equal(v, 1);
-});
-
-test("wrapStaleOnError rethrows when nothing was ever cached", async () => {
-  const cache = new TtlCache<number>(60_000);
-  await assert.rejects(() =>
-    cache.wrapStaleOnError("missing", async () => {
-      throw new Error("boom");
-    }),
-  );
-});
-
 test("ttl <= 0 disables caching", async () => {
   const cache = new TtlCache<number>(0);
   let calls = 0;
@@ -105,23 +85,6 @@ test("wrap: a failed in-flight compute() clears the slot so the next call retrie
   assert.equal(calls, 2); // second call retried, not stuck on a resolved rejection
 });
 
-test("wrapStaleOnError: concurrent calls on a cold key share one in-flight compute()", async () => {
-  const cache = new TtlCache<number>(60_000);
-  let calls = 0;
-  const compute = async () => {
-    calls += 1;
-    await tick(5);
-    return 9;
-  };
-  const [a, b] = await Promise.all([
-    cache.wrapStaleOnError("k", compute),
-    cache.wrapStaleOnError("k", compute),
-  ]);
-  assert.equal(a, 9);
-  assert.equal(b, 9);
-  assert.equal(calls, 1);
-});
-
 test("set() evicts the oldest-inserted entry once max is reached, keeping the newer ones", () => {
   const cache = new TtlCache<number>(60_000, 3);
   cache.set("a", 1);
@@ -150,23 +113,4 @@ test("set() on an already-present key doesn't evict anything, even at max capaci
     2,
     "b must survive — overwriting an existing key isn't a new insert",
   );
-});
-
-test("wrapStaleOnError: concurrent failures each independently fall back to the same stale value", async (t) => {
-  t.mock.timers.enable({ apis: ["Date"], now: Date.now() });
-  const cache = new TtlCache<number>(1); // 1ms TTL → expires almost immediately
-  await cache.wrapStaleOnError("k", async () => 5);
-  t.mock.timers.tick(5);
-  let calls = 0;
-  const failing = async () => {
-    calls += 1;
-    throw new Error("upstream down");
-  };
-  const [a, b] = await Promise.all([
-    cache.wrapStaleOnError("k", failing),
-    cache.wrapStaleOnError("k", failing),
-  ]);
-  assert.equal(a, 5);
-  assert.equal(b, 5);
-  assert.equal(calls, 1); // shared failure, not two independent upstream hits
 });

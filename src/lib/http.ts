@@ -10,7 +10,6 @@ export interface RequestOptions {
   headers?: Record<string, string>;
   /** Already-serialized request body (e.g. URLSearchParams string or JSON). */
   body?: string;
-  query?: Record<string, string | number | boolean | undefined>;
   timeoutMs?: number;
   /** Max retry attempts for retryable failures (network/timeout/5xx/429). */
   retries?: number;
@@ -36,12 +35,11 @@ export class HttpClient {
     this.#opts = opts;
   }
 
-  async getJson<T>(path: string, options: RequestOptions = {}): Promise<T> {
-    return this.requestJson<T>(path, { ...options, method: options.method ?? "GET" });
-  }
-
   async requestJson<T>(path: string, options: RequestOptions = {}): Promise<T> {
-    const url = this.#buildUrl(path, options.query);
+    const url = new URL(
+      path.replace(/^\//, ""),
+      ensureTrailingSlash(this.#opts.baseUrl),
+    ).toString();
     const retries = options.retries ?? this.#opts.retries ?? 2;
     const timeoutMs = options.timeoutMs ?? this.#opts.timeoutMs ?? 15000;
 
@@ -114,16 +112,6 @@ export class HttpClient {
         cause: err,
       });
     }
-  }
-
-  #buildUrl(path: string, query?: RequestOptions["query"]): string {
-    const url = new URL(path.replace(/^\//, ""), ensureTrailingSlash(this.#opts.baseUrl));
-    if (query) {
-      for (const [key, value] of Object.entries(query)) {
-        if (value !== undefined) url.searchParams.set(key, String(value));
-      }
-    }
-    return url.toString();
   }
 }
 

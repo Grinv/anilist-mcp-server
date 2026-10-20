@@ -9,18 +9,14 @@ function client(extra: { retries?: number; timeoutMs?: number } = {}): HttpClien
   return new HttpClient({ baseUrl: "https://example.test/api", logger: silentLogger(), ...extra });
 }
 
-test("getJson parses the body and sends a User-Agent + query params", async (t) => {
+test("requestJson parses the body and sends a User-Agent", async (t) => {
   const mock = mockFetch((_url) => jsonResponse({ ok: true }));
   installFetch(t, mock);
-  const res = await client().getJson<{ ok: boolean }>("thing", {
-    query: { q: "frieren", limit: 5, skip: undefined },
-  });
+  const res = await client().requestJson<{ ok: boolean }>("thing");
   assert.equal(res.ok, true);
   assert.equal(mock.calls.length, 1);
   const call = mock.calls[0]!;
-  assert.match(call.url, /q=frieren/);
-  assert.match(call.url, /limit=5/);
-  assert.ok(!call.url.includes("skip")); // undefined dropped
+  assert.equal(call.url, "https://example.test/api/thing");
   const headers = call.init?.headers as Record<string, string>;
   assert.equal(headers["User-Agent"], USER_AGENT);
 });
@@ -29,7 +25,7 @@ test("does not retry a 404 and maps it to not_found", async (t) => {
   const mock = mockFetch(() => jsonResponse({ error: "nope" }, { status: 404 }));
   installFetch(t, mock);
   await assert.rejects(
-    () => client({ retries: 2 }).getJson("missing"),
+    () => client({ retries: 2 }).requestJson("missing"),
     (err: unknown) => err instanceof ApiError && err.code === "not_found",
   );
   assert.equal(mock.calls.length, 1);
@@ -53,7 +49,7 @@ test("surfaces a GraphQL-style errors[] envelope's message, including nested val
   );
   installFetch(t, mock);
   await assert.rejects(
-    () => client().getJson("thing"),
+    () => client().requestJson("thing"),
     (err: unknown) =>
       err instanceof ApiError &&
       err.code === "bad_request" &&
@@ -68,7 +64,7 @@ test("retries a 5xx then succeeds", async (t) => {
     return n === 1 ? jsonResponse({ e: 1 }, { status: 500 }) : jsonResponse({ ok: true });
   });
   installFetch(t, mock);
-  const res = await client({ retries: 1 }).getJson<{ ok: boolean }>("flaky");
+  const res = await client({ retries: 1 }).requestJson<{ ok: boolean }>("flaky");
   assert.equal(res.ok, true);
   assert.equal(mock.calls.length, 2);
 });
@@ -82,7 +78,7 @@ test("honors Retry-After on 429", async (t) => {
       : jsonResponse({ ok: true });
   });
   installFetch(t, mock);
-  const res = await client({ retries: 1 }).getJson<{ ok: boolean }>("limited");
+  const res = await client({ retries: 1 }).requestJson<{ ok: boolean }>("limited");
   assert.equal(res.ok, true);
   assert.equal(mock.calls.length, 2);
 });
@@ -107,7 +103,7 @@ test("aborts on timeout and maps to a timeout error", async (t) => {
   );
   installFetch(t, mock);
   await assert.rejects(
-    () => client({ retries: 0, timeoutMs: 30 }).getJson("slow"),
+    () => client({ retries: 0, timeoutMs: 30 }).requestJson("slow"),
     (err: unknown) => err instanceof ApiError && err.code === "timeout",
   );
 });
@@ -128,7 +124,7 @@ test("caller-supplied signal aborts the request and maps to a network error", as
   );
   installFetch(t, mock);
   const controller = new AbortController();
-  const result = client({ retries: 0, timeoutMs: 30000 }).getJson("slow", {
+  const result = client({ retries: 0, timeoutMs: 30000 }).requestJson("slow", {
     signal: controller.signal,
   });
   controller.abort();
@@ -148,7 +144,7 @@ test("leaves out an empty statusText instead of a stray space before the detail"
   );
   installFetch(t, mock);
   await assert.rejects(
-    () => client().getJson("missing"),
+    () => client().requestJson("missing"),
     (err: unknown) => err instanceof ApiError && err.message === "HTTP 404: Not Found.",
   );
 });
@@ -164,7 +160,7 @@ test("keeps statusText in the message when the response actually carries one", a
   );
   installFetch(t, mock);
   await assert.rejects(
-    () => client().getJson("missing"),
+    () => client().requestJson("missing"),
     (err: unknown) => err instanceof ApiError && err.message === "HTTP 404 Not Found: Not Found.",
   );
 });

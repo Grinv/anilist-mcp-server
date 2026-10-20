@@ -27,7 +27,7 @@ export function existsFragment(typeName: string, idVar: string, extraArgs?: stri
 // manga (30026) reads back RELEASING bare but HIATUS at version 2, even
 // though search_media's own `status_in: [HIATUS]` filter matches it. The
 // response key stays `status` either way (an argument, not an alias).
-export const MEDIA_STATUS_FIELD = `status(version:2)`;
+const MEDIA_STATUS_FIELD = `status(version:2)`;
 
 // Kept lean on purpose: search.ts/recommendation.ts return many media items
 // per call, so MEDIA_FIELDS excludes variable-length/rarely-needed fields

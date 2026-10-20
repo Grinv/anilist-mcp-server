@@ -129,8 +129,10 @@ async function toHttpError(res: Response, authenticated: boolean): Promise<ApiEr
   } catch {
     /* ignore body read errors */
   }
-  // Prefer a structured `message`/`error` field; fall back to the raw body.
-  const detail = parseErrorMessage(raw) ?? raw.slice(0, 500);
+  // Prefer a structured `message`/`error` field; fall back to the raw body —
+  // or, for an HTML page (e.g. Cloudflare's WAF block on AniList), just its
+  // <title>, not 500 characters of markup.
+  const detail = parseErrorMessage(raw) ?? htmlTitle(raw) ?? raw.slice(0, 500);
   const retryAfter = parseRetryAfter(res.headers.get("retry-after"));
   // `statusText` is only appended when it's actually there: it comes back
   // empty over HTTP/2 (and through some proxies), which would otherwise
@@ -147,6 +149,11 @@ async function toHttpError(res: Response, authenticated: boolean): Promise<ApiEr
     message: `${statusLabel}${detail ? `: ${detail}` : ""}`,
     ...(retryAfter === undefined ? {} : { cause: { retryAfterMs: retryAfter } }),
   });
+}
+
+function htmlTitle(raw: string): string | undefined {
+  if (!/^\s*</.test(raw)) return undefined;
+  return /<title>([^<]*)<\/title>/i.exec(raw)?.[1]?.trim() || "HTML error page";
 }
 
 // Many JSON APIs return an error envelope like { message } or { error }; GraphQL

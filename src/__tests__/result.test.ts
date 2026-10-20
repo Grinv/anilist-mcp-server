@@ -66,6 +66,7 @@ test("apiErrorToResult: a real upstream 401 with a token sent may be invalid/exp
   );
   assert.equal(r.isError, true);
   assert.match(r.content[0]!.text, /invalid or expired/i);
+  assert.match(r.content[0]!.text, /AniList said: detail$/);
 });
 
 test("apiErrorToResult: a real upstream 401 with no token sent asks the caller to log in", () => {
@@ -74,6 +75,7 @@ test("apiErrorToResult: a real upstream 401 with no token sent asks the caller t
   );
   assert.equal(r.isError, true);
   assert.match(r.content[0]!.text, /login_anilist/i);
+  assert.match(r.content[0]!.text, /AniList said: detail$/);
 });
 
 test("apiErrorToResult: a 403 with a token sent doesn't blame account permission alone", () => {
@@ -83,12 +85,15 @@ test("apiErrorToResult: a 403 with a token sent doesn't blame account permission
   assert.equal(r.isError, true);
   assert.match(r.content[0]!.text, /account may lack permission/i);
   assert.match(r.content[0]!.text, /security block/i);
+  assert.match(r.content[0]!.text, /AniList said: detail$/);
 });
 
 test("apiErrorToResult: a 403 with no token sent doesn't blame credentials", () => {
   const r = apiErrorToResult(new ApiError({ code: "forbidden", message: "detail", status: 403 }));
   assert.equal(r.isError, true);
   assert.match(r.content[0]!.text, /anonymous request/i);
+  // e.g. AniList's outage notice, which the template alone can't name.
+  assert.match(r.content[0]!.text, /AniList said: detail$/);
 });
 
 test("apiErrorToResult: a client-side pre-flight unauthorized (no status) keeps its own specific message", () => {

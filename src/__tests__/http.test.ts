@@ -164,3 +164,20 @@ test("keeps statusText in the message when the response actually carries one", a
     (err: unknown) => err instanceof ApiError && err.message === "HTTP 404 Not Found: Not Found.",
   );
 });
+
+test("an HTML error page is reduced to its <title>, not 500 characters of markup", async (t) => {
+  // Shape confirmed live: AniList's Cloudflare WAF answers a search term like
+  // `"OR 1=1 --` with a 403 HTML page titled "Attention Required! | Cloudflare".
+  const html =
+    '<!DOCTYPE html>\n<!--[if lt IE 7]> <html class="no-js ie6 oldie" lang="en-US"> <![endif]-->\n' +
+    '<head>\n<title>Attention Required! | Cloudflare</title>\n<meta charset="UTF-8" />\n</head>';
+  const mock = mockFetch(
+    () => new Response(html, { status: 403, headers: { "Content-Type": "text/html" } }),
+  );
+  installFetch(t, mock);
+  await assert.rejects(
+    () => client().requestJson("blocked"),
+    (err: unknown) =>
+      err instanceof ApiError && err.message === "HTTP 403: Attention Required! | Cloudflare",
+  );
+});

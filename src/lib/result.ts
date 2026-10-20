@@ -56,14 +56,16 @@ function messageFor(err: ApiError): string {
       // actionable message (e.g. "run login_anilist") — use that verbatim
       // rather than discarding it for either template.
       if (err.status === undefined) return err.message;
-      return err.authenticated
-        ? "The upstream service rejected this request (401) even though a token was sent. " +
+      return `${
+        err.authenticated
+          ? "The upstream service rejected this request (401) even though a token was sent. " +
             "This can mean the token is invalid or expired, but it can also mean the " +
             "authenticated account isn't allowed to perform this specific action (e.g. it " +
             "doesn't own the resource being changed). Try login_anilist for a fresh token; if " +
             "the same request still fails, the action itself is likely not permitted here."
-        : "The upstream service rejected this request (401): it requires an authenticated " +
-            "AniList account. Run login_anilist (or set ANILIST_ACCESS_TOKEN) first.";
+          : "The upstream service rejected this request (401): it requires an authenticated " +
+            "AniList account. Run login_anilist (or set ANILIST_ACCESS_TOKEN) first."
+      } ${upstreamSaid(err)}`;
     case "forbidden":
       // Same reasoning as the 401 case above, plus one more wrinkle: this
       // server always attaches a token when one is configured, even to
@@ -75,17 +77,19 @@ function messageFor(err: ApiError): string {
       // attached — an upstream WAF/security block on the request content,
       // not an account permission issue. Don't confidently blame the account
       // just because a token happened to be sent.
-      return err.authenticated
-        ? "The upstream service denied access (403). This can mean the authenticated " +
+      return `${
+        err.authenticated
+          ? "The upstream service denied access (403). This can mean the authenticated " +
             "account may lack permission for this specific action, but a 403 can also happen " +
             "for reasons unrelated to the account or token — e.g. an upstream security block " +
             "(a WAF rejecting unusual characters in the request). If the action should " +
             "normally be permitted, try simplifying the request before assuming it's an " +
             "account/token issue."
-        : "The upstream service denied access (403) to this anonymous request. Since no " +
+          : "The upstream service denied access (403) to this anonymous request. Since no " +
             "credentials were involved, this isn't a permissions issue — it's more likely a " +
             "security block or a temporary upstream outage. Try simplifying the request or " +
-            "retrying shortly.";
+            "retrying shortly."
+      } ${upstreamSaid(err)}`;
     case "not_found":
       // Callers throw a specific, actionable ApiError.message for this code
       // (e.g. assertFound()'s "No thread found with ID 42.", or a delete
@@ -110,4 +114,11 @@ function messageFor(err: ApiError): string {
     default:
       return `Unexpected error talking to the upstream service: ${err.message}`;
   }
+}
+
+/** AniList's own wording (e.g. "Invalid token", or its "API has been
+ *  temporarily disabled" outage notice) — appended to the templated 401/403
+ *  advice, which alone can't tell those cases apart. */
+function upstreamSaid(err: ApiError): string {
+  return `AniList said: ${err.message}`;
 }

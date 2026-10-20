@@ -121,6 +121,14 @@ not be greater than 100."]}}`. Both `lib/http.ts`'s `parseErrorMessage()`
   message — don't just join `errors[].message` values, or a validation
   failure reads as the useless literal word "validation" with no indication
   of which field or why.
+- **A WAF block is an HTML page, not JSON**: an injection-shaped search term
+  (e.g. `"OR 1=1 --`) gets a Cloudflare 403 page titled "Attention Required!
+  | Cloudflare" (confirmed live 2026-10-21); `lib/http.ts` reduces any HTML
+  error body to its `<title>`.
+- **Every `Delete*` mutation answers an unknown id with a 400**, not
+  `{deleted: false}`: `validation (id: The selected id is invalid.)`, also
+  for an id deleted a moment ago (confirmed live 2026-10-21 on all four);
+  `deleteById.ts` maps it to not_found.
 
 ## Pagination and `Page` limitations
 
@@ -162,6 +170,18 @@ not be greater than 100."]}}`. Both `lib/http.ts`'s `parseErrorMessage()`
   (page 100 × 50 is fine; now also stated in the schema's own `Page`
   description). `*_in` list arguments are capped at 10,000 items (per their
   schema descriptions).
+- **`pageInfo.total`/`lastPage` are unreliable with a small `perPage`**:
+  `Page(perPage:2){users(search:"Grinv")}` reported total 5000 / lastPage
+  2500 on page 1 and the real total 4 on page 3; `perPage:50` reported 4
+  (confirmed live 2026-10-21, also on media/thread/activity searches). Trust
+  `hasNextPage`, not the totals.
+- **The global activity feed can return fewer rows than `perPage`**
+  (`activities` with no user filter: 9 of 10 typical, 6 of 10 seen) —
+  AniList filters some rows after paging. Not an end-of-feed signal; use
+  `hasNextPage`.
+- **A term AniList can't tokenize is ignored, not matched**: an emoji-only
+  `search` on `characters` returned the unfiltered popular list, while on
+  `media` it returned nothing (confirmed live 2026-10-21).
 - An unprovided GraphQL variable is simply ignored by the server (treated as
   not passed) rather than erroring — confirms `lib/graphql.ts`'s
   `stripUndefined()` approach (omit unset optional variables entirely) is

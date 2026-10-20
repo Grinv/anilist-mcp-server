@@ -37,6 +37,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `search_thread` with a nonexistent `mediaCategoryId` errors as not found instead of returning an empty page. [3f6f785](https://github.com/Grinv/anilist-mcp-server/commit/3f6f785)
+- A `user` given as a digit string (e.g. `"7640432"`) that isn't found now says it was looked up as a username and to pass an ID as a number. [7960a3a](https://github.com/Grinv/anilist-mcp-server/commit/7960a3a)
+- `update_user` with no fields is rejected instead of sending an empty write, and an invalid activity `type` lists the valid types instead of "Invalid input". [1179d58](https://github.com/Grinv/anilist-mcp-server/commit/1179d58)
+- Deleting an unknown or already-deleted list entry, activity, thread or comment reports not found instead of "rejected as invalid". [19b8c76](https://github.com/Grinv/anilist-mcp-server/commit/19b8c76)
 - 401/403 errors include AniList's own text (e.g. its outage notice or "Invalid token"), and an HTML error page is reduced to its title. [420a1e7](https://github.com/Grinv/anilist-mcp-server/commit/420a1e7)
 - Prompts escape free-text arguments, so a quote or newline in a title, genre or username can't break the instruction; `catch_up_activity` passes `"007"`-style usernames as strings, not as user 7. [47dc9ba](https://github.com/Grinv/anilist-mcp-server/commit/47dc9ba)
 - Paginate `get_character`/`get_staff`/`get_studio` filmographies (with `type`, `onList`, and `isMain` for studios); they silently stopped at 25 or 10 titles. [ddd7a6f](https://github.com/Grinv/anilist-mcp-server/commit/ddd7a6f)

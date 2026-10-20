@@ -198,6 +198,14 @@ instead of being duplicated.
 
 ### List entries (`list.ts`)
 
+- **`MediaListCollection`'s `startedAt_*`/`completedAt_*` bounds are strict**
+  (confirmed live: `completedAt_greater: 20250212` dropped the 2025-02-12
+  entries `completedAt: 20250212` matched), and an entry with no date passes
+  any `_lesser` bound on its own while failing every `_greater` — pair them.
+  `greater 20251231` + `lesser 20270000` returned exactly the same entries as
+  `completedAt_like: "2026%"`. `sort`/`status_in` combine with them, and
+  chunking counts only matching entries.
+
 - `SaveMediaListEntry(id, mediaId, status, score, scoreRaw, progress,
 progressVolumes, repeat, priority, private, notes, hiddenFromStatusLists,
 customLists: [String], advancedScores: [Float], startedAt: FuzzyDateInput,
@@ -309,6 +317,12 @@ anime's id>)` succeeded and added that id to the account's favourited
   itself won't catch the mismatch.
 
 ### Activity (`activity.ts`)
+
+- **`activities(type_in:)`** works with and without `userId`, including the
+  `MEDIA_LIST` pseudo-type (matches anime and manga list activity); an empty
+  array returns an empty page, hence the tools' non-empty `type` arrays.
+  **`isFollowing: true` without a token is silently ignored** (the normal
+  global feed comes back, no error) — `search_activity` gates it on login.
 
 - `SaveTextActivity(id, text, locked)`, `SaveMessageActivity(id, message,
 recipientId, private, locked, asMod)`.
@@ -507,6 +521,10 @@ The categories field is required when id is not present.)`.
 format_in: [MediaFormat], status_in: [MediaStatus], season: MediaSeason,
 seasonYear`, plus many more (`averageScore_greater`, `tag_in`, …) — see the
   full arg list via introspection if extending `searchMedia()`.
+- **`isAdult: true` returns adult titles without any login or account
+  opt-in** (confirmed live 2026-10-20: 5000+ results, all flagged). The flag
+  marks explicit (hentai) titles only — ecchi is an ordinary genre, so
+  hiding it takes `genre_not_in: ["Ecchi"]`, not `isAdult: false`.
 - **`season` and `seasonYear` are independent filters, not a mandatory
   pair** — confirmed live: `season: SUMMER` alone matches every Summer across
   all years, and `seasonYear: 2025` alone matches every season within 2025.
@@ -621,10 +639,17 @@ seasonYear`, plus many more (`averageScore_greater`, `tag_in`, …) — see the
 - **`Character.media`/`Staff.staffMedia`** (`MediaConnection`) are each
   person's filmography; the per-credit role lives on the edge, same
   edge-not-node pattern as `Media.characters`/`Media.staff` above —
-  `MediaEdge.characterRole`/`MediaEdge.staffRole` respectively. `Staff.characters`
-  (a `CharacterConnection`) is voice-actor-specific (the characters they
-  voiced); `staffMedia` covers every staff role (writer, director, VA, etc.)
-  and is the one `get_staff` uses for a role-agnostic filmography.
+  `MediaEdge.characterRole`/`MediaEdge.staffRole` respectively. `staffMedia`
+  covers production credits only (director, writer, theme song, …) — **not
+  voice acting**, confirmed live: Kana Hanazawa's `staffMedia` lists only her
+  theme/insert song credits. Voice roles live in `Staff.characters`
+  (`CharacterConnection`) and `Staff.characterMedia` (`MediaConnection`, same
+  data with the title as node and `MediaEdge.characters` for who was
+  voiced); `get_staff`'s `credits: "voice"` selects the latter.
+  `characterMedia` takes `sort`/`onList`/`page`/`perPage` but no `type`.
+  All three filmography connections (and `Studio.media`) clamp `perPage` at
+  25 and support `page`; `Studio.media(isMain:)` splits main-studio titles
+  from merely credited ones.
 
 ### Notification (`notification.ts`)
 

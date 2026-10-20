@@ -169,7 +169,7 @@ Purpose — double-check those two first on any new or edited tool.
   durations (minutes vs. seconds), timestamps (epoch seconds vs. ISO), sizes,
   and percentages vs. fractions.
 - Disclose the return shape's real substance, not just the auth/key caveat —
-  fixed caps (`get_studio`'s 10 titles), ordering, and which nested fields a
+  fixed caps (e.g. a nested connection's 25-per-page clamp), ordering, and which nested fields a
   specific tool omits that a same-shaped sibling includes (e.g.
   `get_todays_birthdays` skipping the `media`/`staffMedia` filmography that
   `get_character`/`get_staff` return). This is the same rigor as

@@ -1,10 +1,10 @@
 import type { AniListContext } from "./context.js";
 import { resolveUserId } from "./user.js";
-import { createdAtBounds } from "./activity.js";
-import { assertFound } from "../../lib/errors.js";
+import { activityTypeVars, createdAtBounds, type ActivityTypeFilter } from "./activity.js";
+import { ApiError, assertFound } from "../../lib/errors.js";
 import { existsFragment } from "./fields.js";
 import type { CategoryId, MediaId, UserId } from "./ids.js";
-import type { ActivityType, MediaType } from "./enums.js";
+import type { MediaType } from "./enums.js";
 import {
   MEDIA_FIELDS,
   MEDIA_DESCRIPTION_FIELD,
@@ -254,15 +254,50 @@ export async function searchThread(
 export async function searchActivity(
   ctx: AniListContext,
   user?: UserId | string,
-  type?: ActivityType,
+  type?: ActivityTypeFilter,
   page = 1,
   perPage = 10,
-  created: { after?: string; before?: string } = {},
+  opts: { after?: string; before?: string; isFollowing?: boolean } = {},
 ): Promise<unknown> {
-  const header = ctx.authHeader();
+  // AniList silently IGNORES `isFollowing: true` on an unauthenticated
+  // request (confirmed live: it returns the ordinary global feed, no error)
+  // — "who you follow" has no meaning without a viewer. Gate it here, before
+  // any network call, so the caller gets an actionable login error instead
+  // of a global feed mislabeled as their following feed. `isFollowing: false`
+  // is treated as absent (no restriction), so it needs no token.
+  const isFollowing = opts.isFollowing === true ? true : undefined;
+  if (isFollowing && user !== undefined) {
+    // Rejected rather than combined: "activity from people I follow" and
+    // "activity from this one user" are two different questions; how AniList
+    // combines the two filters isn't verified (it needs an authenticated
+    // probe), and an un-followed user would plausibly yield a silently empty
+    // page — get_user_activity already answers the one-user question.
+    throw new ApiError({
+      code: "bad_request",
+      message:
+        "Pass either `user` (one user's activity) or `isFollowing: true` (activity from " +
+        "everyone you follow), not both.",
+    });
+  }
+  const header = isFollowing ? ctx.requireAuth() : ctx.authHeader();
   // Same outward rounding as get_user_activity — see createdAtBounds().
   const { createdAtGreater: createdAt_greater, createdAtLesser: createdAt_lesser } =
-    createdAtBounds({ createdAfter: created.after, createdBefore: created.before });
+    createdAtBounds({ createdAfter: opts.after, createdBefore: opts.before });
+  // One value → `type`, an array → `type_in` — see activityTypeVars().
+  const { type: singleType, typeIn: type_in } = activityTypeVars(type);
+  const params =
+    "$userId:Int,$type:ActivityType,$type_in:[ActivityType],$isFollowing:Boolean," +
+    "$page:Int,$perPage:Int,$createdAt_greater:Int,$createdAt_lesser:Int";
+  const activitiesArgs =
+    "userId:$userId,type:$type,type_in:$type_in,isFollowing:$isFollowing," +
+    "createdAt_greater:$createdAt_greater,createdAt_lesser:$createdAt_lesser,sort:ID_DESC";
+  const filterVars = {
+    type: singleType,
+    type_in,
+    isFollowing,
+    createdAt_greater,
+    createdAt_lesser,
+  };
   // AniList's `activities` field only accepts a numeric `userId` filter, so a
   // username has a genuine data dependency (its numeric id must be known
   // before `activities(userId:...)` can even be built) and needs a separate
@@ -274,16 +309,16 @@ export async function searchActivity(
   // existsFragment() aliases the existence check into the same request,
   // same pattern as getUserActivity.
   if (typeof user === "number") {
-    const query = `query($userId:Int,$type:ActivityType,$page:Int,$perPage:Int,$createdAt_greater:Int,$createdAt_lesser:Int){
+    const query = `query(${params}){
       ${existsFragment("User", "userId")}
       feed:Page(page:$page,perPage:$perPage){
         pageInfo{total currentPage lastPage hasNextPage}
-        activities(userId:$userId,type:$type,createdAt_greater:$createdAt_greater,createdAt_lesser:$createdAt_lesser,sort:ID_DESC){${ACTIVITY_FRAGMENT}}
+        activities(${activitiesArgs}){${ACTIVITY_FRAGMENT}}
       }
     }`;
     const data = await ctx.gql.request<{ exists: { id: number } | null; feed: unknown }>(
       query,
-      { userId: user, type, page, perPage, createdAt_greater, createdAt_lesser },
+      { userId: user, page, perPage, ...filterVars },
       header,
     );
     assertFound(data.exists, `No AniList user found with ID ${user}.`);
@@ -291,13 +326,13 @@ export async function searchActivity(
   }
   const userId: UserId | undefined =
     typeof user === "string" ? await resolveUserId(ctx, user, header) : undefined;
-  const query = `query($userId:Int,$type:ActivityType,$page:Int,$perPage:Int,$createdAt_greater:Int,$createdAt_lesser:Int){Page(page:$page,perPage:$perPage){
+  const query = `query(${params}){Page(page:$page,perPage:$perPage){
     pageInfo{total currentPage lastPage hasNextPage}
-    activities(userId:$userId,type:$type,createdAt_greater:$createdAt_greater,createdAt_lesser:$createdAt_lesser,sort:ID_DESC){${ACTIVITY_FRAGMENT}}
+    activities(${activitiesArgs}){${ACTIVITY_FRAGMENT}}
   }}`;
   const data = await ctx.gql.request<{ Page: unknown }>(
     query,
-    { userId, type, page, perPage, createdAt_greater, createdAt_lesser },
+    { userId, page, perPage, ...filterVars },
     header,
   );
   return data.Page;

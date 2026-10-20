@@ -16,9 +16,26 @@ export async function getActivity(ctx: AniListContext, id: ActivityId): Promise<
  *  converted to the unix seconds AniList's `createdAt_greater`/
  *  `createdAt_lesser` take. */
 export interface UserActivityFilters {
-  type?: ActivityType;
+  type?: ActivityTypeFilter;
   createdAfter?: string;
   createdBefore?: string;
+}
+
+/** One ActivityType, or several (matched as ANY of them). */
+export type ActivityTypeFilter = ActivityType | readonly ActivityType[];
+
+/** Split an ActivityTypeFilter into AniList's two arguments on the same
+ *  `activities` connection: a single value goes to `type` (byte-identical to
+ *  the request this sent before arrays were accepted), an array to `type_in`
+ *  (confirmed live, both with and without `userId`, MEDIA_LIST included).
+ *  The unused one is left undefined, so GraphQLClient strips it. */
+export function activityTypeVars(type: ActivityTypeFilter | undefined): {
+  type?: ActivityType;
+  typeIn?: ActivityType[];
+} {
+  if (type === undefined) return {};
+  if (typeof type === "string") return { type };
+  return { typeIn: [...type] };
 }
 
 /** Both of AniList's `createdAt` bounds are strict (confirmed live: an
@@ -60,15 +77,16 @@ export async function getUserActivity(
   // filter as absent and silently return the *global* activity feed instead
   // of erroring.
   //
-  // `type`/`createdAt_greater`/`createdAt_lesser` are AniList's own filters
-  // on the same `activities` connection (confirmed live, combined with
-  // `userId`), so they narrow server-side; absent ones are stripped from the
-  // variables and the argument simply isn't applied.
+  // `type`/`type_in`/`createdAt_greater`/`createdAt_lesser` are AniList's own
+  // filters on the same `activities` connection (confirmed live, combined
+  // with `userId`), so they narrow server-side; absent ones are stripped from
+  // the variables and the argument simply isn't applied.
   const header = ctx.authHeader();
-  const filterVars = { type: filters.type, ...createdAtBounds(filters) };
-  const filterParams = "$type:ActivityType,$createdAtGreater:Int,$createdAtLesser:Int";
+  const filterVars = { ...activityTypeVars(filters.type), ...createdAtBounds(filters) };
+  const filterParams =
+    "$type:ActivityType,$typeIn:[ActivityType],$createdAtGreater:Int,$createdAtLesser:Int";
   const activitiesArgs =
-    "userId:$userId,type:$type,createdAt_greater:$createdAtGreater," +
+    "userId:$userId,type:$type,type_in:$typeIn,createdAt_greater:$createdAtGreater," +
     "createdAt_lesser:$createdAtLesser,sort:ID_DESC";
   if (typeof user === "number") {
     const query = `query($userId:Int,$page:Int,$perPage:Int,${filterParams}){

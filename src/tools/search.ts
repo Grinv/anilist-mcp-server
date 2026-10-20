@@ -2,9 +2,10 @@ import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/server";
 import type { AniListClient } from "../clients/anilist.js";
 import * as search from "../clients/anilist/search.js";
+import { ApiError } from "../lib/errors.js";
 import { jsonResult } from "../lib/result.js";
 import { guard } from "./guard.js";
-import { activityItem } from "./activity.js";
+import { activityItem, activityTypeFilter } from "./activity.js";
 import {
   pageInfoSchema,
   MEDIA_TYPES,
@@ -15,7 +16,6 @@ import {
   paginationFields,
   personDescriptionField,
 } from "./outputSchemas.js";
-import { ACTIVITY_TYPES } from "../clients/anilist/enums.js";
 
 const FORMATS = [
   "TV",
@@ -285,7 +285,17 @@ const mediaSearchInput = z.object({
     .boolean()
     .default(false)
     .describe(
-      "Set true to exclude adult (isAdult) entries. Adult results are NOT filtered by default.",
+      "Set true to exclude adult (isAdult) entries — same as `isAdult: false`. Adult results " +
+        "are NOT filtered by default.",
+    ),
+  isAdult: z
+    .boolean()
+    .optional()
+    .describe(
+      "AniList's own adult-content filter: true returns ONLY adult (18+) entries, false " +
+        "excludes them (same as `sfw: true`). Omit to include both. No login or account " +
+        "setting is needed for adult results. `sfw: true` with `isAdult: true` contradict " +
+        "each other and are rejected.",
     ),
   sort: z
     .array(z.enum(MEDIA_SORTS))
@@ -308,6 +318,26 @@ const mediaSearchInput = z.object({
   ...paginationFields(10),
 });
 
+/** search_media's `isAdult` value from its two adult-content fields. `sfw`
+ *  predates `isAdult` and is kept (not renamed) on purpose: no schema here is
+ *  strict, so a removed key would be silently dropped and a caller still
+ *  sending `sfw: true` would start getting adult results. The one
+ *  contradictory combination is rejected rather than resolved either way.
+ *  Done here, not as a schema refine, so the inputSchema stays a plain
+ *  object for JSON Schema conversion. */
+function adultFilter(sfw: boolean, isAdult: boolean | undefined): boolean | undefined {
+  if (sfw && isAdult === true) {
+    throw new ApiError({
+      code: "bad_request",
+      message:
+        "`sfw: true` excludes adult titles but `isAdult: true` asks for only adult titles — " +
+        "pass just one: `isAdult: true` for adult-only, or `sfw: true` (or `isAdult: false`) " +
+        "to exclude them.",
+    });
+  }
+  return isAdult ?? (sfw ? false : undefined);
+}
+
 // Search results are lists of AniList media/character/staff/etc. objects —
 // per the precision policy, each item is typed loosely (id + passthrough)
 // rather than duplicating the full MEDIA_FIELDS/CHARACTER_FIELDS/etc. shape.
@@ -324,8 +354,8 @@ export function registerSearchTools(server: McpServer, client: AniListClient): v
         "season/year, country, length — most with an exclusion variant), or browse term-less " +
         "by ranking (top-rated, most popular, trending — see the `sort` parameter) when you " +
         "don't have a title to search for. Adult (NSFW) results are included unless you set " +
-        "`sfw: true` — see the `sfw` parameter. Returns AniList IDs to use with get_media and " +
-        "other ID-based tools.",
+        "`sfw: true` (or `isAdult: false`); `isAdult: true` returns adult titles only. Returns " +
+        "AniList IDs to use with get_media and other ID-based tools.",
       inputSchema: mediaSearchInput,
       outputSchema: z.object({
         results: z
@@ -344,7 +374,7 @@ export function registerSearchTools(server: McpServer, client: AniListClient): v
             sort: args.sort,
             includeDescription: args.includeDescription,
             filter: {
-              isAdult: args.sfw ? false : undefined,
+              isAdult: adultFilter(args.sfw, args.isAdult),
               genre_in: args.genres,
               format_in: args.format_in,
               status_in: args.status_in,
@@ -559,7 +589,8 @@ export function registerSearchTools(server: McpServer, client: AniListClient): v
       title: "Search activity feed",
       description:
         "Search/browse AniList's activity feed (list updates, text posts, messages), optionally " +
-        "filtered to one user, one activity type, and/or a creation-time window. Each result " +
+        "filtered to one user or — with `isFollowing` [Requires login] — to users you follow, " +
+        "to one or more activity types, and/or to a creation-time window. Each result " +
         "already includes its full content (text/message/status, " +
         "`replyCount`/`likeCount`/`isLiked`, the posting user, " +
         "and — for list activity — the media) — no follow-up get_activity call needed unless " +
@@ -574,12 +605,15 @@ export function registerSearchTools(server: McpServer, client: AniListClient): v
               "unless you only have a partial/fuzzy name). An unknown ID or username errors " +
               "with not_found rather than silently returning an empty result.",
           ),
-        type: z
-          .enum(ACTIVITY_TYPES)
+        type: activityTypeFilter(),
+        isFollowing: z
+          .boolean()
           .optional()
           .describe(
-            "Restrict to this activity type. MEDIA_LIST matches both ANIME_LIST and MANGA_LIST " +
-              "activities; use ANIME_LIST/MANGA_LIST to restrict to just one.",
+            "[Requires login] Set true for your following feed: only activity from users the " +
+              "logged-in account follows (AniList's own `isFollowing` filter). Without a " +
+              "token this errors before any request rather than returning the global feed. " +
+              "Can't be combined with `user`. false or omitted means no restriction.",
           ),
         createdAfter: z.iso
           .datetime({ offset: true })
@@ -604,12 +638,13 @@ export function registerSearchTools(server: McpServer, client: AniListClient): v
       }),
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
-    ({ user, type, createdAfter, createdBefore, page, perPage }) =>
+    ({ user, type, isFollowing, createdAfter, createdBefore, page, perPage }) =>
       guard(async () =>
         jsonResult({
           results: await search.searchActivity(client.ctx(), user, type, page, perPage, {
             after: createdAfter,
             before: createdBefore,
+            isFollowing,
           }),
         }),
       ),

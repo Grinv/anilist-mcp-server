@@ -84,6 +84,24 @@ export const activityItem = z.discriminatedUnion("type", [
   messageActivityItem,
 ]);
 
+/** The `type` filter shared by get_user_activity and search_activity — one
+ *  ActivityType, or a non-empty array matched as ANY of them (forwarded as
+ *  AniList's `type_in`, see activityTypeVars()). The single-value branch is
+ *  first and unchanged, so every pre-existing `type: "TEXT"` call validates
+ *  exactly as before. `extra` appends a tool-specific sentence. */
+export function activityTypeFilter(extra = "") {
+  return z
+    .union([z.enum(ACTIVITY_TYPES), z.array(z.enum(ACTIVITY_TYPES)).min(1)])
+    .optional()
+    .describe(
+      "Restrict to this activity type, or pass an array to match ANY of several (e.g. " +
+        '["TEXT", "MESSAGE"]). MEDIA_LIST matches both ANIME_LIST and MANGA_LIST ' +
+        "activities; use ANIME_LIST/MANGA_LIST to restrict to just one. " +
+        (extra ? `${extra} ` : "") +
+        "Omit for every type.",
+    );
+}
+
 const savedTextActivity = z
   .object({ id: anilistId, text: z.string().nullish(), siteUrl: z.httpUrl().nullish() })
   .loose();
@@ -133,15 +151,7 @@ export function registerActivityTools(server: McpServer, client: AniListClient):
             "unknown numeric ID and an unknown username error here rather than silently " +
             "returning an empty feed.",
         ),
-        type: z
-          .enum(ACTIVITY_TYPES)
-          .optional()
-          .describe(
-            "Restrict to this activity type (same values as search_activity's `type`). " +
-              "MEDIA_LIST matches both ANIME_LIST and MANGA_LIST activities; use " +
-              "ANIME_LIST/MANGA_LIST to restrict to just one. MESSAGE here is messages this " +
-              "user received. Omit for every type.",
-          ),
+        type: activityTypeFilter("MESSAGE here is messages this user received."),
         createdAfter: z.iso
           .datetime({ offset: true })
           .optional()

@@ -939,7 +939,7 @@ test("getUserActivity forwards type and the createdAfter/createdBefore window as
   ];
   assert.match(
     filtered.query,
-    /activities\(userId:\$userId,type:\$type,createdAt_greater:\$createdAtGreater,createdAt_lesser:\$createdAtLesser/,
+    /activities\(userId:\$userId,type:\$type,type_in:\$typeIn,createdAt_greater:\$createdAtGreater,createdAt_lesser:\$createdAtLesser/,
   );
   assert.equal(filtered.variables.type, "ANIME_LIST");
   // Both bounds are strict upstream, so the sub-second part rounds outward:
@@ -972,7 +972,7 @@ test("getUserActivity applies the same filters on the username path", async (t) 
     query: string;
     variables: Record<string, unknown>;
   };
-  assert.match(query, /type:\$type,createdAt_greater:\$createdAtGreater/);
+  assert.match(query, /type:\$type,type_in:\$typeIn,createdAt_greater:\$createdAtGreater/);
   assert.deepEqual(variables, {
     userId: 42,
     page: 1,

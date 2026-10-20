@@ -63,9 +63,9 @@ export const MEDIA_LIST_SORTS = [
 ] as const;
 export type MediaListSort = (typeof MEDIA_LIST_SORTS)[number];
 
-/** AniList's `ActivityType` enum — get_user_activity's `type` filter, typed
- *  in clients/anilist/activity.ts too. Same values and order as
- *  search_activity's own (still tool-local) ACTIVITY_TYPES. */
+/** AniList's `ActivityType` enum — the `type` filter (one value or an array,
+ *  see tools/activity.ts's activityTypeFilter()) shared by get_user_activity
+ *  and search_activity, typed in clients/anilist/activity.ts too. */
 export const ACTIVITY_TYPES = [
   "TEXT",
   "ANIME_LIST",

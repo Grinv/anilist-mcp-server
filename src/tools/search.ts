@@ -563,9 +563,7 @@ export function registerSearchTools(server: McpServer, client: AniListClient): v
           .optional()
           .describe(
             "Restrict to threads tagged with this AniList anime/manga ID (from " +
-              "search_media/get_media). Not existence-checked: a nonexistent media ID doesn't " +
-              "error, it silently filters to an empty result — resolve the ID via search_media " +
-              "first if you need to confirm the title actually exists.",
+              "search_media/get_media). A nonexistent ID errors as not found.",
           ),
         ...paginationFields(10),
       }),

@@ -1805,6 +1805,40 @@ test("searchThread relevance-sorts only with a term, and sorts a term-less brows
   assert.deepEqual(varsOf(1).sort, ["REPLIED_AT_DESC"]);
 });
 
+test("searchThread existence-checks mediaCategoryId in the same request, and only when it's given", async (t) => {
+  // Confirmed live: threads(mediaCategoryId: <unknown>) is an empty page, but
+  // an aliased unknown Media(id) 404s the whole response.
+  const mock = mockFetch((_url, init) => {
+    const { variables } = JSON.parse(init?.body as string) as {
+      variables: { mediaCategoryId?: number };
+    };
+    return variables.mediaCategoryId === 2000000000
+      ? jsonResponse(
+          { errors: [{ message: "Not Found.", status: 404 }], data: null },
+          { status: 404 },
+        )
+      : jsonResponse({
+          data: { exists: { id: 1 }, Page: { pageInfo: emptyPageInfo, threads: [] } },
+        });
+  });
+  installFetch(t, mock);
+  const client = new AniListClient(
+    testConfig({ CACHE_TTL_MS: "0", ANILIST_MIN_INTERVAL_MS: "0" }),
+    silentLogger(),
+  );
+  await assert.rejects(
+    () => search.searchThread(client.ctx(), undefined, undefined, id<MediaId>(2000000000)),
+    (err: unknown) => err instanceof ApiError && err.code === "not_found",
+  );
+  await search.searchThread(client.ctx(), undefined, undefined, id<MediaId>(1));
+  await search.searchThread(client.ctx(), "term");
+  const queryOf = (i: number) =>
+    (JSON.parse(mock.calls[i]!.init?.body as string) as { query: string }).query;
+  assert.match(queryOf(1), /exists:Media\(id:\$mediaCategoryId\)\{id\}/);
+  assert.doesNotMatch(queryOf(2), /exists:/, "no check without mediaCategoryId");
+  assert.equal(mock.calls.length, 3, "one request per call — the check rides along");
+});
+
 test("searchActivity converts createdAfter/createdBefore to unix seconds on both query paths, and omits them when unset", async (t) => {
   const mock = mockFetch((_url, init) => {
     const body = JSON.parse(init?.body as string) as { query: string };

@@ -1,10 +1,11 @@
 import type { AniListContext } from "./context.js";
 import { fetchActivityFeed, type ActivityTypeFilter } from "./activity.js";
 import { encodeFuzzyDateInt } from "./fuzzyDate.js";
-import { ApiError } from "../../lib/errors.js";
+import { ApiError, assertFound } from "../../lib/errors.js";
 import type { CategoryId, MediaId, UserId } from "./ids.js";
 import type { MediaType } from "./enums.js";
 import {
+  existsFragment,
   MEDIA_FIELDS,
   MEDIA_DESCRIPTION_FIELD,
   CHARACTER_FIELDS,
@@ -208,7 +209,11 @@ export async function searchThread(
   page = 1,
   perPage = 10,
 ): Promise<unknown> {
-  const query = `query($search:String,$categoryId:Int,$mediaCategoryId:Int,$page:Int,$perPage:Int,$sort:[ThreadSort]){Page(page:$page,perPage:$perPage){
+  // threads(mediaCategoryId) returns an empty page for a nonexistent media
+  // id — alias an existence check into the same request, like getSchedule.
+  const existsField =
+    mediaCategoryId !== undefined ? existsFragment("Media", "mediaCategoryId") : "";
+  const query = `query($search:String,$categoryId:Int,$mediaCategoryId:Int,$page:Int,$perPage:Int,$sort:[ThreadSort]){${existsField} Page(page:$page,perPage:$perPage){
     pageInfo{total currentPage lastPage hasNextPage}
     threads(search:$search,categoryId:$categoryId,mediaCategoryId:$mediaCategoryId,sort:$sort){
       id title siteUrl replyCount viewCount isSticky createdAt user{id name} categories{id name}
@@ -221,11 +226,14 @@ export async function searchThread(
   // recent reply instead — what anilist.co/forum/recent shows, minus pinning
   // sticky threads to the top.
   const sort = search ? ["SEARCH_MATCH"] : ["REPLIED_AT_DESC"];
-  const data = await ctx.gql.request<{ Page: unknown }>(
+  const data = await ctx.gql.request<{ exists?: { id: number } | null; Page: unknown }>(
     query,
     { search, categoryId, mediaCategoryId, page, perPage, sort },
     ctx.authHeader(),
   );
+  if (mediaCategoryId !== undefined) {
+    assertFound(data.exists, `No anime/manga found with ID ${mediaCategoryId}.`);
+  }
   return data.Page;
 }
 

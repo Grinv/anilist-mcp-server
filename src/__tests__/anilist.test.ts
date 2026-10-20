@@ -947,7 +947,7 @@ test("getUserActivity forwards type and the createdAfter/createdBefore window as
   ];
   assert.match(
     filtered.query,
-    /activities\(userId:\$userId,type:\$type,type_in:\$typeIn,createdAt_greater:\$createdAtGreater,createdAt_lesser:\$createdAtLesser/,
+    /activities\(userId:\$userId,type:\$type,type_in:\$typeIn,isFollowing:\$isFollowing,createdAt_greater:\$createdAtGreater,createdAt_lesser:\$createdAtLesser/,
   );
   assert.equal(filtered.variables.type, "ANIME_LIST");
   // Both bounds are strict upstream, so the sub-second part rounds outward:
@@ -980,7 +980,10 @@ test("getUserActivity applies the same filters on the username path", async (t) 
     query: string;
     variables: Record<string, unknown>;
   };
-  assert.match(query, /type:\$type,type_in:\$typeIn,createdAt_greater:\$createdAtGreater/);
+  assert.match(
+    query,
+    /type:\$type,type_in:\$typeIn,isFollowing:\$isFollowing,createdAt_greater:\$createdAtGreater/,
+  );
   assert.deepEqual(variables, {
     userId: 42,
     page: 1,
@@ -1718,21 +1721,21 @@ test("searchActivity converts createdAfter/createdBefore to unix seconds on both
 
   // Global feed (no user).
   await search.searchActivity(client.ctx(), undefined, undefined, 1, 10, created);
-  assert.equal(callOf(0).variables.createdAt_greater, 1790812800, "offset honored");
+  assert.equal(callOf(0).variables.createdAtGreater, 1790812800, "offset honored");
   assert.equal(
-    callOf(0).variables.createdAt_lesser,
+    callOf(0).variables.createdAtLesser,
     1790899201,
     "sub-second part rounded outward (strict bound)",
   );
-  assert.match(callOf(0).query, /createdAt_greater:\$createdAt_greater/);
+  assert.match(callOf(0).query, /createdAt_greater:\$createdAtGreater/);
 
   // Numeric-id path (aliased existence check).
   await search.searchActivity(client.ctx(), id<UserId>(7640432), undefined, 1, 10, created);
-  assert.equal(callOf(1).variables.createdAt_greater, 1790812800);
-  assert.equal(callOf(1).variables.createdAt_lesser, 1790899201);
-  assert.match(callOf(1).query, /createdAt_lesser:\$createdAt_lesser/);
+  assert.equal(callOf(1).variables.createdAtGreater, 1790812800);
+  assert.equal(callOf(1).variables.createdAtLesser, 1790899201);
+  assert.match(callOf(1).query, /createdAt_lesser:\$createdAtLesser/);
 
   await search.searchActivity(client.ctx());
-  assert.ok(!("createdAt_greater" in callOf(2).variables), "unset bound is omitted");
-  assert.ok(!("createdAt_lesser" in callOf(2).variables), "unset bound is omitted");
+  assert.ok(!("createdAtGreater" in callOf(2).variables), "unset bound is omitted");
+  assert.ok(!("createdAtLesser" in callOf(2).variables), "unset bound is omitted");
 });

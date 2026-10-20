@@ -22,3 +22,15 @@ export function encodeFuzzyDateInt(date?: {
   }
   return date.year * 10000 + (date.month ?? 0) * 100 + (date.day ?? 0);
 }
+
+/** An ISO 8601 datetime (the tool schemas guarantee a parseable one with an
+ *  explicit offset) as the unix seconds AniList's `airingAt_*`/`createdAt_*`
+ *  bounds take. Both kinds of bound are strict, so callers round OUTWARD —
+ *  `Math.floor` for "after", `Math.ceil` for "before" — keeping every
+ *  whole-second item inside the window and nothing outside it. */
+export function toUnixSeconds(
+  iso: string | undefined,
+  round: (n: number) => number,
+): number | undefined {
+  return iso === undefined ? undefined : round(Date.parse(iso) / 1000);
+}

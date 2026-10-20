@@ -8,6 +8,7 @@ import { jsonResult } from "../lib/result.js";
 import { guard } from "./guard.js";
 import { ApiError } from "../lib/errors.js";
 import type { MediaId, MalId } from "../clients/anilist/ids.js";
+import { toUnixSeconds } from "../clients/anilist/fuzzyDate.js";
 import type { MediaFormat } from "../clients/anilist/media.js";
 import {
   pageInfoSchema,
@@ -93,15 +94,6 @@ async function fetchByEitherId(
   return ids === undefined
     ? media.getMediaByMalId(client.ctx(), type, malIds!, includeStreamingEpisodes, format)
     : media.getMedia(client.ctx(), type, ids, includeStreamingEpisodes, format);
-}
-
-/** AniList's `airingAt` filters take unix seconds; the schema already
- *  guarantees a parseable ISO 8601 string with an explicit offset, so
- *  Date.parse() can't come back NaN here. Rounded to whole seconds (`airingAt`
- *  is an `Int`) OUTWARD — down for "after", up for "before" — since both
- *  bounds are strict, same as createdAtBounds() in clients/anilist/activity.ts. */
-function toUnixSeconds(iso: string | undefined, round: (n: number) => number): number | undefined {
-  return iso === undefined ? undefined : round(Date.parse(iso) / 1000);
 }
 
 /** MEDIA_FIELDS(+MEDIA_DETAIL_FIELDS) — only `id` is guaranteed; every other

@@ -126,10 +126,10 @@ test("search_activity and get_user_activity send a single type as `type` and an 
     assert.notEqual(res.isError, true, `${name}: ${JSON.stringify(res.content)}`);
   }
   assert.equal(sent(mock, 0).variables.type, "TEXT");
-  assert.ok(!("type_in" in sent(mock, 0).variables));
-  assert.deepEqual(sent(mock, 1).variables.type_in, ["TEXT", "MEDIA_LIST"]);
+  assert.ok(!("typeIn" in sent(mock, 0).variables));
+  assert.deepEqual(sent(mock, 1).variables.typeIn, ["TEXT", "MEDIA_LIST"]);
   assert.ok(!("type" in sent(mock, 1).variables));
-  assert.match(sent(mock, 1).query, /type_in:\$type_in/);
+  assert.match(sent(mock, 1).query, /type_in:\$typeIn/);
   assert.equal(sent(mock, 2).variables.type, "MESSAGE");
   assert.deepEqual(sent(mock, 3).variables.typeIn, ["ANIME_LIST", "TEXT"]);
   assert.ok(!("type" in sent(mock, 3).variables));

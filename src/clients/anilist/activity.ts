@@ -2,6 +2,7 @@ import type { AniListContext } from "./context.js";
 import { ACTIVITY_FRAGMENT, existsFragment } from "./fields.js";
 import { ApiError, assertFound } from "../../lib/errors.js";
 import { resolveUserId } from "./user.js";
+import { toUnixSeconds } from "./fuzzyDate.js";
 import type { ActivityId, UserId } from "./ids.js";
 import type { ActivityType } from "./enums.js";
 
@@ -40,20 +41,15 @@ export function activityTypeVars(type: ActivityTypeFilter | undefined): {
 
 /** Both of AniList's `createdAt` bounds are strict (confirmed live: an
  *  activity created at exactly the bound's second is excluded from both
- *  `createdAt_greater` and `createdAt_lesser`), so the sub-second part is
- *  rounded OUTWARD — down for "after", up for "before" — which keeps every
- *  whole-second activity that genuinely falls inside the caller's window
- *  and nothing outside it. */
+ *  `createdAt_greater` and `createdAt_lesser`), so they're rounded outward
+ *  — see toUnixSeconds(). */
 export function createdAtBounds(filters: UserActivityFilters): {
   createdAtGreater?: number;
   createdAtLesser?: number;
 } {
-  const seconds = (iso: string, round: (n: number) => number) => round(Date.parse(iso) / 1000);
   return {
-    createdAtGreater:
-      filters.createdAfter === undefined ? undefined : seconds(filters.createdAfter, Math.floor),
-    createdAtLesser:
-      filters.createdBefore === undefined ? undefined : seconds(filters.createdBefore, Math.ceil),
+    createdAtGreater: toUnixSeconds(filters.createdAfter, Math.floor),
+    createdAtLesser: toUnixSeconds(filters.createdBefore, Math.ceil),
   };
 }
 
@@ -64,57 +60,63 @@ export async function getUserActivity(
   perPage = 10,
   filters: UserActivityFilters = {},
 ): Promise<unknown> {
-  // AniList's `activities` field only accepts a numeric `userId` — there is
-  // no `userName` argument (confirmed live: "Unknown argument userName on
-  // field activities of type Page"), unlike most other user-scoped fields in
-  // this API. A numeric id doesn't error on a bad value either (see
-  // docs/api-references.md's "Page connection filtered by a parent id"
-  // section) — existsFragment() aliases it into this same request instead
-  // of a separate round trip. A username has a genuine data dependency (the
-  // numeric id it resolves to must be known before `activities(userId:...)`
-  // can even be built), so it still needs a separate resolution request
-  // first — leaving it unresolved would make AniList treat the `userId`
-  // filter as absent and silently return the *global* activity feed instead
-  // of erroring.
-  //
-  // `type`/`type_in`/`createdAt_greater`/`createdAt_lesser` are AniList's own
-  // filters on the same `activities` connection (confirmed live, combined
-  // with `userId`), so they narrow server-side; absent ones are stripped from
-  // the variables and the argument simply isn't applied.
-  const header = ctx.authHeader();
-  const filterVars = { ...activityTypeVars(filters.type), ...createdAtBounds(filters) };
-  const filterParams =
-    "$type:ActivityType,$typeIn:[ActivityType],$createdAtGreater:Int,$createdAtLesser:Int";
-  const activitiesArgs =
-    "userId:$userId,type:$type,type_in:$typeIn,createdAt_greater:$createdAtGreater," +
-    "createdAt_lesser:$createdAtLesser,sort:ID_DESC";
+  return fetchActivityFeed(ctx, user, page, perPage, filters, ctx.authHeader());
+}
+
+/** The one `Page.activities` query behind get_user_activity and
+ *  search_activity, so a fix or a new filter lands in both at once.
+ *
+ *  AniList's `activities` field only accepts a numeric `userId` — there is
+ *  no `userName` argument (confirmed live: "Unknown argument userName on
+ *  field activities of type Page"). A numeric id doesn't error on a bad value
+ *  either (see docs/api-references.md's "Page connection filtered by a parent
+ *  id" section) — existsFragment() aliases the check into this same request
+ *  instead of a separate round trip. A username has a genuine data
+ *  dependency (its numeric id must be known before `activities(userId:...)`
+ *  can be built), so it needs a separate resolution request first — left
+ *  unresolved, AniList would treat `userId` as absent and silently return
+ *  the *global* feed instead of erroring. No `user` at all is the global (or,
+ *  with `isFollowing`, the following) feed.
+ *
+ *  `type`/`type_in`/`isFollowing`/`createdAt_*` are AniList's own filters on
+ *  the same connection (confirmed live, combined with `userId`); absent ones
+ *  are stripped from the variables, so the argument simply isn't applied. */
+export async function fetchActivityFeed(
+  ctx: AniListContext,
+  user: UserId | string | undefined,
+  page: number,
+  perPage: number,
+  filters: UserActivityFilters & { isFollowing?: true },
+  header: Record<string, string> | undefined,
+): Promise<unknown> {
+  const filterVars = {
+    ...activityTypeVars(filters.type),
+    ...createdAtBounds(filters),
+    isFollowing: filters.isFollowing,
+  };
+  const params =
+    "$userId:Int,$page:Int,$perPage:Int,$type:ActivityType,$typeIn:[ActivityType]," +
+    "$isFollowing:Boolean,$createdAtGreater:Int,$createdAtLesser:Int";
+  const feedPage = `Page(page:$page,perPage:$perPage){
+    pageInfo{total currentPage lastPage hasNextPage}
+    activities(userId:$userId,type:$type,type_in:$typeIn,isFollowing:$isFollowing,createdAt_greater:$createdAtGreater,createdAt_lesser:$createdAtLesser,sort:ID_DESC){${ACTIVITY_FRAGMENT}}
+  }`;
   if (typeof user === "number") {
-    const query = `query($userId:Int,$page:Int,$perPage:Int,${filterParams}){
-      ${existsFragment("User", "userId")}
-      feed:Page(page:$page,perPage:$perPage){
-        pageInfo{total currentPage lastPage hasNextPage}
-        activities(${activitiesArgs}){${ACTIVITY_FRAGMENT}}
-      }
-    }`;
     const data = await ctx.gql.request<{ exists: { id: number } | null; feed: unknown }>(
-      query,
+      `query(${params}){${existsFragment("User", "userId")} feed:${feedPage}}`,
       { userId: user, page, perPage, ...filterVars },
       header,
     );
     assertFound(data.exists, `No AniList user found with ID ${user}.`);
     return data.feed;
   }
-  const userId = await resolveUserId(ctx, user, header);
-  const activitiesQuery = `query($userId:Int,$page:Int,$perPage:Int,${filterParams}){Page(page:$page,perPage:$perPage){
-    pageInfo{total currentPage lastPage hasNextPage}
-    activities(${activitiesArgs}){${ACTIVITY_FRAGMENT}}
-  }}`;
-  const pageData = await ctx.gql.request<{ Page: unknown }>(
-    activitiesQuery,
+  const userId = user === undefined ? undefined : await resolveUserId(ctx, user, header);
+  const data = await ctx.gql.request<{ Page: unknown }>(
+    `query(${params}){${feedPage}}`,
     { userId, page, perPage, ...filterVars },
     header,
   );
-  return pageData.Page;
+  return data.Page;
 }
 
 export async function postTextActivity(

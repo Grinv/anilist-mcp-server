@@ -689,8 +689,8 @@ test("search_activity forwards createdAfter/createdBefore as unix-second created
   });
   assert.notEqual(res.isError, true, `search_activity errored: ${JSON.stringify(res.content)}`);
   const vars = JSON.parse(mock.calls[0]!.init?.body as string).variables as Record<string, unknown>;
-  assert.equal(vars.createdAt_greater, 1790812800);
-  assert.equal(vars.createdAt_lesser, 1790899200);
+  assert.equal(vars.createdAtGreater, 1790812800);
+  assert.equal(vars.createdAtLesser, 1790899200);
 });
 
 test("blank search terms and an empty sort/type_in are rejected before any request", async (t) => {

@@ -20,6 +20,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- Every tool rejects an unknown argument ("Unrecognized key") instead of dropping it: `search_media` with `genre_in` (the field is `genres`) returned unfiltered results, and `get_anime_schedule` with `id` (it takes `mediaId`) the site-wide schedule. [b73aed6](https://github.com/Grinv/anilist-mcp-server/commit/b73aed6)
+- `advancedScores` reads back on the 0-10 scale it's written on, not AniList's raw 0-100, so a read value can be passed straight to `update_list_entry`. [41d10e2](https://github.com/Grinv/anilist-mcp-server/commit/41d10e2)
 - A blank `term` on `search_media`/`search_thread` is rejected (omit it to browse) instead of being treated as no term; `user` and `get_studio`'s `name` are trimmed, so `" Grinv "` finds the user. [8dfaedd](https://github.com/Grinv/anilist-mcp-server/commit/8dfaedd)
 - `onList` on `search_media` and `get_character`/`get_staff`/`get_studio` now requires login; without one AniList silently ignored it and returned unfiltered results. [4452400](https://github.com/Grinv/anilist-mcp-server/commit/4452400)
 - `excludeInList` on `get_recommendations_for_media` now requires login; without one it filtered nothing. [0fb7c0a](https://github.com/Grinv/anilist-mcp-server/commit/0fb7c0a)
@@ -35,6 +37,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- 401/403 errors include AniList's own text (e.g. its outage notice or "Invalid token"), and an HTML error page is reduced to its title. [420a1e7](https://github.com/Grinv/anilist-mcp-server/commit/420a1e7)
+- Prompts escape free-text arguments, so a quote or newline in a title, genre or username can't break the instruction; `catch_up_activity` passes `"007"`-style usernames as strings, not as user 7. [47dc9ba](https://github.com/Grinv/anilist-mcp-server/commit/47dc9ba)
 - Paginate `get_character`/`get_staff`/`get_studio` filmographies (with `type`, `onList`, and `isMain` for studios); they silently stopped at 25 or 10 titles. [ddd7a6f](https://github.com/Grinv/anilist-mcp-server/commit/ddd7a6f)
 - Fix titles on hiatus being reported as `RELEASING`, and relations missing `SOURCE`/`COMPILATION`/`CONTAINS`/`SAME_UNIVERSE`: both now use AniList's current enum versions. [7117ab2](https://github.com/Grinv/anilist-mcp-server/commit/7117ab2)
 - Cap `perPage` at 25 on `get_media_characters`/`staff`/`reviews` and `get_recommendations_for_media`, AniList's real limit there; they advertised 50. [7117ab2](https://github.com/Grinv/anilist-mcp-server/commit/7117ab2)

@@ -11,6 +11,7 @@ import {
   paginationFields,
   NESTED_MAX_PER_PAGE,
   mediaTitleOut,
+  communityScoreOut,
 } from "./outputSchemas.js";
 
 const mediaRefLite = z
@@ -53,6 +54,10 @@ const recommendationNode = z
         id: anilistId,
         title: mediaTitleOut.nullish(),
         siteUrl: z.httpUrl().nullish(),
+        averageScore: communityScoreOut(
+          "The weighted community rating across all AniList users, on",
+        ),
+        genres: z.array(z.string()).nullish(),
         mediaListEntry: z
           .object({ id: anilistId, status: z.string().nullish() })
           .loose()

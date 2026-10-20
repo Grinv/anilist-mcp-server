@@ -147,8 +147,7 @@ export function registerActivityTools(server: McpServer, client: AniListClient):
         "snapshot without paginating.",
       inputSchema: z.object({
         user: userIdOrName.describe(
-          "AniList user ID, or username. Unlike search_activity's own `user` filter, both an " +
-            "unknown numeric ID and an unknown username error here rather than silently " +
+          "AniList user ID, or username. An unknown ID or username errors rather than " +
             "returning an empty feed.",
         ),
         type: activityTypeFilter("MESSAGE here is messages this user received."),

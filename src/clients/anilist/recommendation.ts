@@ -29,7 +29,7 @@ export async function getRecommendationsForMedia(
   // null, so excludeInList silently filters nothing rather than erroring).
   const query = `query($id:Int,$page:Int,$perPage:Int){Media(id:$id){recommendations(page:$page,perPage:$perPage,sort:RATING_DESC){
     pageInfo{hasNextPage}
-    nodes{id rating userRating mediaRecommendation{id title{romaji english} siteUrl mediaListEntry{id status}}}
+    nodes{id rating userRating mediaRecommendation{id title{romaji english} siteUrl averageScore genres mediaListEntry{id status}}}
   }}}`;
   const data = await ctx.gql.request<{ Media: { recommendations: RecommendationsPage } | null }>(
     query,

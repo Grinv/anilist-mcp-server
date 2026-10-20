@@ -469,7 +469,7 @@ test("personal/mutation tools without a token return an actionable error instead
   t.after(close);
   const mutationTools: [string, Record<string, unknown>][] = [
     ["add_list_entry", { mediaId: 1 }],
-    ["update_list_entry", { listEntryId: 1 }],
+    ["update_list_entry", { listEntryId: 1, progress: 1 }],
     ["remove_list_entry", { listEntryId: 1 }],
     ["toggle_favourite", { kind: "ANIME", id: 1 }],
     ["toggle_favourite", { kind: "MANGA", id: 1 }],
@@ -560,7 +560,7 @@ test("every gated mutation tool succeeds end-to-end with a token, not just add_l
   t.after(close);
 
   const cases: [string, Record<string, unknown>][] = [
-    ["update_list_entry", { listEntryId: 1 }],
+    ["update_list_entry", { listEntryId: 1, progress: 1 }],
     ["remove_list_entry", { listEntryId: 1 }],
     ["toggle_favourite", { kind: "ANIME", id: 1 }],
     ["toggle_favourite", { kind: "MANGA", id: 1 }],
@@ -581,6 +581,19 @@ test("every gated mutation tool succeeds end-to-end with a token, not just add_l
     const res = await client.callTool({ name, arguments: args });
     assert.notEqual(res.isError, true, `${name} errored: ${JSON.stringify(res.content)}`);
   }
+});
+
+test("update_list_entry with only listEntryId is rejected before any write", async (t) => {
+  // Same rule as update_list_entries: an id-only save changes nothing.
+  const mock = mockFetch(() => {
+    throw new Error("must not be called — an empty update must not reach AniList");
+  });
+  installFetch(t, mock);
+  const { client, close } = await connectServer({ ANILIST_ACCESS_TOKEN: "tok" });
+  t.after(close);
+  const res = await client.callTool({ name: "update_list_entry", arguments: { listEntryId: 1 } });
+  assert.equal(res.isError, true);
+  assert.equal(mock.calls.length, 0);
 });
 
 test("get_studio: when both id and name are given, id takes precedence", async (t) => {

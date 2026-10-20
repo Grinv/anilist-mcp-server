@@ -341,9 +341,22 @@ test("getRecommendationsForMedia requests mediaListEntry and, when excludeInList
             nodes: [
               {
                 id: 1,
-                mediaRecommendation: { id: 10, mediaListEntry: { id: 99, status: "COMPLETED" } },
+                mediaRecommendation: {
+                  id: 10,
+                  averageScore: 85,
+                  genres: ["Action", "Drama"],
+                  mediaListEntry: { id: 99, status: "COMPLETED" },
+                },
               },
-              { id: 2, mediaRecommendation: { id: 20, mediaListEntry: null } },
+              {
+                id: 2,
+                mediaRecommendation: {
+                  id: 20,
+                  averageScore: null,
+                  genres: [],
+                  mediaListEntry: null,
+                },
+              },
             ],
           },
         },
@@ -363,6 +376,11 @@ test("getRecommendationsForMedia requests mediaListEntry and, when excludeInList
   assert.match(
     JSON.parse(mock.calls[0]!.init?.body as string).query as string,
     /mediaListEntry\{id status\}/,
+  );
+  // recommend_similar presents score and genres; they must come from this call.
+  assert.match(
+    JSON.parse(mock.calls[0]!.init?.body as string).query as string,
+    /siteUrl averageScore genres mediaListEntry/,
   );
 
   const filtered = (await recommendation.getRecommendationsForMedia(

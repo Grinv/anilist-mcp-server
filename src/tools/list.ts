@@ -5,7 +5,7 @@ import * as list from "../clients/anilist/list.js";
 import type { BulkListEntryValues } from "../clients/anilist/list.js";
 import type { MediaId, ListEntryId } from "../clients/anilist/ids.js";
 import { MEDIA_LIST_SORTS } from "../clients/anilist/enums.js";
-import { jsonResult } from "../lib/result.js";
+import { jsonResult, errorResult } from "../lib/result.js";
 import { guard } from "./guard.js";
 import {
   deleteResult,
@@ -549,9 +549,18 @@ export function registerListTools(server: McpServer, client: AniListClient): voi
       },
     },
     ({ listEntryId, ...rest }) =>
-      guard(async () =>
-        jsonResult({ entry: await list.saveListEntry(client.ctx(), { listEntryId, ...rest }) }),
-      ),
+      guard(async () => {
+        // Same rule as update_list_entries: an id-only call would still be a
+        // write that changes nothing.
+        if (Object.values(rest).every((value) => value === undefined)) {
+          return errorResult(
+            "No values to apply — set at least one field to change besides listEntryId.",
+          );
+        }
+        return jsonResult({
+          entry: await list.saveListEntry(client.ctx(), { listEntryId, ...rest }),
+        });
+      }),
   );
 
   server.registerTool(

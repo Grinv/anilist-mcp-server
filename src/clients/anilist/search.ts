@@ -1,6 +1,7 @@
 import type { AniListContext } from "./context.js";
 import { resolveUserId } from "./user.js";
 import { activityTypeVars, createdAtBounds, type ActivityTypeFilter } from "./activity.js";
+import { encodeFuzzyDateInt } from "./fuzzyDate.js";
 import { ApiError, assertFound } from "../../lib/errors.js";
 import { existsFragment } from "./fields.js";
 import type { CategoryId, MediaId, UserId } from "./ids.js";
@@ -15,21 +16,6 @@ import {
   USER_DESCRIPTION_FIELD,
   ACTIVITY_FRAGMENT,
 } from "./fields.js";
-
-/** AniList's `FuzzyDateInt` scalar is a single Int in `YyyyMmDd` form (e.g.
- *  `20140204`), distinct from `FuzzyDateInput` (the `{year,month,day}` object
- *  used elsewhere, e.g. list.ts's startedAt/completedAt) — used only for
- *  these range-filter args. Missing month/day become `0`, matching AniList's
- *  own convention for a partial date. Returns undefined for a wholly-empty
- *  input (stripped by GraphQLClient rather than sent as a meaningless 0). */
-function encodeFuzzyDateInt(date?: {
-  year?: number;
-  month?: number;
-  day?: number;
-}): number | undefined {
-  if (!date || date.year === undefined) return undefined;
-  return date.year * 10000 + (date.month ?? 0) * 100 + (date.day ?? 0);
-}
 
 export async function searchMedia(
   ctx: AniListContext,

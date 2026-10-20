@@ -43,6 +43,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `catch_up_activity` passes a numeric user ID as a number; as a string it was looked up as a username and failed. [ed0f51f](https://github.com/Grinv/anilist-mcp-server/commit/ed0f51f)
 - `update_user` requires `enabled`/`disabled` on every `notificationOptions`/`disabledListActivity` entry; omitted, AniList unset the notification type or failed with a 500. [44d7d92](https://github.com/Grinv/anilist-mcp-server/commit/44d7d92)
 - `get_anime_schedule` with `notYetAired: false` lists the newest aired episodes first, not the oldest on record. [44d7d92](https://github.com/Grinv/anilist-mcp-server/commit/44d7d92)
+- `get_recommendations_for_media` returns each title's `averageScore` and `genres`, which `recommend_similar` asks the model to present. [60a99c4](https://github.com/Grinv/anilist-mcp-server/commit/60a99c4)
+- A date filter with a `day` but no `month` now errors; it silently meant January 1st. [60a99c4](https://github.com/Grinv/anilist-mcp-server/commit/60a99c4)
+- `update_list_entry` with only `listEntryId` is rejected, like `update_list_entries`; it sent a write that changed nothing. [60a99c4](https://github.com/Grinv/anilist-mcp-server/commit/60a99c4)
+- Correct `get_user_activity`/`get_user_recent_activity`'s `user` descriptions: `search_activity` also errors on an unknown user. [60a99c4](https://github.com/Grinv/anilist-mcp-server/commit/60a99c4)
 
 ## [0.9.0] - 2026-09-24
 

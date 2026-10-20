@@ -87,12 +87,13 @@ export function registerLoginTools(server: McpServer, client: AniListClient): vo
         "Complete a login started with login_anilist by submitting the URL your browser was " +
         "redirected to after clicking Approve (the one containing ?code=...). Use this when " +
         "login didn't complete automatically — e.g. the server runs on a remote/headless host. " +
-        "A bare code string is also accepted.",
+        "Pass the whole URL, not just the code: its `state` is checked against the login " +
+        "attempt, and a bare code is rejected.",
       inputSchema: z.object({
         redirect_url: z
           .string()
           .min(1)
-          .describe("The full redirected URL (contains ?code=...), or just the code value."),
+          .describe("The full redirected URL (contains ?code=...&state=...)."),
       }),
       outputSchema: z.object({ success: z.boolean() }),
       annotations: {

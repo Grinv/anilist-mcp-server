@@ -195,6 +195,17 @@ export class AniListClient {
     // submit_anilist_redirect call with no matching startLogin has nothing to
     // compare against, so it proceeds (best-effort CSRF protection, not a
     // hard requirement of the grant itself).
+    if (this.#pendingState && state === null) {
+      // A bare code carries no `state` to check. Still rejected rather than
+      // let through: accepting one would let a prompt-injected agent log the
+      // user into someone else's account with that account's code.
+      throw new ApiError({
+        code: "bad_request",
+        message:
+          "Paste the full redirected URL (it includes the `state` this login attempt is " +
+          "checked against), not just the code.",
+      });
+    }
     if (this.#pendingState && state !== this.#pendingState) {
       throw new ApiError({
         code: "unauthorized",

@@ -71,7 +71,8 @@ export class GraphQLClient {
     authHeader?: Record<string, string>,
     options?: GraphQLRequestOptions,
   ): Promise<T> {
-    if (this.#cache && !options?.skipCache && !/^\s*mutation\b/i.test(query)) {
+    const isMutation = /^\s*mutation\b/i.test(query);
+    if (this.#cache && !options?.skipCache && !isMutation) {
       // Keyed by the actual auth header value (not just its presence) — two
       // different accounts' bearer tokens must never collide on one entry,
       // or switching accounts mid-process would serve the previous
@@ -79,7 +80,10 @@ export class GraphQLClient {
       const key = JSON.stringify({ query, variables, auth: authHeader?.Authorization ?? null });
       return this.#cache.wrap(key, () => this.#send<T>(query, variables, authHeader)) as Promise<T>;
     }
-    const result = await this.#send<T>(query, variables, authHeader);
+    // Mutations are never retried: a timeout or 5xx doesn't mean AniList
+    // didn't apply the write, and replaying it re-flips a Toggle* (undoing
+    // the favourite/follow) or posts a duplicate activity/thread.
+    const result = await this.#send<T>(query, variables, authHeader, isMutation ? 0 : undefined);
     // A successful mutation can change the answer to any previously-cached
     // read — not just of the resource it touched (e.g. toggling a favourite
     // also changes that entity's `isFavourite` on every query that embeds
@@ -96,6 +100,7 @@ export class GraphQLClient {
     query: string,
     variables: Record<string, unknown>,
     authHeader?: Record<string, string>,
+    retries?: number,
   ): Promise<T> {
     const body = JSON.stringify({ query, variables: stripUndefined(variables) });
     // AniList's rate-limit (429) and outage (403) responses carry a non-2xx
@@ -107,6 +112,7 @@ export class GraphQLClient {
       method: "POST",
       body,
       ...(authHeader ? { headers: authHeader } : {}),
+      ...(retries === undefined ? {} : { retries }),
     });
     if (res.errors?.length) {
       // Most inline errors[] entries carry no `status` (e.g. query/argument

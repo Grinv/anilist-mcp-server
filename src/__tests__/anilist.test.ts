@@ -1268,6 +1268,28 @@ test("submitRedirect rejects a state that doesn't match the login attempt that s
   );
 });
 
+test("submitRedirect with a bare code after login_anilist asks for the full URL", async (t) => {
+  const mock = mockFetch(() => jsonResponse({ access_token: "unused" }));
+  installFetch(t, mock);
+  const client = new AniListClient(
+    testConfig({
+      ANILIST_CLIENT_ID: "id",
+      ANILIST_CLIENT_SECRET: "secret",
+      ANILIST_OAUTH_PORT: "41827",
+    }),
+    silentLogger(),
+  );
+  await client.startLogin({ open: () => {} });
+  await assert.rejects(
+    () => client.submitRedirect("BARECODE"),
+    (err: unknown) =>
+      err instanceof ApiError &&
+      err.code === "bad_request" &&
+      /full redirected URL/.test(err.message),
+  );
+  assert.equal(mock.calls.length, 0, "no token exchange for an unverifiable code");
+});
+
 test("read queries attach the Authorization header when a token is configured, and omit it otherwise", async (t) => {
   const mock = mockFetch(() => jsonResponse({ data: { Media: { id: 1 } } }));
   installFetch(t, mock);

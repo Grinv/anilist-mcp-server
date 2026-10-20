@@ -111,12 +111,12 @@ export const NESTED_MAX_PER_PAGE = 25;
  *  get_media_reviews gates a review body. `singleLookupTool` names the tool
  *  that always includes it, so the caller has somewhere to go for one
  *  entry's full bio. */
-export const personDescriptionField = (singleLookupTool: string) =>
+export const personDescriptionField = (singleLookupTool: string, field = "description") =>
   z
     .boolean()
     .default(false)
     .describe(
-      "Also fetch each result's full bio (`description`). Kept off by default — a bio can " +
+      `Also fetch each result's full bio (\`${field}\`). Kept off by default — a bio can ` +
         "run to several thousand characters, and always including it would burn tokens on " +
         `text you may not need; use ${singleLookupTool} for a single entry's full bio instead.`,
     );

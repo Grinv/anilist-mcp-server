@@ -116,6 +116,16 @@ test("a 429 response is mapped to a retryable rate_limited ApiError by the share
   );
 });
 
+test("a mutation is never retried, even on a retryable 5xx (a replay could re-flip a Toggle*)", async (t) => {
+  const mock = mockFetch(() => jsonResponse({ message: "Server Error" }, { status: 500 }));
+  installFetch(t, mock);
+  await assert.rejects(
+    () => client().request("mutation($id:Int){ToggleFavourite(animeId:$id){anime{nodes{id}}}}"),
+    (err: unknown) => err instanceof ApiError && err.code === "server_error",
+  );
+  assert.equal(mock.calls.length, 1);
+});
+
 test("the read cache is keyed by the actual auth header value, not just whether one was present", async (t) => {
   let calls = 0;
   const mock = mockFetch(() => {

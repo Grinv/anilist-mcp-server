@@ -56,6 +56,18 @@ const fuzzyDateFilter = z
     day: z.int().min(1).max(31).optional(),
   })
   .describe("A partial date; omit `month`/`day` you don't want to narrow by.");
+// All `_greater`/`_lesser` bounds on Page.media are strict (docs/api-references.md).
+const mediaDateBound = (which: "start" | "end", side: "greater" | "lesser") =>
+  fuzzyDateFilter
+    .optional()
+    .describe(
+      `Restrict to entries whose ${which} date is strictly ${
+        side === "greater" ? "AFTER" : "BEFORE"
+      } this date (the bound date itself is excluded). An omitted month/day counts as 0, so ` +
+        `{year: 2020} here means ${
+          side === "greater" ? '"from 2020-01-01 on"' : '"up to 2019-12-31"'
+        }.`,
+    );
 const MEDIA_SORTS = [
   "ID",
   "ID_DESC",
@@ -187,18 +199,10 @@ const mediaSearchInput = z.object({
     .nonnegative()
     .optional()
     .describe("Restrict to entries with fewer episodes/chapters than this."),
-  startDate_greater: fuzzyDateFilter
-    .optional()
-    .describe("Restrict to entries whose start date is on or after this date."),
-  startDate_lesser: fuzzyDateFilter
-    .optional()
-    .describe("Restrict to entries whose start date is on or before this date."),
-  endDate_greater: fuzzyDateFilter
-    .optional()
-    .describe("Restrict to entries whose end date is on or after this date."),
-  endDate_lesser: fuzzyDateFilter
-    .optional()
-    .describe("Restrict to entries whose end date is on or before this date."),
+  startDate_greater: mediaDateBound("start", "greater"),
+  startDate_lesser: mediaDateBound("start", "lesser"),
+  endDate_greater: mediaDateBound("end", "greater"),
+  endDate_lesser: mediaDateBound("end", "lesser"),
   source_in: z
     .array(z.enum(SOURCES))
     .optional()
@@ -508,7 +512,7 @@ export function registerSearchTools(server: McpServer, client: AniListClient): v
         "get_user_list (their public list), or toggle_follow_user.",
       inputSchema: z.object({
         term: z.string().min(1).describe("Username (or part of it) to search for."),
-        includeDescription: personDescriptionField("get_user_profile/get_full_user_info"),
+        includeDescription: personDescriptionField("get_user_profile/get_full_user_info", "about"),
         ...paginationFields(10),
       }),
       outputSchema: z.object({

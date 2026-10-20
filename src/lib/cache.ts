@@ -16,6 +16,9 @@ export class TtlCache<T> {
   // cached dictionary at once) would each fire their own upstream request;
   // the second now shares the first's promise instead.
   readonly #pending = new Map<string, Promise<T>>();
+  // Bumped by clear(). A compute() started before a clear() (e.g. a read
+  // racing a mutation) must not write its now-stale result back afterwards.
+  #generation = 0;
 
   constructor(ttlMs: number, max = 500) {
     this.#ttlMs = ttlMs;
@@ -41,6 +44,7 @@ export class TtlCache<T> {
   clear(): void {
     this.#map.clear();
     this.#pending.clear();
+    this.#generation += 1;
   }
 
   set(key: string, value: T): void {
@@ -84,12 +88,15 @@ export class TtlCache<T> {
   #dedupe(key: string, compute: () => Promise<T>): Promise<T> {
     const inFlight = this.#pending.get(key);
     if (inFlight) return inFlight;
+    const generation = this.#generation;
     const promise = compute()
       .then((value) => {
-        this.set(key, value);
+        if (generation === this.#generation) this.set(key, value);
         return value;
       })
-      .finally(() => this.#pending.delete(key));
+      .finally(() => {
+        if (generation === this.#generation) this.#pending.delete(key);
+      });
     this.#pending.set(key, promise);
     return promise;
   }

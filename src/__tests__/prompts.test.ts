@@ -101,6 +101,21 @@ test("catch_up_activity checks both the anime AND manga CURRENT list groups", as
   assert.match(text, /type: "MANGA"/);
 });
 
+test("catch_up_activity passes a numeric user ID as a number and a username as a string", async (t) => {
+  // Regression: a quoted "12345" went down the tools' username branch and
+  // looked up a user *named* 12345 (not_found).
+  const { client, close } = await connectServer({});
+  t.after(close);
+  const byId = textOf(
+    await client.getPrompt({ name: "catch_up_activity", arguments: { user: "12345" } }),
+  );
+  assert.match(byId, /`user: 12345`/);
+  const byName = textOf(
+    await client.getPrompt({ name: "catch_up_activity", arguments: { user: "Grinv" } }),
+  );
+  assert.match(byName, /`user: "Grinv"`/);
+});
+
 test("check_notifications passes markAsRead through only when explicitly requested", async (t) => {
   const { client, close } = await connectServer({});
   t.after(close);

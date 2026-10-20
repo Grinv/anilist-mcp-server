@@ -180,26 +180,32 @@ export function registerPrompts(server: McpServer): void {
         user: z.string().min(1).describe("AniList username (or numeric user ID as a string)."),
       },
     },
-    ({ user }) => ({
-      messages: [
-        {
-          role: "user" as const,
-          content: {
-            type: "text" as const,
-            text:
-              `Summarize what AniList user "${user}" has been up to lately.\n` +
-              `Call get_user_activity for their recent activity posts (list updates, text posts), ` +
-              `and get_user_list with statuses: ["CURRENT"] — once with type: "ANIME" and again ` +
-              `with type: "MANGA" — for what they're currently watching/reading. Filtering by ` +
-              `status server-side matters here: chunks are counted across ALL statuses at once, ` +
-              `so an unfiltered call can page through hundreds of completed entries without ` +
-              `reaching a single current one. Combine all of that into a short digest: ` +
-              `what they've recently updated, what they're currently watching/reading and how far ` +
-              `along, and any notable text posts. Omit a list from the digest if it has no CURRENT entries.`,
+    ({ user }) => {
+      // Prompt args are always strings, but the tools' `user` field reads any
+      // string as a username — so a numeric ID must reach them as a number.
+      const userArg = /^\d+$/.test(user) ? user : JSON.stringify(user);
+      return {
+        messages: [
+          {
+            role: "user" as const,
+            content: {
+              type: "text" as const,
+              text:
+                `Summarize what AniList user "${user}" has been up to lately.\n` +
+                `Pass \`user: ${userArg}\` (exactly as written) to each tool below. ` +
+                `Call get_user_activity for their recent activity posts (list updates, text posts), ` +
+                `and get_user_list with statuses: ["CURRENT"] — once with type: "ANIME" and again ` +
+                `with type: "MANGA" — for what they're currently watching/reading. Filtering by ` +
+                `status server-side matters here: chunks are counted across ALL statuses at once, ` +
+                `so an unfiltered call can page through hundreds of completed entries without ` +
+                `reaching a single current one. Combine all of that into a short digest: ` +
+                `what they've recently updated, what they're currently watching/reading and how far ` +
+                `along, and any notable text posts. Omit a list from the digest if it has no CURRENT entries.`,
+            },
           },
-        },
-      ],
-    }),
+        ],
+      };
+    },
   );
 
   server.registerPrompt(

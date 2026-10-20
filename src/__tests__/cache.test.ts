@@ -33,6 +33,16 @@ test("clear() drops cached entries so the next wrap() recomputes", async () => {
   assert.equal(calls, 2);
 });
 
+test("a compute() in flight across a clear() doesn't cache its pre-clear result", async () => {
+  const cache = new TtlCache<string>(60_000);
+  let release!: (v: string) => void;
+  const slow = cache.wrap("k", () => new Promise<string>((r) => (release = r)));
+  cache.clear(); // e.g. a mutation finished while this read was in flight
+  release("stale");
+  assert.equal(await slow, "stale", "the in-flight caller still gets its own answer");
+  assert.equal(cache.get("k"), undefined, "but the pre-clear result must not be cached");
+});
+
 test("wrapStaleOnError serves the stale value when compute fails", async (t) => {
   t.mock.timers.enable({ apis: ["Date"], now: Date.now() });
   const cache = new TtlCache<number>(1); // 1ms TTL → expires almost immediately

@@ -424,7 +424,7 @@ export function registerSearchTools(server: McpServer, client: AniListClient): v
         "Search AniList for characters by name. Returns AniList IDs to use with get_character. " +
         "Each result's bio (`description`) is omitted unless you set `includeDescription`.",
       inputSchema: z.object({
-        term: z.string().min(1).describe("Character name (or part of it) to search for."),
+        term: z.string().trim().min(1).describe("Character name (or part of it) to search for."),
         includeDescription: personDescriptionField("get_character"),
         ...paginationFields(10),
       }),
@@ -457,7 +457,7 @@ export function registerSearchTools(server: McpServer, client: AniListClient): v
         "Search AniList for staff members by name. Returns AniList IDs to use with get_staff. " +
         "Each result's bio (`description`) is omitted unless you set `includeDescription`.",
       inputSchema: z.object({
-        term: z.string().min(1).describe("Staff member name (or part of it) to search for."),
+        term: z.string().trim().min(1).describe("Staff member name (or part of it) to search for."),
         includeDescription: personDescriptionField("get_staff"),
         ...paginationFields(10),
       }),
@@ -486,7 +486,7 @@ export function registerSearchTools(server: McpServer, client: AniListClient): v
         "param already does this same fuzzy search directly and resolves a partial name on its " +
         "own. Returns AniList IDs to use with get_studio.",
       inputSchema: z.object({
-        term: z.string().min(1).describe("Studio name (or part of it) to search for."),
+        term: z.string().trim().min(1).describe("Studio name (or part of it) to search for."),
         ...paginationFields(10),
       }),
       outputSchema: z.object({
@@ -511,7 +511,7 @@ export function registerSearchTools(server: McpServer, client: AniListClient): v
         "get_user_profile/get_full_user_info (profile), get_user_stats (statistics), " +
         "get_user_list (their public list), or toggle_follow_user.",
       inputSchema: z.object({
-        term: z.string().min(1).describe("Username (or part of it) to search for."),
+        term: z.string().trim().min(1).describe("Username (or part of it) to search for."),
         includeDescription: personDescriptionField("get_user_profile/get_full_user_info", "about"),
         ...paginationFields(10),
       }),

@@ -4,6 +4,7 @@ import type { AniListClient } from "../clients/anilist.js";
 import * as list from "../clients/anilist/list.js";
 import type { BulkListEntryValues } from "../clients/anilist/list.js";
 import type { MediaId, ListEntryId } from "../clients/anilist/ids.js";
+import { MEDIA_LIST_SORTS } from "../clients/anilist/enums.js";
 import { jsonResult } from "../lib/result.js";
 import { guard } from "./guard.js";
 import {
@@ -189,7 +190,9 @@ export function registerListTools(server: McpServer, client: AniListClient): voi
         "lists, advanced scores or the status/custom-list grouping, since that response is " +
         "roughly ten times larger per entry. Filter server-side with `statuses` rather than " +
         "fetching everything and discarding — asking for just CURRENT costs a fraction of a " +
-        "whole-list read. Works for any public/unlisted user. " +
+        "whole-list read. Pass `sort` (e.g. UPDATED_TIME_DESC) to have AniList order the list " +
+        "before chunking, so a small `perChunk` returns the top entries by that key rather than " +
+        "an arbitrary slice. Works for any public/unlisted user. " +
         "Accepts an exact AniList username directly — no need to call search_user first unless " +
         "you only have a partial/fuzzy name. Paginated by `chunk`/`perChunk` (AniList's own " +
         "mechanism for this — counted across entries of ALL statuses combined, not per status), " +
@@ -226,6 +229,20 @@ export function registerListTools(server: McpServer, client: AniListClient): voi
               "discarding). Omit for every status. Custom-list groups are still returned in " +
               "`full` when their entries match.",
           ),
+        sort: z
+          .array(z.enum(MEDIA_LIST_SORTS))
+          .nonempty()
+          .optional()
+          .describe(
+            "Order AniList applies server-side; later keys break ties in earlier ones (e.g. " +
+              "[SCORE_DESC, UPDATED_TIME_DESC]). Applied to the whole list BEFORE chunking — " +
+              "`chunk` 1 with `perChunk` 10 and UPDATED_TIME_DESC is the 10 most recently " +
+              "updated entries across all statuses — and again within each status/custom-list " +
+              "group. Groups are not interleaved, so `compact` rows (concatenated group by " +
+              "group) are ordered within each status, not globally; filter to one status with " +
+              "`statuses` for a single fully ordered run. Omit for AniList's default order " +
+              "(oldest-added first within each group).",
+          ),
         chunk: z
           .int()
           .positive()
@@ -234,7 +251,8 @@ export function registerListTools(server: McpServer, client: AniListClient): voi
             "Chunk number for pagination (AniList paginates this list by chunk, not page).",
           ),
         // No upper bound on purpose: unlike AniList's `Page` connections
-        // (whose `perPage` this server caps at 25 via paginationFields()),
+        // (whose `perPage` paginationFields() caps at 50 — AniList's own
+        // ceiling, which it silently clamps higher values back to),
         // MediaListCollection is not a Page and has no server-side per-chunk
         // limit at all — confirmed live that a `perChunk` of 5000 is accepted
         // and simply returns everything available. A cap here would only
@@ -288,10 +306,16 @@ export function registerListTools(server: McpServer, client: AniListClient): voi
       }),
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
-    ({ type, user, format, statuses, chunk, perChunk }) =>
+    ({ type, user, format, statuses, sort, chunk, perChunk }) =>
       guard(async () =>
         jsonResult(
-          await list.getUserList(client.ctx(), type, user, { chunk, perChunk, format, statuses }),
+          await list.getUserList(client.ctx(), type, user, {
+            chunk,
+            perChunk,
+            format,
+            statuses,
+            sort,
+          }),
         ),
       ),
   );

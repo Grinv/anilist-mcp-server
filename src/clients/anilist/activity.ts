@@ -3,6 +3,7 @@ import { ACTIVITY_FRAGMENT, existsFragment } from "./fields.js";
 import { ApiError, assertFound } from "../../lib/errors.js";
 import { resolveUserId } from "./user.js";
 import type { ActivityId, UserId } from "./ids.js";
+import type { ActivityType } from "./enums.js";
 
 export async function getActivity(ctx: AniListContext, id: ActivityId): Promise<unknown> {
   const query = `query($id:Int){Activity(id:$id){${ACTIVITY_FRAGMENT}}}`;
@@ -10,11 +11,41 @@ export async function getActivity(ctx: AniListContext, id: ActivityId): Promise<
   return assertFound(data.Activity, `No activity found with ID ${id}.`);
 }
 
+/** Optional server-side narrowing for getUserActivity. The two dates are ISO
+ *  8601 datetimes (validated as such by the tool schema); each one is
+ *  converted to the unix seconds AniList's `createdAt_greater`/
+ *  `createdAt_lesser` take. */
+export interface UserActivityFilters {
+  type?: ActivityType;
+  createdAfter?: string;
+  createdBefore?: string;
+}
+
+/** Both of AniList's `createdAt` bounds are strict (confirmed live: an
+ *  activity created at exactly the bound's second is excluded from both
+ *  `createdAt_greater` and `createdAt_lesser`), so the sub-second part is
+ *  rounded OUTWARD — down for "after", up for "before" — which keeps every
+ *  whole-second activity that genuinely falls inside the caller's window
+ *  and nothing outside it. */
+export function createdAtBounds(filters: UserActivityFilters): {
+  createdAtGreater?: number;
+  createdAtLesser?: number;
+} {
+  const seconds = (iso: string, round: (n: number) => number) => round(Date.parse(iso) / 1000);
+  return {
+    createdAtGreater:
+      filters.createdAfter === undefined ? undefined : seconds(filters.createdAfter, Math.floor),
+    createdAtLesser:
+      filters.createdBefore === undefined ? undefined : seconds(filters.createdBefore, Math.ceil),
+  };
+}
+
 export async function getUserActivity(
   ctx: AniListContext,
   user: UserId | string,
   page = 1,
   perPage = 10,
+  filters: UserActivityFilters = {},
 ): Promise<unknown> {
   // AniList's `activities` field only accepts a numeric `userId` — there is
   // no `userName` argument (confirmed live: "Unknown argument userName on
@@ -28,31 +59,41 @@ export async function getUserActivity(
   // first — leaving it unresolved would make AniList treat the `userId`
   // filter as absent and silently return the *global* activity feed instead
   // of erroring.
+  //
+  // `type`/`createdAt_greater`/`createdAt_lesser` are AniList's own filters
+  // on the same `activities` connection (confirmed live, combined with
+  // `userId`), so they narrow server-side; absent ones are stripped from the
+  // variables and the argument simply isn't applied.
   const header = ctx.authHeader();
+  const filterVars = { type: filters.type, ...createdAtBounds(filters) };
+  const filterParams = "$type:ActivityType,$createdAtGreater:Int,$createdAtLesser:Int";
+  const activitiesArgs =
+    "userId:$userId,type:$type,createdAt_greater:$createdAtGreater," +
+    "createdAt_lesser:$createdAtLesser,sort:ID_DESC";
   if (typeof user === "number") {
-    const query = `query($userId:Int,$page:Int,$perPage:Int){
+    const query = `query($userId:Int,$page:Int,$perPage:Int,${filterParams}){
       ${existsFragment("User", "userId")}
       feed:Page(page:$page,perPage:$perPage){
         pageInfo{total currentPage lastPage hasNextPage}
-        activities(userId:$userId,sort:ID_DESC){${ACTIVITY_FRAGMENT}}
+        activities(${activitiesArgs}){${ACTIVITY_FRAGMENT}}
       }
     }`;
     const data = await ctx.gql.request<{ exists: { id: number } | null; feed: unknown }>(
       query,
-      { userId: user, page, perPage },
+      { userId: user, page, perPage, ...filterVars },
       header,
     );
     assertFound(data.exists, `No AniList user found with ID ${user}.`);
     return data.feed;
   }
   const userId = await resolveUserId(ctx, user, header);
-  const activitiesQuery = `query($userId:Int,$page:Int,$perPage:Int){Page(page:$page,perPage:$perPage){
+  const activitiesQuery = `query($userId:Int,$page:Int,$perPage:Int,${filterParams}){Page(page:$page,perPage:$perPage){
     pageInfo{total currentPage lastPage hasNextPage}
-    activities(userId:$userId,sort:ID_DESC){${ACTIVITY_FRAGMENT}}
+    activities(${activitiesArgs}){${ACTIVITY_FRAGMENT}}
   }}`;
   const pageData = await ctx.gql.request<{ Page: unknown }>(
     activitiesQuery,
-    { userId, page, perPage },
+    { userId, page, perPage, ...filterVars },
     header,
   );
   return pageData.Page;

@@ -597,27 +597,33 @@ test("getUserList requests only the fields its format needs, and filters by stat
   );
 });
 
+/** The advanced-scores pre-read is ONE query carrying both `Viewer` and the
+ *  media-type lookup as sibling root fields, so its fixture is one response
+ *  with both keys — mirroring that combined selection. `typeField` is the
+ *  `Media`/`MediaList` half exactly as AniList shapes it for that path. */
+function advancedScoringPreRead(
+  lists: { animeList: object; mangaList: object },
+  typeField: Record<string, unknown>,
+) {
+  return jsonResponse({ data: { Viewer: { mediaListOptions: lists }, ...typeField } });
+}
+
+const isMutation = (init: RequestInit | undefined) =>
+  /^\s*mutation\b/.test((JSON.parse(init?.body as string) as { query: string }).query);
+
 test("saveListEntry resolves advancedScores against the account's own configured category order for the entry's actual media type", async (t) => {
   const mock = mockFetch((_url, init) => {
-    const body = JSON.parse(init?.body as string) as { query: string };
-    if (body.query.includes("mediaListOptions")) {
-      return jsonResponse({
-        data: {
-          Viewer: {
-            mediaListOptions: {
-              // Deliberately overlapping: both lists contain Story/Characters,
-              // so a subset-guess (the old, buggy behavior) would also pass
-              // for manga — only resolving the real media type gets this right.
-              animeList: { advancedScoring: ["Story", "Characters"], advancedScoringEnabled: true },
-              mangaList: { advancedScoring: ["Characters", "Story"], advancedScoringEnabled: true },
-            },
-          },
-        },
-      });
-    }
-    if (body.query.includes("Media(id"))
-      return jsonResponse({ data: { Media: { type: "MANGA" } } });
-    return jsonResponse({ data: { SaveMediaListEntry: { id: 9 } } });
+    if (isMutation(init)) return jsonResponse({ data: { SaveMediaListEntry: { id: 9 } } });
+    return advancedScoringPreRead(
+      {
+        // Deliberately overlapping: both lists contain Story/Characters,
+        // so a subset-guess (the old, buggy behavior) would also pass
+        // for manga — only resolving the real media type gets this right.
+        animeList: { advancedScoring: ["Story", "Characters"], advancedScoringEnabled: true },
+        mangaList: { advancedScoring: ["Characters", "Story"], advancedScoringEnabled: true },
+      },
+      { Media: { type: "MANGA" } },
+    );
   });
   installFetch(t, mock);
   const client = new AniListClient(testConfig({ ANILIST_ACCESS_TOKEN: "tok" }), silentLogger());
@@ -629,10 +635,7 @@ test("saveListEntry resolves advancedScores against the account's own configured
     mediaId: id<MediaId>(42),
     advancedScores: { Story: 8, Characters: 9 },
   });
-  const saveCall = mock.calls.find((c) => {
-    const q = JSON.parse(c.init?.body as string).query as string;
-    return !q.includes("mediaListOptions") && !q.includes("Media(id");
-  })!;
+  const saveCall = mock.calls.find((c) => isMutation(c.init))!;
   const variables = JSON.parse(saveCall.init?.body as string).variables as Record<string, unknown>;
   assert.deepEqual(
     variables.advancedScores,
@@ -641,29 +644,74 @@ test("saveListEntry resolves advancedScores against the account's own configured
   );
 });
 
+test("saveListEntry fetches the advanced-scoring categories and the media type in ONE pre-read", async (t) => {
+  const mock = mockFetch((_url, init) => {
+    if (isMutation(init)) return jsonResponse({ data: { SaveMediaListEntry: { id: 9 } } });
+    return advancedScoringPreRead(
+      {
+        animeList: { advancedScoring: ["Story"], advancedScoringEnabled: true },
+        mangaList: { advancedScoring: [], advancedScoringEnabled: false },
+      },
+      { Media: { type: "ANIME" } },
+    );
+  });
+  installFetch(t, mock);
+  const client = new AniListClient(testConfig({ ANILIST_ACCESS_TOKEN: "tok" }), silentLogger());
+
+  await list.saveListEntry(client.ctx(), {
+    mediaId: id<MediaId>(42),
+    advancedScores: { Story: 8 },
+  });
+  assert.equal(mock.calls.length, 2, "one combined pre-read + the mutation, not three requests");
+  const [preRead, save] = mock.calls.map(
+    (c) => JSON.parse(c.init?.body as string) as { query: string; variables: object },
+  ) as [{ query: string; variables: object }, { query: string; variables: object }];
+  assert.match(preRead.query, /Viewer\{mediaListOptions/);
+  assert.match(preRead.query, /Media\(id:\$id\)\{type\}/);
+  assert.deepEqual(preRead.variables, { id: 42 });
+  assert.match(save.query, /^\s*mutation\b/);
+});
+
+test("saveListEntry surfaces an unknown mediaId in the advanced-scores pre-read as not_found", async (t) => {
+  // Confirmed live: an unknown Media(id) fails the WHOLE response with HTTP
+  // 404, nulling its sibling root fields too — so `Viewer` is null here.
+  const mock = mockFetch(() =>
+    jsonResponse(
+      { errors: [{ message: "Not Found.", status: 404 }], data: { Viewer: null, Media: null } },
+      { status: 404 },
+    ),
+  );
+  installFetch(t, mock);
+  const client = new AniListClient(testConfig({ ANILIST_ACCESS_TOKEN: "tok" }), silentLogger());
+
+  await assert.rejects(
+    () =>
+      list.saveListEntry(client.ctx(), {
+        mediaId: id<MediaId>(999999999),
+        advancedScores: { Story: 8 },
+      }),
+    (err: unknown) => err instanceof ApiError && err.code === "not_found",
+  );
+  assert.equal(mock.calls.length, 1, "must never reach the mutation");
+});
+
 test("saveListEntry rejects advancedScores when advancedScoringEnabled is false, even if a category list is still configured", async (t) => {
   // Confirmed live: disabling advanced scoring on the site does NOT clear a
   // previously-configured category list, so a non-empty `advancedScoring`
   // array is not itself proof the feature is enabled — the flag must be
   // checked explicitly.
-  const mock = mockFetch((_url, init) => {
-    const body = JSON.parse(init?.body as string) as { query: string };
-    if (body.query.includes("Media(id"))
-      return jsonResponse({ data: { Media: { type: "ANIME" } } });
-    return jsonResponse({
-      data: {
-        Viewer: {
-          mediaListOptions: {
-            animeList: {
-              advancedScoring: ["Story", "Characters", "Visuals", "Audio", "Enjoyment"],
-              advancedScoringEnabled: false,
-            },
-            mangaList: { advancedScoring: [], advancedScoringEnabled: false },
-          },
+  const mock = mockFetch(() =>
+    advancedScoringPreRead(
+      {
+        animeList: {
+          advancedScoring: ["Story", "Characters", "Visuals", "Audio", "Enjoyment"],
+          advancedScoringEnabled: false,
         },
+        mangaList: { advancedScoring: [], advancedScoringEnabled: false },
       },
-    });
-  });
+      { Media: { type: "ANIME" } },
+    ),
+  );
   installFetch(t, mock);
   const client = new AniListClient(testConfig({ ANILIST_ACCESS_TOKEN: "tok" }), silentLogger());
 
@@ -678,21 +726,15 @@ test("saveListEntry rejects advancedScores when advancedScoringEnabled is false,
 });
 
 test("saveListEntry rejects advancedScores keys that don't match the entry's actual media type's configured category", async (t) => {
-  const mock = mockFetch((_url, init) => {
-    const body = JSON.parse(init?.body as string) as { query: string };
-    if (body.query.includes("Media(id"))
-      return jsonResponse({ data: { Media: { type: "ANIME" } } });
-    return jsonResponse({
-      data: {
-        Viewer: {
-          mediaListOptions: {
-            animeList: { advancedScoring: ["Story"], advancedScoringEnabled: true },
-            mangaList: { advancedScoring: ["Typo"], advancedScoringEnabled: true },
-          },
-        },
+  const mock = mockFetch(() =>
+    advancedScoringPreRead(
+      {
+        animeList: { advancedScoring: ["Story"], advancedScoringEnabled: true },
+        mangaList: { advancedScoring: ["Typo"], advancedScoringEnabled: true },
       },
-    });
-  });
+      { Media: { type: "ANIME" } },
+    ),
+  );
   installFetch(t, mock);
   const client = new AniListClient(testConfig({ ANILIST_ACCESS_TOKEN: "tok" }), silentLogger());
 
@@ -714,22 +756,14 @@ test("saveListEntry rejects advancedScores keys that don't match the entry's act
 
 test("saveListEntry resolves media type from listEntryId (update path) when no mediaId is given", async (t) => {
   const mock = mockFetch((_url, init) => {
-    const body = JSON.parse(init?.body as string) as { query: string };
-    if (body.query.includes("mediaListOptions")) {
-      return jsonResponse({
-        data: {
-          Viewer: {
-            mediaListOptions: {
-              animeList: { advancedScoring: [], advancedScoringEnabled: false },
-              mangaList: { advancedScoring: ["Art", "Story"], advancedScoringEnabled: true },
-            },
-          },
-        },
-      });
-    }
-    if (body.query.includes("MediaList(id"))
-      return jsonResponse({ data: { MediaList: { media: { type: "MANGA" } } } });
-    return jsonResponse({ data: { SaveMediaListEntry: { id: 9 } } });
+    if (isMutation(init)) return jsonResponse({ data: { SaveMediaListEntry: { id: 9 } } });
+    return advancedScoringPreRead(
+      {
+        animeList: { advancedScoring: [], advancedScoringEnabled: false },
+        mangaList: { advancedScoring: ["Art", "Story"], advancedScoringEnabled: true },
+      },
+      { MediaList: { media: { type: "MANGA" } } },
+    );
   });
   installFetch(t, mock);
   const client = new AniListClient(testConfig({ ANILIST_ACCESS_TOKEN: "tok" }), silentLogger());
@@ -738,32 +772,31 @@ test("saveListEntry resolves media type from listEntryId (update path) when no m
     listEntryId: id<ListEntryId>(99),
     advancedScores: { Story: 7, Art: 6 },
   });
-  const saveCall = mock.calls.find((c) => {
-    const q = JSON.parse(c.init?.body as string).query as string;
-    return !q.includes("mediaListOptions") && !q.includes("MediaList(id");
-  })!;
+  const preRead = JSON.parse(mock.calls[0]!.init?.body as string) as {
+    query: string;
+    variables: object;
+  };
+  assert.match(preRead.query, /MediaList\(id:\$id\)\{media\{type\}\}/);
+  assert.doesNotMatch(preRead.query, /[^t]Media\(id/, "the update path must not look up Media");
+  assert.deepEqual(preRead.variables, { id: 99 });
+  const saveCall = mock.calls.find((c) => isMutation(c.init))!;
   const variables = JSON.parse(saveCall.init?.body as string).variables as Record<string, unknown>;
   assert.deepEqual(variables.advancedScores, [60, 70], "ordered per the MANGA list [Art, Story]");
 });
 
 test("saveListEntry throws (rather than silently defaulting to ANIME) when the media type can't be resolved", async (t) => {
-  const mock = mockFetch((_url, init) => {
-    const body = JSON.parse(init?.body as string) as { query: string };
-    if (body.query.includes("mediaListOptions")) {
-      return jsonResponse({
-        data: {
-          Viewer: {
-            mediaListOptions: {
-              animeList: { advancedScoring: ["Story"] },
-              mangaList: { advancedScoring: ["Story"] },
-            },
-          },
-        },
-      });
-    }
-    // mediaId doesn't resolve to any media.
-    return jsonResponse({ data: { Media: null } });
-  });
+  // Defensive path, not observed live: AniList 404s an unknown Media(id)
+  // (see the not_found test above) rather than returning a 200 with
+  // `Media: null`. This guards against that changing upstream.
+  const mock = mockFetch(() =>
+    advancedScoringPreRead(
+      {
+        animeList: { advancedScoring: ["Story"] },
+        mangaList: { advancedScoring: ["Story"] },
+      },
+      { Media: null },
+    ),
+  );
   installFetch(t, mock);
   const client = new AniListClient(testConfig({ ANILIST_ACCESS_TOKEN: "tok" }), silentLogger());
 
@@ -782,14 +815,171 @@ test("saveListEntry throws (rather than silently defaulting to ANIME) when the m
   );
 });
 
-test("toggleFavourite uses the correct AniList argument name per media kind", async (t) => {
-  const mock = mockFetch(() => jsonResponse({ data: { ToggleFavourite: {} } }));
-  installFetch(t, mock);
-  const client = new AniListClient(testConfig({ ANILIST_ACCESS_TOKEN: "tok" }), silentLogger());
+test("toggleFavourite uses the correct AniList argument name and selects only that kind's connection", async (t) => {
+  const expected = {
+    ANIME: ["animeId", "anime"],
+    MANGA: ["mangaId", "manga"],
+    CHARACTER: ["characterId", "characters"],
+    STAFF: ["staffId", "staff"],
+    STUDIO: ["studioId", "studios"],
+  } as const;
+  const connections = ["anime", "manga", "characters", "staff", "studios"];
+  for (const [kind, [argName, connection]] of Object.entries(expected)) {
+    await t.test(kind, async (st) => {
+      const mock = mockFetch(() =>
+        jsonResponse({ data: { ToggleFavourite: { [connection]: { nodes: [{ id: 7 }] } } } }),
+      );
+      installFetch(st, mock);
+      const client = new AniListClient(testConfig({ ANILIST_ACCESS_TOKEN: "tok" }), silentLogger());
 
-  await favourites.toggleFavourite(client.ctx(), "STUDIO", 7);
-  const query = JSON.parse(mock.calls[0]!.init?.body as string).query as string;
-  assert.match(query, /studioId:\$id/);
+      const result = await favourites.toggleFavourite(
+        client.ctx(),
+        kind as keyof typeof expected,
+        7,
+      );
+      const query = JSON.parse(mock.calls[0]!.init?.body as string).query as string;
+      assert.match(query, new RegExp(`ToggleFavourite\\(${argName}:\\$id\\)`));
+      const selected = connections.filter((c) => new RegExp(`[{}]${c}\\{nodes`).test(query));
+      assert.deepEqual(selected, [connection], `only ${connection} may be selected:\n${query}`);
+      assert.deepEqual(result, { [connection]: { nodes: [{ id: 7 }] } });
+    });
+  }
+});
+
+test("getUserList forwards sort as MediaListCollection's own [MediaListSort] argument", async (t) => {
+  const mock = mockFetch(() =>
+    jsonResponse({ data: { MediaListCollection: { hasNextChunk: false, lists: [] } } }),
+  );
+  installFetch(t, mock);
+  const client = new AniListClient(testConfig(), silentLogger());
+
+  await list.getUserList(client.ctx(), "ANIME", "someone", {
+    sort: ["SCORE_DESC", "UPDATED_TIME_DESC"],
+  });
+  await list.getUserList(client.ctx(), "ANIME", "someone");
+
+  const [sorted, unsorted] = mock.calls.map(
+    (call) => JSON.parse(call.init?.body as string) as { query: string; variables: object },
+  ) as [{ query: string; variables: object }, { query: string; variables: object }];
+  assert.match(sorted.query, /\$sort:\[MediaListSort\]/);
+  assert.match(sorted.query, /MediaListCollection\([^)]*sort:\$sort/);
+  assert.deepEqual(
+    (sorted.variables as { sort?: string[] }).sort,
+    ["SCORE_DESC", "UPDATED_TIME_DESC"],
+    "sort keys must reach AniList in the caller's order (later keys break ties)",
+  );
+  assert.equal("sort" in unsorted.variables, false, "an absent sort must not be sent as null");
+});
+
+test("getUserList compact keeps AniList's sorted order and still dedupes a sorted entry repeated in a custom list", async (t) => {
+  // Shape as AniList returns it with `sort` set (confirmed live): every group
+  // is sorted by the key, and an entry filed under a custom list repeats
+  // there. Compact selects no group metadata, so groups carry only entries.
+  const entry = (entryId: number, status: string, score: number) => ({
+    id: entryId,
+    status,
+    score,
+    progress: 0,
+    media: { id: entryId * 10, idMal: null, title: { romaji: `T${entryId}`, english: null } },
+  });
+  const mock = mockFetch(() =>
+    jsonResponse({
+      data: {
+        MediaListCollection: {
+          hasNextChunk: false,
+          lists: [
+            { entries: [entry(3, "COMPLETED", 9), entry(1, "COMPLETED", 7)] },
+            { entries: [entry(3, "COMPLETED", 9)] },
+            { entries: [entry(2, "CURRENT", 8)] },
+          ],
+        },
+      },
+    }),
+  );
+  installFetch(t, mock);
+  const client = new AniListClient(testConfig(), silentLogger());
+
+  const result = await list.getUserList(client.ctx(), "ANIME", "someone", {
+    sort: ["SCORE_DESC"],
+  });
+  assert.equal(result.format, "compact");
+  if (result.format !== "compact") return;
+  assert.equal(result.count, 3);
+  assert.deepEqual(
+    result.rows.split("\n").map((row) => row.split("\t")[0]),
+    ["3", "1", "2"],
+    "rows keep AniList's per-group order, first occurrence wins",
+  );
+});
+
+test("getUserActivity forwards type and the createdAfter/createdBefore window as AniList's own filters", async (t) => {
+  const mock = mockFetch(() =>
+    jsonResponse({
+      data: {
+        exists: { id: 7640432 },
+        feed: { pageInfo: { hasNextPage: false }, activities: [] },
+      },
+    }),
+  );
+  installFetch(t, mock);
+  const client = new AniListClient(testConfig({}), silentLogger());
+
+  await activity.getUserActivity(client.ctx(), id<UserId>(7640432), 1, 10, {
+    type: "ANIME_LIST",
+    createdAfter: "2026-01-01T00:00:00.500Z",
+    createdBefore: "2026-01-02T03:00:00.250+03:00",
+  });
+  await activity.getUserActivity(client.ctx(), id<UserId>(7640432));
+  const [filtered, unfiltered] = mock.calls.map(
+    (c) =>
+      JSON.parse(c.init?.body as string) as { query: string; variables: Record<string, unknown> },
+  ) as [
+    { query: string; variables: Record<string, unknown> },
+    { query: string; variables: Record<string, unknown> },
+  ];
+  assert.match(
+    filtered.query,
+    /activities\(userId:\$userId,type:\$type,createdAt_greater:\$createdAtGreater,createdAt_lesser:\$createdAtLesser/,
+  );
+  assert.equal(filtered.variables.type, "ANIME_LIST");
+  // Both bounds are strict upstream, so the sub-second part rounds outward:
+  // 2026-01-01T00:00:00.5Z -> floor 1767225600; 2026-01-02T00:00:00.25Z
+  // (the +03:00 offset applied) -> ceil 1767312001.
+  assert.equal(filtered.variables.createdAtGreater, 1767225600);
+  assert.equal(filtered.variables.createdAtLesser, 1767312001);
+  for (const key of ["type", "createdAtGreater", "createdAtLesser"]) {
+    assert.equal(key in unfiltered.variables, false, `absent ${key} must not be sent as null`);
+  }
+});
+
+test("getUserActivity applies the same filters on the username path", async (t) => {
+  const mock = mockFetch((_url, init) => {
+    const body = JSON.parse(init?.body as string) as { query: string };
+    if (body.query.includes("User(name")) return jsonResponse({ data: { User: { id: 42 } } });
+    return jsonResponse({ data: { Page: { pageInfo: { hasNextPage: false }, activities: [] } } });
+  });
+  installFetch(t, mock);
+  const client = new AniListClient(testConfig({}), silentLogger());
+
+  await activity.getUserActivity(client.ctx(), "Grinv", 1, 10, {
+    type: "TEXT",
+    createdAfter: "2026-01-01T00:00:00Z",
+  });
+  const activitiesCall = mock.calls.find(
+    (c) => !JSON.parse(c.init?.body as string).query.includes("User(name"),
+  )!;
+  const { query, variables } = JSON.parse(activitiesCall.init?.body as string) as {
+    query: string;
+    variables: Record<string, unknown>;
+  };
+  assert.match(query, /type:\$type,createdAt_greater:\$createdAtGreater/);
+  assert.deepEqual(variables, {
+    userId: 42,
+    page: 1,
+    perPage: 10,
+    type: "TEXT",
+    createdAtGreater: 1767225600,
+  });
 });
 
 test("getUserActivity aliases a numeric id's existence check into the same request as activities(userId:...)", async (t) => {

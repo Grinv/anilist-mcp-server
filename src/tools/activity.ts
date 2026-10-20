@@ -2,6 +2,7 @@ import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/server";
 import type { AniListClient } from "../clients/anilist.js";
 import * as activity from "../clients/anilist/activity.js";
+import { ACTIVITY_TYPES } from "../clients/anilist/enums.js";
 import { jsonResult } from "../lib/result.js";
 import { guard } from "./guard.js";
 import {
@@ -117,20 +118,46 @@ export function registerActivityTools(server: McpServer, client: AniListClient):
     {
       title: "Get a user's activity feed",
       description:
-        "List recent AniList activity posts from a specific user — every activity type " +
-        "(list updates, text posts, and message activity they received), the underlying query " +
-        "applies no type filter of its own. Accepts an exact AniList username directly " +
-        "(it's resolved to an id with one extra internal lookup) — no need to call search_user " +
-        "first unless you only have a partial/fuzzy name. Use search_activity instead if you " +
-        "want to restrict to one activity type (TEXT/ANIME_LIST/MANGA_LIST/MEDIA_LIST/MESSAGE) " +
-        "or browse without pinning to one user. Use get_user_recent_activity instead if you " +
-        "just want a quick, fixed-size (5-item) recent snapshot without paginating.",
+        "List recent AniList activity posts from a specific user, newest first — by default " +
+        "every activity type (list updates, text posts, and message activity they received). " +
+        "Narrow it server-side with `type` and/or a `createdAfter`/`createdBefore` window " +
+        "rather than paging through everything and discarding. Accepts an exact AniList " +
+        "username directly (it's resolved to an id with one extra internal lookup) — no need " +
+        "to call search_user first unless you only have a partial/fuzzy name. Use " +
+        "search_activity instead to browse without pinning to one user. Use " +
+        "get_user_recent_activity instead if you just want a quick, fixed-size (5-item) recent " +
+        "snapshot without paginating.",
       inputSchema: z.object({
         user: userIdOrName.describe(
           "AniList user ID, or username. Unlike search_activity's own `user` filter, both an " +
             "unknown numeric ID and an unknown username error here rather than silently " +
             "returning an empty feed.",
         ),
+        type: z
+          .enum(ACTIVITY_TYPES)
+          .optional()
+          .describe(
+            "Restrict to this activity type (same values as search_activity's `type`). " +
+              "MEDIA_LIST matches both ANIME_LIST and MANGA_LIST activities; use " +
+              "ANIME_LIST/MANGA_LIST to restrict to just one. MESSAGE here is messages this " +
+              "user received. Omit for every type.",
+          ),
+        createdAfter: z.iso
+          .datetime({ offset: true })
+          .optional()
+          .describe(
+            "Only activities created strictly after this moment — an ISO 8601 datetime with " +
+              "a `Z` or ±hh:mm offset (e.g. 2026-01-01T00:00:00Z). AniList stores whole " +
+              "seconds; an activity at exactly this second is excluded.",
+          ),
+        createdBefore: z.iso
+          .datetime({ offset: true })
+          .optional()
+          .describe(
+            "Only activities created strictly before this moment — same format and " +
+              "exclusive bound as `createdAfter`. A window where createdBefore is not after " +
+              "createdAfter just returns no activities, not an error.",
+          ),
         ...paginationFields(10),
       }),
       outputSchema: z.object({
@@ -143,9 +170,15 @@ export function registerActivityTools(server: McpServer, client: AniListClient):
       }),
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
-    ({ user, page, perPage }) =>
+    ({ user, type, createdAfter, createdBefore, page, perPage }) =>
       guard(async () =>
-        jsonResult({ results: await activity.getUserActivity(client.ctx(), user, page, perPage) }),
+        jsonResult({
+          results: await activity.getUserActivity(client.ctx(), user, page, perPage, {
+            type,
+            createdAfter,
+            createdBefore,
+          }),
+        }),
       ),
   );
 

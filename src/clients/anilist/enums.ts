@@ -26,6 +26,55 @@ export const MEDIA_LIST_STATUSES = [
 ] as const;
 export type MediaListStatus = (typeof MEDIA_LIST_STATUSES)[number];
 
+/** AniList's full `MediaListSort` enum, verbatim from the live schema
+ *  (introspected) — get_user_list's `sort`. Every value is a real sort key
+ *  AniList accepts on `MediaListCollection`, so none is withheld. */
+export const MEDIA_LIST_SORTS = [
+  "MEDIA_ID",
+  "MEDIA_ID_DESC",
+  "SCORE",
+  "SCORE_DESC",
+  "STATUS",
+  "STATUS_DESC",
+  "PROGRESS",
+  "PROGRESS_DESC",
+  "PROGRESS_VOLUMES",
+  "PROGRESS_VOLUMES_DESC",
+  "REPEAT",
+  "REPEAT_DESC",
+  "PRIORITY",
+  "PRIORITY_DESC",
+  "STARTED_ON",
+  "STARTED_ON_DESC",
+  "FINISHED_ON",
+  "FINISHED_ON_DESC",
+  "ADDED_TIME",
+  "ADDED_TIME_DESC",
+  "UPDATED_TIME",
+  "UPDATED_TIME_DESC",
+  "MEDIA_TITLE_ROMAJI",
+  "MEDIA_TITLE_ROMAJI_DESC",
+  "MEDIA_TITLE_ENGLISH",
+  "MEDIA_TITLE_ENGLISH_DESC",
+  "MEDIA_TITLE_NATIVE",
+  "MEDIA_TITLE_NATIVE_DESC",
+  "MEDIA_POPULARITY",
+  "MEDIA_POPULARITY_DESC",
+] as const;
+export type MediaListSort = (typeof MEDIA_LIST_SORTS)[number];
+
+/** AniList's `ActivityType` enum — get_user_activity's `type` filter, typed
+ *  in clients/anilist/activity.ts too. Same values and order as
+ *  search_activity's own (still tool-local) ACTIVITY_TYPES. */
+export const ACTIVITY_TYPES = [
+  "TEXT",
+  "ANIME_LIST",
+  "MANGA_LIST",
+  "MESSAGE",
+  "MEDIA_LIST",
+] as const;
+export type ActivityType = (typeof ACTIVITY_TYPES)[number];
+
 /** AniList's `NotificationType`. Shared for the same reason as the three
  *  below: `update_user`'s `notificationOptions[].type` is validated by
  *  `z.enum()` in tools/ and typed in `NotificationOptionFieldInput` in

@@ -1,7 +1,7 @@
 import type { AniListContext } from "./context.js";
 import { ApiError } from "../../lib/errors.js";
 import type { MediaId, ListEntryId, UserId } from "./ids.js";
-import type { MediaType, MediaListStatus } from "./enums.js";
+import type { MediaType, MediaListStatus, MediaListSort } from "./enums.js";
 
 export interface MediaListEntryInput {
   mediaId?: MediaId;
@@ -39,6 +39,9 @@ export interface UserListOptions {
   /** Server-side `status_in` filter. Omitted entirely when absent, so the
    *  default stays "every status". */
   statuses?: MediaListStatus[];
+  /** Server-side `sort`, AniList's own `[MediaListSort]` — later keys break
+   *  ties in earlier ones. Omitted when absent (AniList's default order). */
+  sort?: MediaListSort[];
 }
 
 export type UserListResult =
@@ -127,7 +130,7 @@ export async function getUserList(
   user: UserId | string,
   opts: UserListOptions = {},
 ): Promise<UserListResult> {
-  const { chunk = 1, perChunk = 25, format = "compact", statuses } = opts;
+  const { chunk = 1, perChunk = 25, format = "compact", statuses, sort } = opts;
   const byId = typeof user === "number";
   // No existence check needed here — confirmed live (see docs/api-references.md's
   // "Page connection filtered by a parent id" section) that MediaListCollection
@@ -150,11 +153,21 @@ export async function getUserList(
   // entries match), so a status-scoped read never pays for the rest of the
   // list. `undefined` is stripped from variables before sending, so omitting
   // it means "every status" rather than "none".
+  // `sort` is likewise AniList's own. Confirmed live: it's applied to the
+  // WHOLE list before chunking (chunk 1 at `perChunk: 5` with
+  // UPDATED_TIME_DESC was exactly the five most recently updated entries
+  // across every status), and again within each group, with the groups
+  // themselves reordered by their own top entry. It does not interleave
+  // groups, so compact's rows — concatenated group by group — are ordered
+  // within each status, not globally. Without it, entries come in ascending
+  // entry-id order within each group (i.e. by when they were added). The
+  // dedupe in toCompactRows() is unaffected: it keeps an entry's first
+  // occurrence, and a repeat in a custom-list group is the same entry.
   // Compact skips the group metadata entirely — toCompactRows() discards it,
   // so there's no reason to pay for it upstream either.
   const groupFields = format === "compact" ? "" : "name isCustomList isSplitCompletedList status ";
   const selection = format === "compact" ? COMPACT_SELECTION : FULL_SELECTION;
-  const query = `query($userId:Int,$userName:String,$type:MediaType,$chunk:Int,$perChunk:Int,$statusIn:[MediaListStatus]){MediaListCollection(userId:$userId,userName:$userName,type:$type,chunk:$chunk,perChunk:$perChunk,status_in:$statusIn){
+  const query = `query($userId:Int,$userName:String,$type:MediaType,$chunk:Int,$perChunk:Int,$statusIn:[MediaListStatus],$sort:[MediaListSort]){MediaListCollection(userId:$userId,userName:$userName,type:$type,chunk:$chunk,perChunk:$perChunk,status_in:$statusIn,sort:$sort){
     hasNextChunk
     lists{${groupFields}entries{
       ${selection}
@@ -166,6 +179,7 @@ export async function getUserList(
     chunk,
     perChunk,
     statusIn: statuses,
+    sort,
   };
   // Authenticated (when available) so the caller's own private entries and
   // viewer-relative fields resolve correctly, not just what an anonymous
@@ -181,25 +195,53 @@ export async function getUserList(
   return { format: "compact", ...toCompactRows(lists), columns: COMPACT_COLUMNS, hasNextChunk };
 }
 
-/** Both anime- and manga-list advanced scoring categories, in the account's
- *  own configured order, plus whether the feature is actually enabled for
- *  each list. Confirmed live: `advancedScoring` can be a non-empty category
- *  list even when `advancedScoringEnabled` is `false` (disabling the feature
- *  on the site doesn't clear a previously-configured category list) — so
- *  the enabled flag must be checked explicitly; a non-empty category array
- *  is NOT itself proof the feature is on. Only fetched when the caller
- *  actually supplies advancedScores. Bypasses the read cache: a stale
- *  category order here would silently misfile a score into the wrong
- *  category with no error, which is exactly what this whole
- *  positional-ordering feature exists to prevent. */
-async function getAdvancedScoringCategories(
+type CategoryLists = {
+  anime: string[];
+  manga: string[];
+  animeEnabled: boolean;
+  mangaEnabled: boolean;
+};
+
+/** Everything orderAdvancedScores() needs, fetched in ONE request (two root
+ *  fields side by side) rather than two parallel ones — same data, one
+ *  fewer round trip per advanced-scored write:
+ *
+ *  - Both anime- and manga-list advanced scoring categories, in the
+ *    account's own configured order, plus whether the feature is actually
+ *    enabled for each list. Confirmed live: `advancedScoring` can be a
+ *    non-empty category list even when `advancedScoringEnabled` is `false`
+ *    (disabling the feature on the site doesn't clear a previously-configured
+ *    category list) — so the enabled flag must be checked explicitly; a
+ *    non-empty category array is NOT itself proof the feature is on.
+ *  - The actual ANIME/MANGA type of the entry being saved — looked up from
+ *    `mediaId` (add path) or `listEntryId` (update path) rather than guessed,
+ *    since accounts can configure overlapping category names for both lists
+ *    and guessing from the advancedScores keys alone can silently pick the
+ *    wrong one.
+ *
+ *  Only fetched when the caller actually supplies advancedScores. Bypasses
+ *  the read cache: a stale category order here would silently misfile a
+ *  score into the wrong category with no error, which is exactly what this
+ *  whole positional-ordering feature exists to prevent. Error mapping is
+ *  unchanged by the merge — confirmed live that an unknown `Media(id)` or
+ *  `MediaList(id)` still fails the WHOLE response with HTTP 404 (a sibling
+ *  root field doesn't rescue it into a partial result — probed with a
+ *  valid `Media(id:1)` sibling, which came back `null` too), so it surfaces
+ *  as not_found exactly as the standalone lookup did. */
+async function getAdvancedScoringContext(
   ctx: AniListContext,
   header: Record<string, string>,
-): Promise<{ anime: string[]; manga: string[]; animeEnabled: boolean; mangaEnabled: boolean }> {
-  const query = `query{Viewer{mediaListOptions{
-    animeList{advancedScoring advancedScoringEnabled}
-    mangaList{advancedScoring advancedScoringEnabled}
-  }}}`;
+  input: MediaListEntryInput,
+): Promise<{ categoryLists: CategoryLists; mediaType: MediaType | undefined }> {
+  const byMediaId = input.mediaId !== undefined;
+  const typeField = byMediaId ? `Media(id:$id){type}` : `MediaList(id:$id){media{type}}`;
+  const query = `query($id:Int){
+    Viewer{mediaListOptions{
+      animeList{advancedScoring advancedScoringEnabled}
+      mangaList{advancedScoring advancedScoringEnabled}
+    }}
+    ${typeField}
+  }`;
   const data = await ctx.gql.request<{
     Viewer: {
       mediaListOptions: {
@@ -207,41 +249,19 @@ async function getAdvancedScoringCategories(
         mangaList: { advancedScoring: string[] | null; advancedScoringEnabled: boolean | null };
       };
     };
-  }>(query, {}, header, { skipCache: true });
+    Media?: { type: MediaType } | null;
+    MediaList?: { media: { type: MediaType } | null } | null;
+  }>(query, { id: byMediaId ? input.mediaId : input.listEntryId }, header, { skipCache: true });
+  const { animeList, mangaList } = data.Viewer.mediaListOptions;
   return {
-    anime: data.Viewer.mediaListOptions.animeList.advancedScoring ?? [],
-    manga: data.Viewer.mediaListOptions.mangaList.advancedScoring ?? [],
-    animeEnabled: data.Viewer.mediaListOptions.animeList.advancedScoringEnabled ?? false,
-    mangaEnabled: data.Viewer.mediaListOptions.mangaList.advancedScoringEnabled ?? false,
+    categoryLists: {
+      anime: animeList.advancedScoring ?? [],
+      manga: mangaList.advancedScoring ?? [],
+      animeEnabled: animeList.advancedScoringEnabled ?? false,
+      mangaEnabled: mangaList.advancedScoringEnabled ?? false,
+    },
+    mediaType: byMediaId ? data.Media?.type : data.MediaList?.media?.type,
   };
-}
-
-/** The actual ANIME/MANGA type of the entry being saved — looked up from
- *  `mediaId` (add path) or `listEntryId` (update path) rather than guessed,
- *  since accounts can configure overlapping category names for both lists
- *  and guessing from the advancedScores keys alone can silently pick the
- *  wrong one. Bypasses the cache for the same staleness reason as
- *  getAdvancedScoringCategories. */
-async function resolveMediaType(
-  ctx: AniListContext,
-  header: Record<string, string>,
-  input: MediaListEntryInput,
-): Promise<MediaType | undefined> {
-  if (input.mediaId !== undefined) {
-    const query = `query($id:Int){Media(id:$id){type}}`;
-    const data = await ctx.gql.request<{ Media: { type: MediaType } | null }>(
-      query,
-      { id: input.mediaId },
-      header,
-      { skipCache: true },
-    );
-    return data.Media?.type;
-  }
-  const query = `query($id:Int){MediaList(id:$id){media{type}}}`;
-  const data = await ctx.gql.request<{
-    MediaList: { media: { type: MediaType } | null } | null;
-  }>(query, { id: input.listEntryId }, header, { skipCache: true });
-  return data.MediaList?.media?.type;
 }
 
 /** Converts a `{category: 0-10 score}` map into AniList's positional
@@ -252,7 +272,7 @@ async function resolveMediaType(
 function orderAdvancedScores(
   advancedScores: Record<string, number>,
   mediaType: MediaType,
-  categoryLists: { anime: string[]; manga: string[]; animeEnabled: boolean; mangaEnabled: boolean },
+  categoryLists: CategoryLists,
 ): number[] {
   const isManga = mediaType === "MANGA";
   const categories = isManga ? categoryLists.manga : categoryLists.anime;
@@ -287,10 +307,7 @@ export async function saveListEntry(
   const header = ctx.requireAuth();
   let advancedScores: number[] | undefined;
   if (input.advancedScores) {
-    const [categoryLists, mediaType] = await Promise.all([
-      getAdvancedScoringCategories(ctx, header),
-      resolveMediaType(ctx, header, input),
-    ]);
+    const { categoryLists, mediaType } = await getAdvancedScoringContext(ctx, header, input);
     if (!mediaType) {
       throw new ApiError({
         code: "bad_request",

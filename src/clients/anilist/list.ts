@@ -5,6 +5,7 @@ import type { MediaType, MediaListStatus, MediaListSort } from "./enums.js";
 import { encodeFuzzyDateInt } from "./fuzzyDate.js";
 import { advancedScoresToPoint10 } from "./fields.js";
 import { withNumericNameHint } from "./user.js";
+import { deleteById } from "./deleteById.js";
 
 /** A list-entry date. `year` is required: a date without one (even `{}`)
  *  clears the stored date upstream (confirmed live). */
@@ -504,26 +505,6 @@ export async function updateListEntries(
   return { updated: updated.length, listEntryIds: updated.map((entry) => entry.id) };
 }
 
-export async function deleteListEntry(
-  ctx: AniListContext,
-  listEntryId: ListEntryId,
-): Promise<unknown> {
-  const header = ctx.requireAuth();
-  const query = `mutation($id:Int){DeleteMediaListEntry(id:$id){deleted}}`;
-  const data = await ctx.gql.request<{ DeleteMediaListEntry: { deleted?: boolean } | null }>(
-    query,
-    { id: listEntryId },
-    header,
-  );
-  // AniList can return 200 with `{deleted: false}` (e.g. already gone, or not
-  // owned by the caller) instead of a GraphQL error — surface that as a real
-  // failure rather than reporting success for a no-op deletion.
-  if (!data.DeleteMediaListEntry?.deleted) {
-    throw new ApiError({
-      code: "not_found",
-      message:
-        "AniList reported this list entry as not deleted — it may not exist or you may not own it.",
-    });
-  }
-  return data.DeleteMediaListEntry;
+export function deleteListEntry(ctx: AniListContext, listEntryId: ListEntryId): Promise<unknown> {
+  return deleteById(ctx, "DeleteMediaListEntry", listEntryId, "list entry");
 }

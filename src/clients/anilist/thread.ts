@@ -1,7 +1,8 @@
 import type { AniListContext } from "./context.js";
-import { ApiError, assertFound } from "../../lib/errors.js";
+import { assertFound } from "../../lib/errors.js";
 import type { ThreadId, CommentId, CategoryId, MediaId } from "./ids.js";
 import { existsFragment } from "./fields.js";
+import { deleteById } from "./deleteById.js";
 
 export async function getThread(ctx: AniListContext, id: ThreadId): Promise<unknown> {
   const query = `query($id:Int){Thread(id:$id){id title body(asHtml:false) siteUrl replyCommentId
@@ -97,43 +98,10 @@ export async function postThreadComment(
   return data.SaveThreadComment;
 }
 
-export async function deleteThread(ctx: AniListContext, id: ThreadId): Promise<unknown> {
-  const header = ctx.requireAuth();
-  const query = `mutation($id:Int){DeleteThread(id:$id){deleted}}`;
-  const data = await ctx.gql.request<{ DeleteThread: { deleted?: boolean } | null }>(
-    query,
-    { id },
-    header,
-  );
-  // AniList can return 200 with `{deleted: false}` (e.g. already gone, or not
-  // owned by the caller) instead of a GraphQL error — surface that as a real
-  // failure rather than reporting success for a no-op deletion.
-  if (!data.DeleteThread?.deleted) {
-    throw new ApiError({
-      code: "not_found",
-      message:
-        "AniList reported this thread as not deleted — it may not exist or you may not own it.",
-    });
-  }
-  return data.DeleteThread;
+export function deleteThread(ctx: AniListContext, id: ThreadId): Promise<unknown> {
+  return deleteById(ctx, "DeleteThread", id, "thread");
 }
 
-export async function deleteThreadComment(ctx: AniListContext, id: CommentId): Promise<unknown> {
-  const header = ctx.requireAuth();
-  const query = `mutation($id:Int){DeleteThreadComment(id:$id){deleted}}`;
-  const data = await ctx.gql.request<{ DeleteThreadComment: { deleted?: boolean } | null }>(
-    query,
-    { id },
-    header,
-  );
-  // Same defensive check as deleteThread above — a 200 with `{deleted: false}`
-  // (not found / not owned) must surface as a failure, not a false success.
-  if (!data.DeleteThreadComment?.deleted) {
-    throw new ApiError({
-      code: "not_found",
-      message:
-        "AniList reported this comment as not deleted — it may not exist or you may not own it.",
-    });
-  }
-  return data.DeleteThreadComment;
+export function deleteThreadComment(ctx: AniListContext, id: CommentId): Promise<unknown> {
+  return deleteById(ctx, "DeleteThreadComment", id, "comment");
 }

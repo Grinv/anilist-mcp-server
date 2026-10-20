@@ -1,8 +1,9 @@
 import type { AniListContext } from "./context.js";
 import { ACTIVITY_FRAGMENT, existsFragment } from "./fields.js";
-import { ApiError, assertFound } from "../../lib/errors.js";
+import { assertFound } from "../../lib/errors.js";
 import { resolveUserId } from "./user.js";
 import { toUnixSeconds } from "./fuzzyDate.js";
+import { deleteById } from "./deleteById.js";
 import type { ActivityId, UserId } from "./ids.js";
 import type { ActivityType } from "./enums.js";
 
@@ -150,23 +151,6 @@ export async function postMessageActivity(
   return data.SaveMessageActivity;
 }
 
-export async function deleteActivity(ctx: AniListContext, id: ActivityId): Promise<unknown> {
-  const header = ctx.requireAuth();
-  const query = `mutation($id:Int){DeleteActivity(id:$id){deleted}}`;
-  const data = await ctx.gql.request<{ DeleteActivity: { deleted?: boolean } | null }>(
-    query,
-    { id },
-    header,
-  );
-  // AniList can return 200 with `{deleted: false}` (e.g. already gone, or not
-  // owned by the caller) instead of a GraphQL error — surface that as a real
-  // failure rather than reporting success for a no-op deletion.
-  if (!data.DeleteActivity?.deleted) {
-    throw new ApiError({
-      code: "not_found",
-      message:
-        "AniList reported this activity as not deleted — it may not exist or you may not own it.",
-    });
-  }
-  return data.DeleteActivity;
+export function deleteActivity(ctx: AniListContext, id: ActivityId): Promise<unknown> {
+  return deleteById(ctx, "DeleteActivity", id, "activity");
 }

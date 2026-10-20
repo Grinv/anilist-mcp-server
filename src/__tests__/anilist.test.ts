@@ -22,6 +22,7 @@ import type {
   ListEntryId,
   MalId,
   ThreadId,
+  CommentId,
   ActivityId,
   UserId,
   CharacterId,
@@ -1269,6 +1270,43 @@ test("deleteThread rejects when AniList reports deleted: false instead of report
     () => thread.deleteThread(client.ctx(), id<ThreadId>(1)),
     (err: unknown) => err instanceof ApiError && err.code === "not_found",
   );
+});
+
+test("every delete tool reports an unknown or already-deleted id as not_found, not a validation error", async (t) => {
+  // Confirmed live on all four mutations: an unknown id (including one just
+  // deleted) is a 400 validation error, not `{deleted: false}`.
+  const mock = mockFetch(() =>
+    jsonResponse(
+      {
+        errors: [
+          {
+            message: "validation",
+            status: 400,
+            validation: { id: ["The selected id is invalid."] },
+          },
+        ],
+        data: null,
+      },
+      { status: 400 },
+    ),
+  );
+  installFetch(t, mock);
+  const client = new AniListClient(testConfig({ ANILIST_ACCESS_TOKEN: "tok" }), silentLogger());
+  const ctx = client.ctx();
+  const calls: [string, () => Promise<unknown>][] = [
+    ["list entry", () => list.deleteListEntry(ctx, id<ListEntryId>(2000000000))],
+    ["activity", () => activity.deleteActivity(ctx, id<ActivityId>(2000000000))],
+    ["thread", () => thread.deleteThread(ctx, id<ThreadId>(2000000000))],
+    ["comment", () => thread.deleteThreadComment(ctx, id<CommentId>(2000000000))],
+  ];
+  for (const [label, call] of calls) {
+    await assert.rejects(call, (err: unknown) => {
+      assert.ok(err instanceof ApiError && err.code === "not_found", label);
+      assert.match(err.message, new RegExp(`this ${label} as not deleted`), label);
+      return true;
+    });
+  }
+  assert.equal(mock.calls.length, 4, "a mutation is never retried");
 });
 
 test("isConfigured/canLogin reflect the configured credentials", () => {

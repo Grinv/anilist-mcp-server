@@ -1,9 +1,10 @@
 import type { AniListContext } from "./context.js";
 import { resolveUserId } from "./user.js";
+import { createdAtBounds } from "./activity.js";
 import { assertFound } from "../../lib/errors.js";
 import { existsFragment } from "./fields.js";
 import type { CategoryId, MediaId, UserId } from "./ids.js";
-import type { MediaType } from "./enums.js";
+import type { ActivityType, MediaType } from "./enums.js";
 import {
   MEDIA_FIELDS,
   MEDIA_DESCRIPTION_FIELD,
@@ -28,11 +29,6 @@ function encodeFuzzyDateInt(date?: {
 }): number | undefined {
   if (!date || date.year === undefined) return undefined;
   return date.year * 10000 + (date.month ?? 0) * 100 + (date.day ?? 0);
-}
-
-/** ISO 8601 datetime → unix seconds (floored), or undefined when unset. */
-function toUnixSeconds(iso?: string): number | undefined {
-  return iso === undefined ? undefined : Math.floor(Date.parse(iso) / 1000);
 }
 
 export async function searchMedia(
@@ -258,16 +254,15 @@ export async function searchThread(
 export async function searchActivity(
   ctx: AniListContext,
   user?: UserId | string,
-  type?: string,
+  type?: ActivityType,
   page = 1,
   perPage = 10,
   created: { after?: string; before?: string } = {},
 ): Promise<unknown> {
   const header = ctx.authHeader();
-  // `createdAt_greater`/`_lesser` take unix seconds and are both strict
-  // (confirmed live); the tool layer accepts ISO 8601 datetimes instead.
-  const createdAt_greater = toUnixSeconds(created.after);
-  const createdAt_lesser = toUnixSeconds(created.before);
+  // Same outward rounding as get_user_activity — see createdAtBounds().
+  const { createdAtGreater: createdAt_greater, createdAtLesser: createdAt_lesser } =
+    createdAtBounds({ createdAfter: created.after, createdBefore: created.before });
   // AniList's `activities` field only accepts a numeric `userId` filter, so a
   // username has a genuine data dependency (its numeric id must be known
   // before `activities(userId:...)` can even be built) and needs a separate

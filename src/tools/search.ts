@@ -15,6 +15,7 @@ import {
   paginationFields,
   personDescriptionField,
 } from "./outputSchemas.js";
+import { ACTIVITY_TYPES } from "../clients/anilist/enums.js";
 
 const FORMATS = [
   "TV",
@@ -30,7 +31,6 @@ const FORMATS = [
 ] as const;
 const STATUSES = ["FINISHED", "RELEASING", "NOT_YET_RELEASED", "CANCELLED", "HIATUS"] as const;
 const SEASONS = ["WINTER", "SPRING", "SUMMER", "FALL"] as const;
-const ACTIVITY_TYPES = ["TEXT", "ANIME_LIST", "MANGA_LIST", "MESSAGE", "MEDIA_LIST"] as const;
 const SOURCES = [
   "ORIGINAL",
   "MANGA",
@@ -572,9 +572,7 @@ export function registerSearchTools(server: McpServer, client: AniListClient): v
             "Restrict results to this AniList user — numeric ID or exact username (resolved " +
               "to an id with one extra internal lookup; no need to call search_user first " +
               "unless you only have a partial/fuzzy name). An unknown ID or username errors " +
-              "with not_found rather than silently returning an empty result. " +
-              "Use get_user_activity instead if you only need one user's feed without the " +
-              "type filter.",
+              "with not_found rather than silently returning an empty result.",
           ),
         type: z
           .enum(ACTIVITY_TYPES)

@@ -11,6 +11,7 @@ import {
   mediaTitleOut,
   favouriteOut,
   personDescriptionField,
+  paginationFields,
 } from "./outputSchemas.js";
 import { BIRTHDAY_KINDS } from "../clients/anilist/enums.js";
 
@@ -118,9 +119,10 @@ export function registerPeopleTools(server: McpServer, client: AniListClient): v
     {
       title: "Get today's birthday characters or staff",
       description:
-        "List AniList characters or staff members whose birthday (month/day) is today, up to " +
-        "50 results (a fixed cap, not paginated — entries beyond 50 are silently omitted, not " +
-        "an error). Returns character-shaped or staff-shaped objects for kind: CHARACTER/STAFF " +
+        "List AniList characters or staff members whose birthday (month/day) is today, most " +
+        "favourited first. Paginated — a single day can have well over a thousand entries, " +
+        "so check `hasNextPage` before treating a page as the full list. Returns " +
+        "character-shaped or staff-shaped objects for kind: CHARACTER/STAFF " +
         "respectively, but a lighter fetch than get_character/get_staff: it does NOT include " +
         "those tools' `media`/`staffMedia` filmography, nor each entry's bio (`description`) " +
         "unless you set `includeDescription` — call get_character/get_staff by ID for an " +
@@ -128,17 +130,19 @@ export function registerPeopleTools(server: McpServer, client: AniListClient): v
       inputSchema: z.object({
         kind: z.enum(BIRTHDAY_KINDS).describe("Whether to list characters or staff members."),
         includeDescription: personDescriptionField("get_character/get_staff"),
+        ...paginationFields(50),
       }),
       outputSchema: z.object({
         results: z.array(birthdayObject),
+        hasNextPage: z.boolean().nullish(),
       }),
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
-    ({ kind, includeDescription }) =>
+    ({ kind, includeDescription, page, perPage }) =>
       guard(async () =>
-        jsonResult({
-          results: await people.getTodaysBirthdays(client.ctx(), kind, includeDescription),
-        }),
+        jsonResult(
+          await people.getTodaysBirthdays(client.ctx(), kind, includeDescription, page, perPage),
+        ),
       ),
   );
 }

@@ -22,6 +22,13 @@ export function existsFragment(typeName: string, idVar: string, extraArgs?: stri
   return `exists:${typeName}(${args}){id}`;
 }
 
+// `status(version:2)`, not bare `status`: unversioned, AniList still answers
+// with its v1 enum, which has no HIATUS — confirmed live, Hunter×Hunter's
+// manga (30026) reads back RELEASING bare but HIATUS at version 2, even
+// though search_media's own `status_in: [HIATUS]` filter matches it. The
+// response key stays `status` either way (an argument, not an alias).
+export const MEDIA_STATUS_FIELD = `status(version:2)`;
+
 // Kept lean on purpose: search.ts/recommendation.ts return many media items
 // per call, so MEDIA_FIELDS excludes variable-length/rarely-needed fields
 // (tags can run 20-30 entries per title). get_media (single or few items)
@@ -34,7 +41,7 @@ export const MEDIA_FIELDS = `
   idMal
   type
   format
-  status
+  ${MEDIA_STATUS_FIELD}
   episodes
   chapters
   volumes
@@ -66,7 +73,7 @@ export const MEDIA_COMPACT_FIELDS = `
   idMal
   type
   format
-  status
+  ${MEDIA_STATUS_FIELD}
   episodes
   chapters
   title { romaji english }
@@ -111,7 +118,7 @@ export const MEDIA_STREAMING_EPISODES_FIELD = `streamingEpisodes { title thumbna
 
 // Kept lean on purpose, same reasoning as MEDIA_FIELDS above:
 // search_character/search_staff return up to 50 entries per call and
-// get_todays_birthdays up to 50, so `description` is excluded here and
+// get_todays_birthdays up to 50 per page, so `description` is excluded here and
 // appended separately — see PERSON_DESCRIPTION_FIELD below.
 export const CHARACTER_FIELDS = `
   id
@@ -205,10 +212,11 @@ export const USER_DESCRIPTION_FIELD = `about(asHtml: false)`;
  *  back the rest for reference, even though MediaListOptionsInput is
  *  confirmed live to be a partial merge server-side (unlike
  *  SaveMediaListEntry's advancedScores, which zeros omitted categories).
- *  `theme`'s read side (`MediaListTypeOptions.theme`) is a deprecated `Json`
- *  scalar (confirmed via introspection: "not yet fully implemented and may
- *  change without warning"), NOT the plain `String` the write side
- *  (`MediaListOptionsInput.theme`) takes — model it loosely, not as a string. */
+ *  `theme` is deliberately NOT selected: its read side
+ *  (`MediaListTypeOptions.theme`) is `@deprecated` in the live schema ("not
+ *  yet fully implemented and may change without warning") and an untyped
+ *  `Json` scalar rather than the `String` the write side takes, so echoing it
+ *  would only advertise a value AniList itself doesn't stand behind. */
 export const USER_DETAIL_FIELDS = `
   options {
     titleLanguage displayAdultContent airingNotifications profileColor timezone
@@ -219,8 +227,8 @@ export const USER_DETAIL_FIELDS = `
   mediaListOptions {
     scoreFormat
     rowOrder
-    animeList { sectionOrder splitCompletedSectionByFormat customLists advancedScoring advancedScoringEnabled theme }
-    mangaList { sectionOrder splitCompletedSectionByFormat customLists advancedScoring advancedScoringEnabled theme }
+    animeList { sectionOrder splitCompletedSectionByFormat customLists advancedScoring advancedScoringEnabled }
+    mangaList { sectionOrder splitCompletedSectionByFormat customLists advancedScoring advancedScoringEnabled }
   }
 `;
 

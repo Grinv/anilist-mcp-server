@@ -9,6 +9,7 @@ import {
   mediaId,
   recommendationId,
   paginationFields,
+  NESTED_MAX_PER_PAGE,
   mediaTitleOut,
 } from "./outputSchemas.js";
 
@@ -103,11 +104,12 @@ export function registerRecommendationTools(server: McpServer, client: AniListCl
         "List anime/manga AniList users recommend as similar to a given title, ranked by " +
         "rating (highest first). Use search_media first to resolve the title to its AniList " +
         "ID. Each result's `mediaRecommendation.mediaListEntry` (requires login) shows whether " +
-        "it's already on your own list — set `excludeInList: true` to filter those out " +
-        "server-side instead of checking each one yourself.",
+        "it's already on your own list — set `excludeInList: true` to drop those from the " +
+        "fetched page instead of checking each one yourself (a local post-fetch filter: " +
+        "AniList's own `onList` filter applies to the source title, not the recommended one).",
       inputSchema: z.object({
         mediaId: mediaId.describe("AniList ID of the anime/manga to get recommendations for."),
-        ...paginationFields(10),
+        ...paginationFields(10, NESTED_MAX_PER_PAGE),
         excludeInList: z
           .boolean()
           .default(false)

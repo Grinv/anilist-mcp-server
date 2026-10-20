@@ -58,10 +58,13 @@ export const deleteToolAnnotations = {
 
 /** The `page`/`perPage` pair every `Page`-based tool takes, spread into that
  *  tool's own `inputSchema` object (e.g. `z.object({ ...paginationFields(10),
- *  otherField: ... })`) — only `perPage`'s default varies per tool. Not used
+ *  otherField: ... })`) — only `perPage`'s default and ceiling vary per tool.
+ *  `maxPerPage` defaults to 50 (a top-level `Page` connection's ceiling);
+ *  pass `NESTED_MAX_PER_PAGE` for a connection nested under a single object
+ *  (`Media.characters`/`staff`/`reviews`/`recommendations`). Not used
  *  by `get_site_statistics`: its `perPage` describes a different cap
  *  (AniList's own, not this schema's) and needs its own wording. */
-export const paginationFields = (defaultPerPage: number) => ({
+export const paginationFields = (defaultPerPage: number, maxPerPage = 50) => ({
   page: z
     .int()
     .positive()
@@ -82,12 +85,21 @@ export const paginationFields = (defaultPerPage: number) => ({
   perPage: z
     .int()
     .positive()
-    .max(50)
+    .max(maxPerPage)
     .default(defaultPerPage)
     .describe(
-      "Results per page (max 50, AniList's own ceiling — it silently clamps anything higher).",
+      `Results per page (max ${maxPerPage}, AniList's own ceiling — it silently clamps ` +
+        "anything higher).",
     ),
 });
+
+/** The ceiling on a connection nested under a single object rather than a
+ *  top-level `Page`: confirmed live that `Media.characters`, `.staff`,
+ *  `.reviews` and `.recommendations` all report `pageInfo.perPage: 25` when
+ *  asked for 50 (the schema's own `perPage` description on these says "max
+ *  25"). Advertising 50 there would hand back half a page with
+ *  `hasNextPage: true` and no hint why. */
+export const NESTED_MAX_PER_PAGE = 25;
 
 /** The `includeDescription` opt-in shared by the three multi-entry
  *  character/staff tools (search_character, search_staff,

@@ -38,6 +38,9 @@ export async function getRecommendationsForMedia(
   );
   const { recommendations } = assertFound(data.Media, `No anime/manga found with ID ${mediaId}.`);
   if (!excludeInList) return recommendations;
+  // Local, not server-side: AniList's `Page.recommendations(onList:)` filters
+  // by whether the SOURCE title is on the viewer's list, not the recommended
+  // one (confirmed live), so there's no upstream argument that does this.
   return {
     ...recommendations,
     nodes: (recommendations.nodes ?? []).filter((n) => !n.mediaRecommendation?.mediaListEntry),

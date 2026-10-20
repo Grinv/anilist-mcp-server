@@ -61,9 +61,9 @@ const mediaListOptionsInput = z
       .optional()
       .describe(
         "List-page color theme name. AniList itself marks this field experimental " +
-          "('not yet fully implemented, may change without warning') — its read-back shape " +
-          "(see get_user_profile/get_full_user_info/get_authorized_user/update_user's own " +
-          "response) is an untyped value, not guaranteed to be the string you set.",
+          "('not yet fully implemented, may change without warning') and deprecates its " +
+          "read side, so no tool here reads it back — not even update_user's own response — " +
+          "and a change to it can't be verified through this server.",
       ),
   })
   .optional();
@@ -75,10 +75,8 @@ const mediaListTypeOptions = z
     customLists: z.array(z.string()).nullish(),
     advancedScoring: z.array(z.string()).nullish(),
     advancedScoringEnabled: z.boolean().nullish(),
-    // Read side (`MediaListTypeOptions.theme`) is a deprecated, untyped
-    // `Json` scalar (confirmed via introspection) — NOT the plain `String`
-    // the write side takes, so it can't be modeled as `z.string()`.
-    theme: z.json().nullish(),
+    // No `theme`: its read side is @deprecated upstream and no longer
+    // selected (see fields.ts's USER_DETAIL_FIELDS).
   })
   .loose();
 

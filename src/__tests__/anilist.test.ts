@@ -1435,7 +1435,9 @@ test("search/birthday/user queries only request a bio when the caller opts in", 
   const queries: string[] = [];
   const mock = mockFetch((_url, init) => {
     queries.push((JSON.parse(init?.body as string) as { query: string }).query);
-    return jsonResponse({ data: { Page: { characters: [], staff: [], users: [] } } });
+    return jsonResponse({
+      data: { Page: { pageInfo: { hasNextPage: false }, characters: [], staff: [], users: [] } },
+    });
   });
   installFetch(t, mock);
   const client = new AniListClient(testConfig({}), silentLogger());

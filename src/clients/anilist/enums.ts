@@ -138,3 +138,24 @@ export type FavouriteKind = (typeof FAVOURITE_KINDS)[number];
 /** get_todays_birthdays operates on characters or staff. */
 export const BIRTHDAY_KINDS = ["CHARACTER", "STAFF"] as const;
 export type BirthdayKind = (typeof BIRTHDAY_KINDS)[number];
+
+/** AniList's `StaffLanguage` enum (confirmed via introspection), used by
+ *  get_media_characters' `voiceActorLanguage` → `voiceActors(language:)`. */
+export const STAFF_LANGUAGES = [
+  "JAPANESE",
+  "ENGLISH",
+  "KOREAN",
+  "ITALIAN",
+  "SPANISH",
+  "PORTUGUESE",
+  "FRENCH",
+  "GERMAN",
+  "HEBREW",
+  "HUNGARIAN",
+] as const;
+export type StaffLanguage = (typeof STAFF_LANGUAGES)[number];
+
+/** AniList's `CharacterRole` enum (confirmed via introspection), used by
+ *  get_media_characters' `role` filter. */
+export const CHARACTER_ROLES = ["MAIN", "SUPPORTING", "BACKGROUND"] as const;
+export type CharacterRole = (typeof CHARACTER_ROLES)[number];

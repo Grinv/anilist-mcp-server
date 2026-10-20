@@ -1,7 +1,7 @@
 import type { AniListContext } from "./context.js";
 import { assertFound } from "../../lib/errors.js";
 import type { MediaId, MalId } from "./ids.js";
-import type { MediaType } from "./enums.js";
+import type { MediaType, StaffLanguage, CharacterRole } from "./enums.js";
 export type MediaFormat = "compact" | "full";
 
 import {
@@ -115,26 +115,44 @@ export async function getMediaStatistics(
   return assertFound(data.Media, `No anime/manga found with ID ${id}.`).stats;
 }
 
+export interface MediaCharactersOptions {
+  /** Forwarded as `voiceActors(language:)`. Omitted → every dub language. */
+  voiceActorLanguage?: StaffLanguage;
+  /** Forwarded as `characters(role:)`. Omitted → every role. */
+  role?: CharacterRole;
+}
+
 export async function getMediaCharacters(
   ctx: AniListContext,
   type: MediaType,
   id: MediaId,
   page = 1,
   perPage = 25,
+  opts: MediaCharactersOptions = {},
 ): Promise<unknown> {
-  const query = `query($id:Int,$type:MediaType,$page:Int,$perPage:Int){Media(id:$id,type:$type){
-    characters(page:$page,perPage:$perPage){
+  // sort:[ROLE,RELEVANCE,ID]: role groups, AniList's own relevance ranking
+  // within each, id as a stable tiebreak. Without it AniList returns no
+  // meaningful order at all (confirmed
+  // live: Attack on Titan's first page led with a BACKGROUND "Narrator"
+  // ahead of its MAIN cast) — with it, MAIN comes first, then SUPPORTING,
+  // then BACKGROUND, most prominent first within each. `voiceActors`
+  // unfiltered returns every dub (8 languages for most of AoT's main cast,
+  // confirmed live), so `language` is the caller's way to keep that small.
+  // Both `$language` and `$role` are plain variables: a null one is the same
+  // as omitting the argument, so the defaults stay "all".
+  const query = `query($id:Int,$type:MediaType,$page:Int,$perPage:Int,$language:StaffLanguage,$role:CharacterRole){Media(id:$id,type:$type){
+    characters(page:$page,perPage:$perPage,sort:[ROLE,RELEVANCE,ID],role:$role){
       pageInfo{hasNextPage}
       edges{
         role
-        voiceActors{id name{full} languageV2}
+        voiceActors(language:$language,sort:[RELEVANCE,ID]){id name{full} languageV2}
         node{id name{full native} siteUrl}
       }
     }
   }}`;
   const data = await ctx.gql.request<{ Media: { characters: unknown } | null }>(
     query,
-    { id, type, page, perPage },
+    { id, type, page, perPage, language: opts.voiceActorLanguage, role: opts.role },
     ctx.authHeader(),
   );
   return assertFound(data.Media, `No anime/manga found with ID ${id}.`).characters;
@@ -191,9 +209,15 @@ export async function getMediaRelations(
   type: MediaType,
   id: MediaId,
 ): Promise<unknown> {
+  // relationType(version:3), not bare: unversioned, AniList answers with
+  // its v1 enum — confirmed live, Attack on Titan's (16498) link to its
+  // manga reads ADAPTATION bare but SOURCE at version 3, and v1 never emits
+  // SOURCE/COMPILATION/CONTAINS (version 2+) or SAME_UNIVERSE (version 3
+  // only, the highest the schema documents). Response key stays
+  // `relationType`.
   const query = `query($id:Int,$type:MediaType){Media(id:$id,type:$type){
     relations{
-      edges{relationType node{id type format title{romaji english} siteUrl}}
+      edges{relationType(version:3) node{id type format title{romaji english} siteUrl}}
     }
   }}`;
   const data = await ctx.gql.request<{ Media: { relations: unknown } | null }>(
@@ -204,12 +228,20 @@ export async function getMediaRelations(
   return assertFound(data.Media, `No anime/manga found with ID ${id}.`).relations;
 }
 
+export interface ScheduleWindow {
+  /** Unix seconds; forwarded as `airingAt_greater`. */
+  airingAfter?: number;
+  /** Unix seconds; forwarded as `airingAt_lesser`. */
+  airingBefore?: number;
+}
+
 export async function getSchedule(
   ctx: AniListContext,
   mediaId?: MediaId,
-  notYetAired = true,
+  notYetAired?: boolean,
   page = 1,
   perPage = 25,
+  window: ScheduleWindow = {},
 ): Promise<{ schedule: unknown; hasNextPage: boolean | null }> {
   // airingSchedules(mediaId) doesn't error on a bad mediaId (see
   // docs/api-references.md's "Page connection filtered by a parent id"
@@ -220,11 +252,18 @@ export async function getSchedule(
   // check and just return an empty schedule instead of erroring (confirmed
   // live).
   const existsField = mediaId !== undefined ? existsFragment("Media", "mediaId", "type:ANIME") : "";
-  const query = `query($mediaId:Int,$notYetAired:Boolean,$page:Int,$perPage:Int){
+  // notYetAired is ANDed with the airingAt window upstream (confirmed live: a
+  // ±1-day window returned 29 entries unfiltered, only the 12 future ones
+  // with notYetAired:true). So its "upcoming only" default applies only when
+  // no window is given — otherwise a window spanning now would silently lose
+  // its already-aired half, and one wholly in the past would come back empty.
+  const hasWindow = window.airingAfter !== undefined || window.airingBefore !== undefined;
+  const effectiveNotYetAired = notYetAired ?? (hasWindow ? undefined : true);
+  const query = `query($mediaId:Int,$notYetAired:Boolean,$page:Int,$perPage:Int,$after:Int,$before:Int){
     ${existsField}
     schedule:Page(page:$page,perPage:$perPage){
       pageInfo{hasNextPage}
-      airingSchedules(mediaId:$mediaId,notYetAired:$notYetAired,sort:TIME){
+      airingSchedules(mediaId:$mediaId,notYetAired:$notYetAired,airingAt_greater:$after,airingAt_lesser:$before,sort:TIME){
         airingAt timeUntilAiring episode media{id title{romaji english} siteUrl}
       }
     }
@@ -232,7 +271,18 @@ export async function getSchedule(
   const data = await ctx.gql.request<{
     exists?: { id: number } | null;
     schedule: { pageInfo: { hasNextPage: boolean | null }; airingSchedules: unknown };
-  }>(query, { mediaId, notYetAired, page, perPage }, ctx.authHeader());
+  }>(
+    query,
+    {
+      mediaId,
+      notYetAired: effectiveNotYetAired,
+      page,
+      perPage,
+      after: window.airingAfter,
+      before: window.airingBefore,
+    },
+    ctx.authHeader(),
+  );
   if (mediaId !== undefined) assertFound(data.exists, `No anime found with ID ${mediaId}.`);
   return {
     schedule: data.schedule.airingSchedules,

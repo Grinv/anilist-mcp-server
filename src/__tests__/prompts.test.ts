@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { connectServer } from "./helpers.js";
+import { currentSeason } from "../prompts.js";
 
 function textOf(result: { messages: { content: { type: string; text?: string } }[] }): string {
   return result.messages[0]!.content.text!;
@@ -20,13 +21,54 @@ test("all 5 prompts are registered", async (t) => {
   ]);
 });
 
-test("seasonal_overview: no season/year given filters to RELEASING (defines 'current season')", async (t) => {
+test("seasonal_overview: no season/year given pins the actual current season+year, not RELEASING", async (t) => {
+  // Regression: `status_in: ["RELEASING"]` also matched long-running shows
+  // from earlier seasons and missed this season's not-yet-premiered titles.
+  t.mock.timers.enable({ apis: ["Date"], now: Date.UTC(2026, 9, 20) });
   const { client, close } = await connectServer({});
   t.after(close);
-  const result = await client.getPrompt({ name: "seasonal_overview", arguments: {} });
-  const text = textOf(result);
-  assert.match(text, /status_in: \["RELEASING"\]/);
-  assert.ok(!text.includes("seasonYear"), "no season/year given must not add season args");
+  const text = textOf(await client.getPrompt({ name: "seasonal_overview", arguments: {} }));
+  assert.match(text, /season: "FALL", seasonYear: 2026/);
+  assert.ok(!text.includes("RELEASING"), "must not fall back to a status filter");
+});
+
+test("seasonal_overview: every argument combination asks for a popularity-sorted, 25-title page", async (t) => {
+  // Regression: without an explicit sort, a term-less search_media browses in
+  // AniList's default id order (10 per page), so the model was told to pick
+  // "highlights" out of the season's 10 lowest-id titles.
+  const { client, close } = await connectServer({});
+  t.after(close);
+  const cases: Record<string, string>[] = [
+    {},
+    { season: "SPRING" },
+    { year: "2020" },
+    { season: "WINTER", year: "2020" },
+  ];
+  for (const args of cases) {
+    const text = textOf(await client.getPrompt({ name: "seasonal_overview", arguments: args }));
+    assert.match(text, /sort: \["POPULARITY_DESC"\]/, JSON.stringify(args));
+    assert.match(text, /perPage: 25/, JSON.stringify(args));
+  }
+  // One of season/year alone stays an independent filter (not "current season").
+  const yearOnly = textOf(
+    await client.getPrompt({ name: "seasonal_overview", arguments: { year: "2020" } }),
+  );
+  assert.match(yearOnly, /type: "ANIME", seasonYear: 2020, sort/);
+  const seasonOnly = textOf(
+    await client.getPrompt({ name: "seasonal_overview", arguments: { season: "SPRING" } }),
+  );
+  assert.match(seasonOnly, /type: "ANIME", season: "SPRING", sort/);
+});
+
+test("currentSeason maps calendar quarters (UTC) onto AniList's MediaSeason", () => {
+  const at = (iso: string) => currentSeason(new Date(iso));
+  assert.deepEqual(at("2026-01-01T00:00:00Z"), { season: "WINTER", year: 2026 });
+  assert.deepEqual(at("2026-03-31T23:59:59Z"), { season: "WINTER", year: 2026 });
+  assert.deepEqual(at("2026-04-01T00:00:00Z"), { season: "SPRING", year: 2026 });
+  assert.deepEqual(at("2026-07-15T00:00:00Z"), { season: "SUMMER", year: 2026 });
+  assert.deepEqual(at("2026-12-31T23:59:59Z"), { season: "FALL", year: 2026 });
+  // UTC, not local time: this instant is already 2027 in Tokyo.
+  assert.deepEqual(at("2026-12-31T20:00:00Z"), { season: "FALL", year: 2026 });
 });
 
 test("seasonal_overview: an explicit past/future season+year must NOT filter to RELEASING", async (t) => {

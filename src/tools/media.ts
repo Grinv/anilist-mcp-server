@@ -3,7 +3,7 @@ import type { McpServer } from "@modelcontextprotocol/server";
 import type { AniListClient } from "../clients/anilist.js";
 import * as media from "../clients/anilist/media.js";
 import * as favourites from "../clients/anilist/favourites.js";
-import { FAVOURITE_KINDS } from "../clients/anilist/enums.js";
+import { FAVOURITE_KINDS, STAFF_LANGUAGES, CHARACTER_ROLES } from "../clients/anilist/enums.js";
 import { jsonResult } from "../lib/result.js";
 import { guard } from "./guard.js";
 import { ApiError } from "../lib/errors.js";
@@ -18,6 +18,7 @@ import {
   mediaId,
   malId,
   paginationFields,
+  NESTED_MAX_PER_PAGE,
   mediaTitleOut,
   favouriteOut,
   communityScoreOut,
@@ -92,6 +93,14 @@ async function fetchByEitherId(
   return ids === undefined
     ? media.getMediaByMalId(client.ctx(), type, malIds!, includeStreamingEpisodes, format)
     : media.getMedia(client.ctx(), type, ids, includeStreamingEpisodes, format);
+}
+
+/** AniList's `airingAt` filters take unix seconds; the schema already
+ *  guarantees a parseable ISO 8601 string with an explicit offset, so
+ *  Date.parse() can't come back NaN here. Floored, since `airingAt` is an
+ *  `Int` and a fractional-second input would otherwise be rejected. */
+function toUnixSeconds(iso: string | undefined): number | undefined {
+  return iso === undefined ? undefined : Math.floor(Date.parse(iso) / 1000);
 }
 
 /** MEDIA_FIELDS(+MEDIA_DETAIL_FIELDS) — only `id` is guaranteed; every other
@@ -484,24 +493,40 @@ export function registerMediaTools(server: McpServer, client: AniListClient): vo
     {
       title: "Get an anime/manga's characters",
       description:
-        "List an anime/manga's characters with their role (Main/Supporting/Background) and, " +
-        "for anime, Japanese voice actors. Use search_media first to resolve a title to its " +
-        "AniList ID. No explicit ordering is requested — don't assume results are grouped by " +
-        "role or sorted by popularity (unlike get_character/get_staff's reverse-direction " +
-        "lookup, which IS popularity-sorted); confirmed live, a Main-role character can appear " +
-        "well after several Supporting ones.",
+        "List an anime/manga's characters with their role (MAIN/SUPPORTING/BACKGROUND) and, " +
+        "for anime, their voice actors. Use search_media first to resolve a title to its " +
+        "AniList ID. Grouped by role — MAIN first, then SUPPORTING, then BACKGROUND " +
+        "(confirmed live) — and in AniList's own relevance order within each. Voice actors come " +
+        "back in every dub language unless you set `voiceActorLanguage`; set `role` to list " +
+        "only one role (e.g. just the MAIN cast).",
       inputSchema: z.object({
         type: mediaType,
         id: mediaId.describe("AniList ID."),
-        ...paginationFields(25),
+        ...paginationFields(25, NESTED_MAX_PER_PAGE),
+        voiceActorLanguage: z
+          .enum(STAFF_LANGUAGES)
+          .optional()
+          .describe(
+            "Only return voice actors for this dub language (e.g. JAPANESE for the original " +
+              "cast, ENGLISH for the English dub). Omit for every language — AniList then " +
+              "returns all dubs per character (8 for most of Attack on Titan's main cast), " +
+              "which multiplies the response size.",
+          ),
+        role: z
+          .enum(CHARACTER_ROLES)
+          .optional()
+          .describe("Only return characters with this role. Omit for every role."),
       }),
       outputSchema: z.object({ characters: charactersConnection }),
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
-    ({ type, id, page, perPage }) =>
+    ({ type, id, page, perPage, voiceActorLanguage, role }) =>
       guard(async () =>
         jsonResult({
-          characters: await media.getMediaCharacters(client.ctx(), type, id, page, perPage),
+          characters: await media.getMediaCharacters(client.ctx(), type, id, page, perPage, {
+            voiceActorLanguage,
+            role,
+          }),
         }),
       ),
   );
@@ -519,7 +544,7 @@ export function registerMediaTools(server: McpServer, client: AniListClient): vo
       inputSchema: z.object({
         type: mediaType,
         id: mediaId.describe("AniList ID."),
-        ...paginationFields(25),
+        ...paginationFields(25, NESTED_MAX_PER_PAGE),
       }),
       outputSchema: z.object({ staff: staffConnection }),
       annotations: { readOnlyHint: true, openWorldHint: true },
@@ -543,7 +568,7 @@ export function registerMediaTools(server: McpServer, client: AniListClient): vo
       inputSchema: z.object({
         type: mediaType,
         id: mediaId.describe("AniList ID."),
-        ...paginationFields(10),
+        ...paginationFields(10, NESTED_MAX_PER_PAGE),
         includeBody: z
           .boolean()
           .default(false)
@@ -565,9 +590,11 @@ export function registerMediaTools(server: McpServer, client: AniListClient): vo
     {
       title: "Get a title's related media",
       description:
-        "Get the anime/manga related to a given title (prequels, sequels, side stories, " +
-        "adaptations, spin-offs) with the relation type. Use search_media first to resolve a " +
-        "title to its AniList ID.",
+        "Get the anime/manga related to a given title, each with its `relationType`: " +
+        "PREQUEL, SEQUEL, PARENT, SIDE_STORY, SPIN_OFF, ALTERNATIVE, SUMMARY, CHARACTER, " +
+        "ADAPTATION (this title adapted into another format), SOURCE (the material this title " +
+        "was adapted from), COMPILATION, CONTAINS, SAME_UNIVERSE or OTHER. Use search_media " +
+        "first to resolve a title to its AniList ID.",
       inputSchema: z.object({
         type: mediaType,
         id: mediaId.describe("AniList anime/manga ID."),
@@ -588,7 +615,9 @@ export function registerMediaTools(server: McpServer, client: AniListClient): vo
       description:
         "Get upcoming (or a specific title's) episode air times, soonest-airing first " +
         "(confirmed live). Omit `mediaId` for the site-wide upcoming schedule, or pass it " +
-        "(from search_media/get_media) to get one title's next-episode air time. Anime only " +
+        "(from search_media/get_media) to get one title's next-episode air time. Set " +
+        "`airingAfter`/`airingBefore` for a date window instead (e.g. what airs this week, " +
+        "or what aired yesterday). Anime only " +
         "— manga has no airing schedule; a manga id (like any non-anime id) is rejected as " +
         "not-found rather than silently returning an empty schedule, though that error reads the " +
         "same as a nonexistent id and doesn't single out the manga/anime mismatch.",
@@ -596,11 +625,27 @@ export function registerMediaTools(server: McpServer, client: AniListClient): vo
         mediaId: mediaId.optional().describe("Restrict to this AniList anime ID (not manga)."),
         notYetAired: z
           .boolean()
-          .default(true)
+          .optional()
           .describe(
-            "Set false to instead list only already-aired episodes (confirmed live: this " +
-              "swaps to a past-only result set, it doesn't add past episodes to the " +
-              "still-upcoming ones).",
+            "true: only not-yet-aired episodes; false: only already-aired ones (confirmed " +
+              "live: false swaps to a past-only result set, it doesn't add past episodes to " +
+              "the upcoming ones). Omitted, it defaults to true — unless `airingAfter`/" +
+              "`airingBefore` is set, in which case the window alone decides, so a window " +
+              "spanning now returns both aired and upcoming episodes.",
+          ),
+        airingAfter: z.iso
+          .datetime({ offset: true })
+          .optional()
+          .describe(
+            "Only episodes airing after this instant — ISO 8601 with a timezone, e.g. " +
+              '"2026-10-20T00:00:00Z" or "2026-10-20T09:00:00+09:00".',
+          ),
+        airingBefore: z.iso
+          .datetime({ offset: true })
+          .optional()
+          .describe(
+            "Only episodes airing before this instant (same format as `airingAfter`). Pair " +
+              "the two for a window, e.g. this week's episodes.",
           ),
         ...paginationFields(25),
       }),
@@ -610,9 +655,14 @@ export function registerMediaTools(server: McpServer, client: AniListClient): vo
       }),
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
-    ({ mediaId, notYetAired, page, perPage }) =>
+    ({ mediaId, notYetAired, airingAfter, airingBefore, page, perPage }) =>
       guard(async () =>
-        jsonResult(await media.getSchedule(client.ctx(), mediaId, notYetAired, page, perPage)),
+        jsonResult(
+          await media.getSchedule(client.ctx(), mediaId, notYetAired, page, perPage, {
+            airingAfter: toUnixSeconds(airingAfter),
+            airingBefore: toUnixSeconds(airingBefore),
+          }),
+        ),
       ),
   );
 

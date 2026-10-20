@@ -8,6 +8,18 @@ import type { McpServer } from "@modelcontextprotocol/server";
 // Prompt arguments always arrive as strings over MCP (there's no argument
 // JSON-Schema, only name/description/required) — z.string()/z.enum() only.
 
+type Season = "WINTER" | "SPRING" | "SUMMER" | "FALL";
+
+/** AniList's `MediaSeason` for a date: the quarter a title "predominantly
+ *  started airing" in, per the live schema's enum descriptions — WINTER
+ *  Jan-Mar, SPRING Apr-Jun, SUMMER Jul-Sep, FALL Oct-Dec. UTC, so the result
+ *  doesn't depend on the host's timezone (AniList's own seasons are fixed
+ *  calendar months, not a local-time notion). Exported for tests. */
+export function currentSeason(now: Date): { season: Season; year: number } {
+  const seasons = ["WINTER", "SPRING", "SUMMER", "FALL"] as const;
+  return { season: seasons[Math.floor(now.getUTCMonth() / 3)]!, year: now.getUTCFullYear() };
+}
+
 export function registerPrompts(server: McpServer): void {
   server.registerPrompt(
     "recommend_similar",
@@ -65,6 +77,11 @@ export function registerPrompts(server: McpServer): void {
       // live — see docs/api-references.md) — support either alone, not just
       // both together, so e.g. `year: "2020"` with no season doesn't get
       // silently dropped in favor of "the current season".
+      // With neither given, pin the actual current season+year rather than
+      // `status_in: ["RELEASING"]`: RELEASING also matches every long-running
+      // show still airing from earlier seasons, and misses this season's
+      // titles that haven't premiered yet — not what "this season" means.
+      const current = season || year ? undefined : currentSeason(new Date());
       const which =
         season && year
           ? `the ${season} ${year} season`
@@ -72,15 +89,14 @@ export function registerPrompts(server: McpServer): void {
             ? `the ${season} season (across all years)`
             : year
               ? `the ${year} season (any season within that year)`
-              : "the current season";
-      // status_in: ["RELEASING"] only makes sense when neither is given (no
-      // way to pin a season/year otherwise) — a past season's/year's titles
-      // are long since FINISHED, so filtering to RELEASING there would
-      // return nothing.
-      const filterParts = [season && `season: "${season}"`, year && `seasonYear: ${year}`].filter(
-        Boolean,
-      );
-      const filters = filterParts.length ? filterParts.join(", ") : `status_in: ["RELEASING"]`;
+              : `the current season (${current!.season} ${current!.year})`;
+      const filterParts = current
+        ? [`season: "${current.season}"`, `seasonYear: ${current.year}`]
+        : [season && `season: "${season}"`, year && `seasonYear: ${year}`].filter(Boolean);
+      // sort + perPage are load-bearing (same reason as hidden_gems below): a
+      // term-less search_media with no sort browses in AniList's default id
+      // order, 10 per page — so "pick the highlights" would mean picking from
+      // the 10 oldest-id titles of the season, not its notable ones.
       return {
         messages: [
           {
@@ -89,8 +105,11 @@ export function registerPrompts(server: McpServer): void {
               type: "text" as const,
               text:
                 `Give an overview of ${which} in anime.\n` +
-                `Call search_media with type: "ANIME", ${filters}, then group the results into ` +
-                `highlights (highest average score / most popular) and notable genres. Keep it concise.`,
+                `Call search_media with type: "ANIME", ${filterParts.join(", ")}, ` +
+                `sort: ["POPULARITY_DESC"] and perPage: 25 (the sort matters: without one, ` +
+                `search_media browses AniList's default id order), then group the results ` +
+                `into highlights (highest average score / most popular) and notable genres. ` +
+                `Keep it concise.`,
             },
           },
         ],

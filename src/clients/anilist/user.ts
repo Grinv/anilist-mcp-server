@@ -155,8 +155,8 @@ export async function updateUser(ctx: AniListContext, fields: UpdateUserFields):
       mediaListOptions{
         scoreFormat
         rowOrder
-        animeList{sectionOrder splitCompletedSectionByFormat customLists advancedScoring advancedScoringEnabled theme}
-        mangaList{sectionOrder splitCompletedSectionByFormat customLists advancedScoring advancedScoringEnabled theme}
+        animeList{sectionOrder splitCompletedSectionByFormat customLists advancedScoring advancedScoringEnabled}
+        mangaList{sectionOrder splitCompletedSectionByFormat customLists advancedScoring advancedScoringEnabled}
       }
     }
   }`;

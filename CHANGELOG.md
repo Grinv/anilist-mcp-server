@@ -13,10 +13,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Add `sort` to `get_user_list`, ordering entries server-side (within each status group). [886a06e](https://github.com/Grinv/anilist-mcp-server/commit/886a06e)
 - Add `voiceActorLanguage` and `role` to `get_media_characters`, and `airingAfter`/`airingBefore` to `get_anime_schedule`. [7117ab2](https://github.com/Grinv/anilist-mcp-server/commit/7117ab2)
 - Add pagination to `get_todays_birthdays`, sorted by favourites; it previously dropped everyone past the first 50. [7117ab2](https://github.com/Grinv/anilist-mcp-server/commit/7117ab2)
+- Add `startedAt_*`/`completedAt_*` bounds to `get_user_list`, so "what did they finish in 2026" is one server-side call. [459f7a9](https://github.com/Grinv/anilist-mcp-server/commit/459f7a9)
+- Add `isAdult` to `search_media` for adult-only results (`sfw: true` still excludes them), and `isFollowing` to `search_activity` for the followed-users feed. [6325506](https://github.com/Grinv/anilist-mcp-server/commit/6325506)
+- Accept a list of types in `search_activity`/`get_user_activity`'s `type`. [6325506](https://github.com/Grinv/anilist-mcp-server/commit/6325506)
+- Add `credits: "voice"` to `get_staff`, returning a voice actor's roles; production credits never included them. [2895326](https://github.com/Grinv/anilist-mcp-server/commit/2895326)
 
 ### Changed
 
-- Rename the display name to "AniList MCP Server (Unofficial)", as AniList's naming guidelines require; the package name is unchanged.
+- Rename the display name to "AniList MCP Server (Unofficial)", as AniList's naming guidelines require; the package name is unchanged. [9545ada](https://github.com/Grinv/anilist-mcp-server/commit/9545ada)
 - Update `@modelcontextprotocol/server`/`client` to 2.3.1, which fixes several security advisories (GHSA-jm63-cq47-j5jp, GHSA-46jr-4wx8-v453). [f042f57](https://github.com/Grinv/anilist-mcp-server/commit/f042f57)
 - Update zod to 4.6.7. An over-long `ids`/`malIds` batch in `get_media` now reports the tool's own "up to 50 IDs" message instead of Zod's generic "Too big". [f042f57](https://github.com/Grinv/anilist-mcp-server/commit/f042f57)
 - `get_media_characters` lists main characters first; `search_thread` without a term lists the most recently replied-to threads, not the oldest. [7117ab2](https://github.com/Grinv/anilist-mcp-server/commit/7117ab2), [3df0b9a](https://github.com/Grinv/anilist-mcp-server/commit/3df0b9a)
@@ -27,6 +31,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- Paginate `get_character`/`get_staff`/`get_studio` filmographies (with `type`, `onList`, and `isMain` for studios); they silently stopped at 25 or 10 titles. [ddd7a6f](https://github.com/Grinv/anilist-mcp-server/commit/ddd7a6f)
 - Fix titles on hiatus being reported as `RELEASING`, and relations missing `SOURCE`/`COMPILATION`/`CONTAINS`/`SAME_UNIVERSE`: both now use AniList's current enum versions. [7117ab2](https://github.com/Grinv/anilist-mcp-server/commit/7117ab2)
 - Cap `perPage` at 25 on `get_media_characters`/`staff`/`reviews` and `get_recommendations_for_media`, AniList's real limit there; they advertised 50. [7117ab2](https://github.com/Grinv/anilist-mcp-server/commit/7117ab2)
 - Correct `get_recommendations_for_media`: `excludeInList` filters each fetched page locally, so a page can come back short. [7117ab2](https://github.com/Grinv/anilist-mcp-server/commit/7117ab2)

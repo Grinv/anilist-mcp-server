@@ -615,7 +615,7 @@ export function registerMediaTools(server: McpServer, client: AniListClient): vo
       title: "Get the anime airing schedule",
       description:
         "Get upcoming (or a specific title's) episode air times, soonest-airing first " +
-        "(confirmed live). Omit `mediaId` for the site-wide upcoming schedule, or pass it " +
+        "(confirmed live) — or, with `notYetAired: false`, already-aired ones newest first. Omit `mediaId` for the site-wide upcoming schedule, or pass it " +
         "(from search_media/get_media) to get one title's next-episode air time. Set " +
         "`airingAfter`/`airingBefore` for a date window instead (e.g. what airs this week, " +
         "or what aired yesterday). Anime only " +

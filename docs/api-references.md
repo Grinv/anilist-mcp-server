@@ -417,7 +417,8 @@ disabled list activity options (6 required)`. Worse: that rejection
     a bare `500 Internal Server Error` — not the structured 400
     validation shape described above, and confirmed to leave the account
     completely unchanged (not a partial-apply case). Always send an
-    explicit `true`/`false` for every entry of both arrays.
+    explicit `true`/`false` for every entry of both arrays — `update_user`
+    makes both booleans required client-side for this reason.
 - **`animeListOptions`/`mangaListOptions` (`MediaListOptionsInput`: `{
 sectionOrder, splitCompletedSectionByFormat, customLists, advancedScoring,
 advancedScoringEnabled, theme }`) is a true partial merge, not full-replace**

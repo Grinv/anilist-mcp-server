@@ -96,12 +96,12 @@ export interface MediaListOptionsFieldsInput {
 
 export interface NotificationOptionFieldInput {
   type: NotificationType;
-  enabled?: boolean;
+  enabled: boolean;
 }
 
 export interface ListActivityOptionFieldInput {
   type: MediaListStatus;
-  disabled?: boolean;
+  disabled: boolean;
 }
 
 export interface UpdateUserFields {

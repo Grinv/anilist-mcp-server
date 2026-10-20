@@ -428,15 +428,9 @@ export function registerUserTools(server: McpServer, client: AniListClient): voi
             .array(
               z.object({
                 type: z.enum(NOTIFICATION_TYPES).describe("Notification type to configure."),
-                enabled: z
-                  .boolean()
-                  .optional()
-                  .describe(
-                    "Whether this notification type is on. Optional per entry, but not really — " +
-                      "omitting it doesn't error and doesn't inherit the previous value either; " +
-                      `confirmed live it's written as \`enabled: null\`, effectively unsetting the ` +
-                      `type. Always pass an explicit true/false for every one of the ${NOTIFICATION_TYPES.length} types.`,
-                  ),
+                // Required on purpose: AniList accepts an omitted `enabled` but
+                // writes it as null, silently unsetting the type (confirmed live).
+                enabled: z.boolean().describe("Whether this notification type is on."),
               }),
             )
             .refine(
@@ -490,16 +484,11 @@ export function registerUserTools(server: McpServer, client: AniListClient): voi
             .array(
               z.object({
                 type: z.enum(MEDIA_LIST_STATUSES).describe("List status this toggle applies to."),
+                // Required on purpose: an omitted `disabled` on even one status
+                // makes AniList fail the whole call with a 500 (confirmed live).
                 disabled: z
                   .boolean()
-                  .optional()
-                  .describe(
-                    "Whether posting activity for this status is suppressed. Optional in the " +
-                      "schema, but NOT safe to omit: confirmed live, leaving it out on even one " +
-                      `of the ${MEDIA_LIST_STATUSES.length} statuses makes the whole call fail with a 500 Internal Server ` +
-                      "Error on AniList's side (not a clean validation error, and not this " +
-                      "server's bug) — always pass an explicit true/false for every status.",
-                  ),
+                  .describe("Whether posting activity for this status is suppressed."),
               }),
             )
             .refine(

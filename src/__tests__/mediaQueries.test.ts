@@ -209,6 +209,7 @@ test("get_anime_schedule converts airingAfter/airingBefore to unix seconds and l
   const plain = bodyOf(mock.calls[0]!.init).variables;
   assert.equal(plain.notYetAired, true);
   assert.ok(!("after" in plain) && !("before" in plain));
+  assert.match(bodyOf(mock.calls[0]!.init).query, /sort:TIME\)/, "upcoming: soonest first");
 
   // A window: offsets are honoured, and notYetAired is left unset so a window
   // spanning now keeps both halves (confirmed live: ANDed upstream).
@@ -236,6 +237,8 @@ test("get_anime_schedule converts airingAfter/airingBefore to unix seconds and l
     arguments: { airingBefore: "2026-10-21T00:00:00Z", notYetAired: false },
   });
   assert.equal(bodyOf(mock.calls[2]!.init).variables.notYetAired, false);
+  // Aired-only is newest first; ascending started at the oldest episode on record.
+  assert.match(bodyOf(mock.calls[2]!.init).query, /sort:TIME_DESC\)/);
 
   // No offset → rejected (an unzoned time is ambiguous), never sent upstream.
   const before = mock.calls.length;

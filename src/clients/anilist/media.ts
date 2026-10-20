@@ -259,11 +259,14 @@ export async function getSchedule(
   // its already-aired half, and one wholly in the past would come back empty.
   const hasWindow = window.airingAfter !== undefined || window.airingBefore !== undefined;
   const effectiveNotYetAired = notYetAired ?? (hasWindow ? undefined : true);
+  // Already-aired only: newest first. Ascending would start page 1 at the
+  // oldest episode AniList has on record, not the recent ones.
+  const sort = effectiveNotYetAired === false ? "TIME_DESC" : "TIME";
   const query = `query($mediaId:Int,$notYetAired:Boolean,$page:Int,$perPage:Int,$after:Int,$before:Int){
     ${existsField}
     schedule:Page(page:$page,perPage:$perPage){
       pageInfo{hasNextPage}
-      airingSchedules(mediaId:$mediaId,notYetAired:$notYetAired,airingAt_greater:$after,airingAt_lesser:$before,sort:TIME){
+      airingSchedules(mediaId:$mediaId,notYetAired:$notYetAired,airingAt_greater:$after,airingAt_lesser:$before,sort:${sort}){
         airingAt timeUntilAiring episode media{id title{romaji english} siteUrl}
       }
     }

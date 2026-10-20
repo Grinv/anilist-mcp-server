@@ -326,6 +326,19 @@ test("update_user's notificationOptions/disabledListActivity reject a duplicated
     arguments: { disabledListActivity: duplicatedDisabledListActivity },
   });
   assert.equal(res2.isError, true, "a duplicated list status must be rejected");
+
+  // An omitted enabled/disabled is unsafe upstream (null-unsets the type, or a
+  // 500), so it must fail validation here instead.
+  const res3 = await client.callTool({
+    name: "update_user",
+    arguments: { notificationOptions: NOTIFICATION_TYPES.map((type) => ({ type })) },
+  });
+  assert.equal(res3.isError, true, "a notification type without `enabled` must be rejected");
+  const res4 = await client.callTool({
+    name: "update_user",
+    arguments: { disabledListActivity: MEDIA_LIST_STATUSES.map((type) => ({ type })) },
+  });
+  assert.equal(res4.isError, true, "a list status without `disabled` must be rejected");
   assert.equal(badMock.calls.length, 0);
 });
 

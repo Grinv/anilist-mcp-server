@@ -12,8 +12,11 @@ import {
   favouriteOut,
   personDescriptionField,
   paginationFields,
+  NESTED_MAX_PER_PAGE,
+  pageInfoSchema,
+  filmographyOnListField,
 } from "./outputSchemas.js";
-import { BIRTHDAY_KINDS } from "../clients/anilist/enums.js";
+import { BIRTHDAY_KINDS, MEDIA_TYPES } from "../clients/anilist/enums.js";
 
 const mediaCredit = z
   .object({
@@ -29,6 +32,23 @@ const mediaCredit = z
   })
   .loose();
 
+/** Input fields shared by get_character/get_staff for their filmography
+ *  connection (`media`/`staffMedia`). Named `page`/`perPage`/`type`/`onList`
+ *  — the names get_media_characters/get_media_staff already use for their
+ *  nested connection and search_media for the type/list filters — since
+ *  neither tool has another paginated or typed field they could collide with. */
+const personFilmographyFields = (connection: string) => ({
+  ...paginationFields(25, NESTED_MAX_PER_PAGE),
+  type: z
+    .enum(MEDIA_TYPES)
+    .optional()
+    .describe(
+      `Only return anime (ANIME) or only manga (MANGA) in \`${connection}\` — filtered by ` +
+        "AniList before pagination, so pages stay full. Omit for both.",
+    ),
+  onList: filmographyOnListField,
+});
+
 const characterObject = z
   .object({
     id: anilistId,
@@ -39,7 +59,10 @@ const characterObject = z
     isFavourite: favouriteOut("character"),
     siteUrl: z.httpUrl().nullish(),
     media: z
-      .object({ edges: z.array(mediaCredit.extend({ characterRole: z.string().nullish() })) })
+      .object({
+        pageInfo: pageInfoSchema.optional(),
+        edges: z.array(mediaCredit.extend({ characterRole: z.string().nullish() })),
+      })
       .nullish(),
   })
   .loose();
@@ -55,7 +78,10 @@ const staffObject = z
     isFavourite: favouriteOut("staff member"),
     siteUrl: z.httpUrl().nullish(),
     staffMedia: z
-      .object({ edges: z.array(mediaCredit.extend({ staffRole: z.string().nullish() })) })
+      .object({
+        pageInfo: pageInfoSchema.optional(),
+        edges: z.array(mediaCredit.extend({ staffRole: z.string().nullish() })),
+      })
       .nullish(),
   })
   .loose();
@@ -87,15 +113,25 @@ export function registerPeopleTools(server: McpServer, client: AniListClient): v
       title: "Get character details",
       description:
         "Get a character's profile by AniList character ID: name, image, description, and the " +
-        "anime/manga they appear in (`media`, up to 25 by popularity, with their `characterRole` " +
+        "anime/manga they appear in (`media`, most popular first, with their `characterRole` " +
         "— MAIN/SUPPORTING/BACKGROUND — in each). Use search_character first to resolve a name " +
-        "to its ID.",
-      inputSchema: z.object({ id: characterId.describe("AniList character ID.") }),
+        "to its ID. `media` is paginated (`page`/`perPage`, max 25): a long-running franchise " +
+        "character can appear in far more titles than one page holds, so check " +
+        "`media.pageInfo.hasNextPage` before treating it as the full list. Narrow it with " +
+        "`type` (anime or manga only) or `onList`.",
+      inputSchema: z.object({
+        id: characterId.describe("AniList character ID."),
+        ...personFilmographyFields("media"),
+      }),
       outputSchema: z.object({ character: characterObject }),
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
-    ({ id }) =>
-      guard(async () => jsonResult({ character: await people.getCharacter(client.ctx(), id) })),
+    ({ id, page, perPage, type, onList }) =>
+      guard(async () =>
+        jsonResult({
+          character: await people.getCharacter(client.ctx(), id, { page, perPage, type, onList }),
+        }),
+      ),
   );
 
   server.registerTool(
@@ -104,14 +140,27 @@ export function registerPeopleTools(server: McpServer, client: AniListClient): v
       title: "Get staff member details",
       description:
         "Get a staff member's profile by AniList staff ID: name, image, occupations, " +
-        "description, and the anime/manga they worked on (`staffMedia`, up to 25 by popularity, " +
-        "with their `staffRole` — e.g. Director, Character Design — in each). Use search_staff " +
-        "first to resolve a name to its ID.",
-      inputSchema: z.object({ id: staffId.describe("AniList staff ID.") }),
+        "description, and the anime/manga they hold production credits on (`staffMedia`, most " +
+        "popular first, with their `staffRole` — e.g. Director, Character Design, Theme Song " +
+        "Performance — in each). Use search_staff first to resolve a name to its ID. " +
+        "Voice-acting roles are NOT part of `staffMedia` (confirmed live: Kana Hanazawa's lists " +
+        "only her theme/insert song credits), so don't read a short `staffMedia` as a voice " +
+        "actor's full career. `staffMedia` is paginated (`page`/`perPage`, max 25) — check " +
+        "`staffMedia.pageInfo.hasNextPage` before treating it as the full list. Narrow it with " +
+        "`type` (anime or manga only) or `onList`.",
+      inputSchema: z.object({
+        id: staffId.describe("AniList staff ID."),
+        ...personFilmographyFields("staffMedia"),
+      }),
       outputSchema: z.object({ staff: staffObject }),
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
-    ({ id }) => guard(async () => jsonResult({ staff: await people.getStaff(client.ctx(), id) })),
+    ({ id, page, perPage, type, onList }) =>
+      guard(async () =>
+        jsonResult({
+          staff: await people.getStaff(client.ctx(), id, { page, perPage, type, onList }),
+        }),
+      ),
   );
 
   server.registerTool(

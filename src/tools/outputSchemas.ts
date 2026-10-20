@@ -61,7 +61,8 @@ export const deleteToolAnnotations = {
  *  otherField: ... })`) — only `perPage`'s default and ceiling vary per tool.
  *  `maxPerPage` defaults to 50 (a top-level `Page` connection's ceiling);
  *  pass `NESTED_MAX_PER_PAGE` for a connection nested under a single object
- *  (`Media.characters`/`staff`/`reviews`/`recommendations`). Not used
+ *  (`Media.characters`/`staff`/`reviews`/`recommendations`,
+ *  `Character.media`, `Staff.staffMedia`, `Studio.media`). Not used
  *  by `get_site_statistics`: its `perPage` describes a different cap
  *  (AniList's own, not this schema's) and needs its own wording. */
 export const paginationFields = (defaultPerPage: number, maxPerPage = 50) => ({
@@ -97,7 +98,8 @@ export const paginationFields = (defaultPerPage: number, maxPerPage = 50) => ({
  *  top-level `Page`: confirmed live that `Media.characters`, `.staff`,
  *  `.reviews` and `.recommendations` all report `pageInfo.perPage: 25` when
  *  asked for 50 (the schema's own `perPage` description on these says "max
- *  25"). Advertising 50 there would hand back half a page with
+ *  25"), and so do the filmography connections `Character.media`,
+ *  `Staff.staffMedia` and `Studio.media`. Advertising 50 there would hand back half a page with
  *  `hasNextPage: true` and no hint why. */
 export const NESTED_MAX_PER_PAGE = 25;
 
@@ -118,6 +120,22 @@ export const personDescriptionField = (singleLookupTool: string) =>
         "run to several thousand characters, and always including it would burn tokens on " +
         `text you may not need; use ${singleLookupTool} for a single entry's full bio instead.`,
     );
+
+/** The `onList` filter shared by the three single-entity filmography tools
+ *  (get_character, get_staff, get_studio) — same name and semantics as
+ *  search_media's `onList`, applied to the entity's nested media connection.
+ *  Confirmed live on Character.media: unauthenticated, `true`/`false`/omitted
+ *  all return the identical page, the same silent no-op search_media's own
+ *  `onList` documents. */
+export const filmographyOnListField = z
+  .boolean()
+  .optional()
+  .describe(
+    "[Requires login] Restrict the filmography to (true) or exclude (false) titles already " +
+      "on the authenticated user's own list. Omit to ignore list status entirely. Confirmed " +
+      "live: silently no-ops (identical results for true/false/omitted) if not logged in, " +
+      "since there's no list to check against — same behavior as search_media's `onList`.",
+  );
 
 /** The `isFavourite` viewer field every favouritable domain object exposes
  *  (media, character, staff, studio) — same shape, same confirmed-live

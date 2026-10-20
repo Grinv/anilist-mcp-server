@@ -148,21 +148,42 @@ export const STAFF_FIELDS = `
  *  25-result character search, 23KB of a 35KB 44-entry birthday list). */
 export const PERSON_DESCRIPTION_FIELD = `description(asHtml: false)`;
 
+// The filmography connections below (Character.media, Staff.staffMedia,
+// Studio.media) are paginated through query variables rather than a fixed
+// `perPage: 25` with no pageInfo: a fixed page silently dropped everything
+// past the 25th title with no signal (confirmed live: Luffy's `media` and
+// Kana Hanazawa's `staffMedia` both report `hasNextPage: true` at 25). Their
+// `perPage` is clamped to 25 server-side like every other nested connection
+// (confirmed live: all three report `pageInfo.perPage: 25` when asked for 50)
+// — see NESTED_MAX_PER_PAGE in tools/outputSchemas.ts. The filter variables
+// ($type/$isMain/$onList) are left unset when the caller doesn't pass one
+// (GraphQLClient strips undefined variables), and an unset variable is the
+// same as omitting the argument, so the default stays "every title".
+
+/** Variable declarations CHARACTER_DETAIL_FIELDS/STAFF_DETAIL_FIELDS need —
+ *  the enclosing query must declare these alongside its own `$id`. */
+export const PERSON_FILMOGRAPHY_VARS = `$page:Int,$perPage:Int,$type:MediaType,$onList:Boolean`;
+
 /** Extra field only worth the token cost on a direct get_character lookup,
  *  not on every row of a search_character result (same reasoning as
  *  MEDIA_DETAIL_FIELDS above). */
 export const CHARACTER_DETAIL_FIELDS = `
-  media(perPage: 25, sort: POPULARITY_DESC) {
+  media(page: $page, perPage: $perPage, sort: POPULARITY_DESC, type: $type, onList: $onList) {
+    pageInfo { hasNextPage }
     edges { characterRole node { id title { romaji english } type format } }
   }
 `;
 
 /** Extra field only worth the token cost on a direct get_staff lookup, not
- *  on every row of a search_staff result. staffMedia (not `characters`,
- *  which is voice-actor-specific) covers every staff role — writer,
- *  director, VA, etc. */
+ *  on every row of a search_staff result. staffMedia covers production/
+ *  credit roles (director, writer, theme song performance, ...) but NOT
+ *  voice-acting roles — confirmed live: Kana Hanazawa's staffMedia lists only
+ *  her theme/insert song credits, while her voice roles live under the
+ *  separate `characterMedia`/`characters` connections, which this fragment
+ *  doesn't select. */
 export const STAFF_DETAIL_FIELDS = `
-  staffMedia(perPage: 25, sort: POPULARITY_DESC) {
+  staffMedia(page: $page, perPage: $perPage, sort: POPULARITY_DESC, type: $type, onList: $onList) {
+    pageInfo { hasNextPage }
     edges { staffRole node { id title { romaji english } type format } }
   }
 `;
@@ -173,7 +194,22 @@ export const STUDIO_FIELDS = `
   isAnimationStudio
   isFavourite
   siteUrl
-  media(sort: POPULARITY_DESC, perPage: 10) {
+`;
+
+/** Variable declarations STUDIO_DETAIL_FIELDS needs (see
+ *  PERSON_FILMOGRAPHY_VARS). Studio.media takes `isMain` instead of `type` —
+ *  confirmed live: `isMain: true` keeps only titles where the studio was the
+ *  primary animation studio (Aniplex: 1 title), `false` only the merely
+ *  credited ones (Studio Ghibli: 19 titles, every edge `isMainStudio:
+ *  false`), and omitted returns both. */
+export const STUDIO_FILMOGRAPHY_VARS = `$page:Int,$perPage:Int,$isMain:Boolean,$onList:Boolean`;
+
+/** get_studio's filmography, split out of STUDIO_FIELDS so the studio's own
+ *  fields stay reusable without dragging a paginated connection (and its
+ *  required variables) along. */
+export const STUDIO_DETAIL_FIELDS = `
+  media(page: $page, perPage: $perPage, sort: POPULARITY_DESC, isMain: $isMain, onList: $onList) {
+    pageInfo { hasNextPage }
     nodes { id title { romaji english } }
   }
 `;

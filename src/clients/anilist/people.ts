@@ -1,24 +1,53 @@
 import type { AniListContext } from "./context.js";
 import { assertFound } from "../../lib/errors.js";
 import type { CharacterId, StaffId } from "./ids.js";
-import type { BirthdayKind } from "./enums.js";
+import type { BirthdayKind, MediaType } from "./enums.js";
 import {
   CHARACTER_FIELDS,
   CHARACTER_DETAIL_FIELDS,
   STAFF_FIELDS,
   STAFF_DETAIL_FIELDS,
   PERSON_DESCRIPTION_FIELD,
+  PERSON_FILMOGRAPHY_VARS,
 } from "./fields.js";
 
-export async function getCharacter(ctx: AniListContext, id: CharacterId): Promise<unknown> {
-  const query = `query($id:Int){Character(id:$id){${CHARACTER_FIELDS}${PERSON_DESCRIPTION_FIELD}${CHARACTER_DETAIL_FIELDS}}}`;
-  const data = await ctx.gql.request<{ Character: unknown }>(query, { id }, ctx.authHeader());
+/** Pagination and server-side filters for get_character's `media` /
+ *  get_staff's `staffMedia` filmography (see fields.ts's
+ *  PERSON_FILMOGRAPHY_VARS). Unset filters are dropped from the request. */
+export interface PersonFilmographyOptions {
+  page?: number;
+  perPage?: number;
+  type?: MediaType;
+  onList?: boolean;
+}
+
+export async function getCharacter(
+  ctx: AniListContext,
+  id: CharacterId,
+  opts: PersonFilmographyOptions = {},
+): Promise<unknown> {
+  const query = `query($id:Int,${PERSON_FILMOGRAPHY_VARS}){Character(id:$id){${CHARACTER_FIELDS}${PERSON_DESCRIPTION_FIELD}${CHARACTER_DETAIL_FIELDS}}}`;
+  const { page = 1, perPage = 25, type, onList } = opts;
+  const data = await ctx.gql.request<{ Character: unknown }>(
+    query,
+    { id, page, perPage, type, onList },
+    ctx.authHeader(),
+  );
   return assertFound(data.Character, `No character found with ID ${id}.`);
 }
 
-export async function getStaff(ctx: AniListContext, id: StaffId): Promise<unknown> {
-  const query = `query($id:Int){Staff(id:$id){${STAFF_FIELDS}${PERSON_DESCRIPTION_FIELD}${STAFF_DETAIL_FIELDS}}}`;
-  const data = await ctx.gql.request<{ Staff: unknown }>(query, { id }, ctx.authHeader());
+export async function getStaff(
+  ctx: AniListContext,
+  id: StaffId,
+  opts: PersonFilmographyOptions = {},
+): Promise<unknown> {
+  const query = `query($id:Int,${PERSON_FILMOGRAPHY_VARS}){Staff(id:$id){${STAFF_FIELDS}${PERSON_DESCRIPTION_FIELD}${STAFF_DETAIL_FIELDS}}}`;
+  const { page = 1, perPage = 25, type, onList } = opts;
+  const data = await ctx.gql.request<{ Staff: unknown }>(
+    query,
+    { id, page, perPage, type, onList },
+    ctx.authHeader(),
+  );
   return assertFound(data.Staff, `No staff member found with ID ${id}.`);
 }
 

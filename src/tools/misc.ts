@@ -9,7 +9,9 @@ import {
   anilistId,
   studioId,
   paginationFields,
+  NESTED_MAX_PER_PAGE,
   favouriteOut,
+  filmographyOnListField,
 } from "./outputSchemas.js";
 
 const mediaTagItem = z
@@ -70,8 +72,9 @@ const siteStatisticsObject = z
   })
   .loose();
 
-/** STUDIO_FIELDS — only `id`/`name` are near-certain; everything else is
- *  nullable/absent depending on what AniList actually has for the studio. */
+/** STUDIO_FIELDS + STUDIO_DETAIL_FIELDS — only `id`/`name` are near-certain;
+ *  everything else is nullable/absent depending on what AniList actually has
+ *  for the studio. */
 const studioObject = z
   .object({
     id: anilistId.optional(),
@@ -81,6 +84,7 @@ const studioObject = z
     siteUrl: z.httpUrl().nullish(),
     media: z
       .object({
+        pageInfo: pageInfoSchema.optional(),
         nodes: z
           .array(
             z
@@ -191,9 +195,12 @@ export function registerMiscTools(server: McpServer, client: AniListClient): voi
     {
       title: "Get studio",
       description:
-        "Get a studio's profile (name, whether it's an animation studio) and its top 10 most " +
-        "popular produced titles (a fixed cap, not paginated — AniList's studio field exposes no " +
-        "more via this lookup), by AniList studio ID or by name. Confirmed live: `name` already " +
+        "Get a studio's profile (name, whether it's an animation studio) and the titles it's " +
+        "credited on (`media`, most popular first), by AniList studio ID or by name. `media` is " +
+        "paginated (`page`/`perPage`, max 25) — check `media.pageInfo.hasNextPage` before " +
+        "treating it as the studio's full catalog. By default it mixes titles the studio " +
+        "animated with ones it's only credited on (e.g. as a producer); set `isMain` to split " +
+        "them. Confirmed live: `name` already " +
         "does AniList's own fuzzy search (same mechanism as search_studio), so a partial name " +
         '(e.g. "Kyoto Anim") resolves directly — reach for search_studio instead only when you ' +
         "need to browse multiple candidates rather than take the closest match. If both `id` " +
@@ -206,6 +213,22 @@ export function registerMiscTools(server: McpServer, client: AniListClient): voi
             .min(1)
             .optional()
             .describe("Studio name to look up. Provide this or `id`."),
+          // Same page/perPage names get_character/get_staff use for their
+          // filmography — nothing else on this tool is paginated. Default 25
+          // (was a fixed 10): it's the connection's own server-side ceiling
+          // (NESTED_MAX_PER_PAGE, confirmed live for Studio.media), and each
+          // node is just an id plus two titles, so a full page stays cheap.
+          ...paginationFields(25, NESTED_MAX_PER_PAGE),
+          isMain: z
+            .boolean()
+            .optional()
+            .describe(
+              "true: only titles where this was the main animation studio. false: only titles " +
+                "it's credited on without being the main studio (e.g. as a producer). Omit for " +
+                "both. Confirmed live: Aniplex has 1 main-studio title but many more producer " +
+                "credits.",
+            ),
+          onList: filmographyOnListField,
         })
         .refine((v) => v.id !== undefined || v.name !== undefined, {
           message: "Provide either `id` or `name`.",
@@ -213,7 +236,16 @@ export function registerMiscTools(server: McpServer, client: AniListClient): voi
       outputSchema: z.object({ studio: studioObject }),
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
-    ({ id, name }) =>
-      guard(async () => jsonResult({ studio: await misc.getStudio(client.ctx(), id ?? name!) })),
+    ({ id, name, page, perPage, isMain, onList }) =>
+      guard(async () =>
+        jsonResult({
+          studio: await misc.getStudio(client.ctx(), id ?? name!, {
+            page,
+            perPage,
+            isMain,
+            onList,
+          }),
+        }),
+      ),
   );
 }

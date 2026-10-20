@@ -1,19 +1,32 @@
 import type { AniListContext } from "./context.js";
 import { assertFound } from "../../lib/errors.js";
 import type { StudioId } from "./ids.js";
-import { STUDIO_FIELDS } from "./fields.js";
+import { STUDIO_FIELDS, STUDIO_DETAIL_FIELDS, STUDIO_FILMOGRAPHY_VARS } from "./fields.js";
+
+/** Pagination and server-side filters for get_studio's `media` filmography
+ *  (see fields.ts's STUDIO_FILMOGRAPHY_VARS). Unset filters are dropped from
+ *  the request. */
+export interface StudioFilmographyOptions {
+  page?: number;
+  perPage?: number;
+  isMain?: boolean;
+  onList?: boolean;
+}
 
 export async function getStudio(
   ctx: AniListContext,
   idOrName: StudioId | string,
+  opts: StudioFilmographyOptions = {},
 ): Promise<unknown> {
   const byId = typeof idOrName === "number";
+  const fields = `${STUDIO_FIELDS}${STUDIO_DETAIL_FIELDS}`;
   const query = byId
-    ? `query($id:Int){Studio(id:$id){${STUDIO_FIELDS}}}`
-    : `query($search:String){Studio(search:$search){${STUDIO_FIELDS}}}`;
+    ? `query($id:Int,${STUDIO_FILMOGRAPHY_VARS}){Studio(id:$id){${fields}}}`
+    : `query($search:String,${STUDIO_FILMOGRAPHY_VARS}){Studio(search:$search){${fields}}}`;
+  const { page = 1, perPage = 25, isMain, onList } = opts;
   const data = await ctx.gql.request<{ Studio: unknown }>(
     query,
-    byId ? { id: idOrName } : { search: idOrName },
+    { ...(byId ? { id: idOrName } : { search: idOrName }), page, perPage, isMain, onList },
     ctx.authHeader(),
   );
   return assertFound(data.Studio, `No studio found matching ${JSON.stringify(idOrName)}.`);

@@ -35,6 +35,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Fix titles on hiatus being reported as `RELEASING`, and relations missing `SOURCE`/`COMPILATION`/`CONTAINS`/`SAME_UNIVERSE`: both now use AniList's current enum versions. [7117ab2](https://github.com/Grinv/anilist-mcp-server/commit/7117ab2)
 - Cap `perPage` at 25 on `get_media_characters`/`staff`/`reviews` and `get_recommendations_for_media`, AniList's real limit there; they advertised 50. [7117ab2](https://github.com/Grinv/anilist-mcp-server/commit/7117ab2)
 - Correct `get_recommendations_for_media`: `excludeInList` filters each fetched page locally, so a page can come back short. [7117ab2](https://github.com/Grinv/anilist-mcp-server/commit/7117ab2)
+- Stop retrying writes after a timeout or server error: a retry could undo a `toggle_favourite`/`toggle_follow_user` or post an activity or thread twice. [ed0f51f](https://github.com/Grinv/anilist-mcp-server/commit/ed0f51f)
+- Fix a read that overlapped a write caching pre-write data for the whole cache TTL. [ed0f51f](https://github.com/Grinv/anilist-mcp-server/commit/ed0f51f)
+- `submit_anilist_redirect` now asks for the full redirected URL; a bare code always failed the state check after `login_anilist`. [ed0f51f](https://github.com/Grinv/anilist-mcp-server/commit/ed0f51f)
+- Correct `search_media`'s `startDate_*`/`endDate_*` descriptions: the bounds are strict, so `startDate_lesser: {year: 2020}` excludes 2020. [ed0f51f](https://github.com/Grinv/anilist-mcp-server/commit/ed0f51f)
+- Correct `search_user`'s `includeDescription`: a user's bio comes back as `about`, not `description`. [ed0f51f](https://github.com/Grinv/anilist-mcp-server/commit/ed0f51f)
+- `catch_up_activity` passes a numeric user ID as a number; as a string it was looked up as a username and failed. [ed0f51f](https://github.com/Grinv/anilist-mcp-server/commit/ed0f51f)
 
 ## [0.9.0] - 2026-09-24
 

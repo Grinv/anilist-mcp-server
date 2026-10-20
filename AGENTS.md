@@ -30,9 +30,9 @@ src/
                   # misc, notification, people, recommendation, search, thread,
                   # user), matching src/tools/* (plus fuzzyDate.ts: the
                   # date-filter encoders several domains share, and
-                  # deleteById.ts: the four Delete* mutations' shared call). Tool handlers call these
-                  # domain functions directly (e.g. `media.getMedia(client.ctx(), ...)`)
-                  # rather than through a same-named method on AniListClient.
+                  # deleteById.ts: the four Delete* mutations' shared call).
+                  # Tool handlers call these domain functions directly
+                  # (e.g. `media.getMedia(client.ctx(), ...)`) rather than through a same-named method on AniListClient.
                   # anilist/ids.ts — branded numeric-ID type aliases (MediaId,
                   # ListEntryId, etc.), one per domain concept; every domain
                   # file's exported functions take these instead of plain

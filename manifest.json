@@ -113,7 +113,10 @@
       "description": "User-written reviews for an anime or manga."
     },
     { "name": "get_media_relations", "description": "Prequels/sequels/side stories of a title." },
-    { "name": "get_anime_schedule", "description": "Upcoming episode air times." },
+    {
+      "name": "get_anime_schedule",
+      "description": "Episode air times: upcoming by default, or recently aired."
+    },
     { "name": "get_character", "description": "A character's profile by ID." },
     {
       "name": "get_staff",

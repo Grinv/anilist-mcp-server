@@ -819,11 +819,11 @@ recommendations, likes`.
 
   - `threads(categoryId)`/`threads(mediaCategoryId)` — an empty page for a
     well-formed but nonexistent id in either filter, confirmed live (both
-    tested independently against `graphql.anilist.co`). Unlike the three
-    above, `searchThread()` has no existence-check alias for either —
-    there's no separate id to resolve first and no ambiguity worth guarding
-    against (a wrong category id and a real category with zero matching
-    threads are both legitimately "no results").
+    tested independently against `graphql.anilist.co`). `searchThread()`
+    aliases `exists:Media(id:$mediaCategoryId)` when `mediaCategoryId` is
+    given (a wrong media id now 404s). `categoryId` stays unchecked: forum
+    categories have no root lookup to alias, and a real category with zero
+    matching threads is legitimately "no results".
 
   **`mediaList` does NOT share this shape — confirmed live it needs no alias
   trick at all.** `MediaListCollection(userId/userName)` 404s the entire
@@ -892,6 +892,9 @@ this through Claude Code: wrap a scalar/array union argument in an array
 even for a single value (`ids: [16498]`); no equivalent workaround is known
 for a scalar/string union (`user`) beyond passing the value some other way
 (e.g. a resolved username instead of a numeric id, where one is available).
+The server can't tell such a string from a real all-digit username, so it
+still takes the username path — but the resulting not-found now says so and
+asks for the ID as a number (`withNumericNameHint()` in `user.ts`).
 
 ## Why our own GraphQL client instead of a wrapper library
 

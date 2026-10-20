@@ -620,8 +620,8 @@ export function registerListTools(server: McpServer, client: AniListClient): voi
       description:
         "[Requires login] Delete an entry from the authenticated user's own AniList list by " +
         "its list-entry ID (NOT the media id) — get it from get_user_list. This cannot be " +
-        "undone, and calling it again on an already-deleted id errors rather than silently " +
-        "succeeding.",
+        "undone, and calling it again on an already-deleted id errors as not found " +
+        "rather than silently succeeding.",
       inputSchema: z.strictObject({
         listEntryId: listEntryId.describe("The list ENTRY id to delete (not the media id)."),
       }),

@@ -100,9 +100,10 @@ maintainer.
   TTL (`CACHE_TTL_MS`, default 5 minutes) to cut latency and ease pressure on
   AniList's rate-limited API. Cache keys include the token in use, so
   different accounts' cached data can never cross. Mutations are never cached,
-  and a successful one immediately clears the whole cache (a write can change
-  the answer to an already-cached read, e.g. a newly-favourited title's
-  `isFavourite` flag), so the next read is fresh. The cache is cleared when
+  and every one immediately clears the whole cache (a write can change the
+  answer to an already-cached read, e.g. a newly-favourited title's
+  `isFavourite` flag) — a failed one too, since a timed-out write may still
+  have been applied — so the next read is fresh. The cache is cleared when
   the process exits and is never shared across machines or users.
 - **Your access token**: if obtained via `login_anilist`, it is written to a
   single local file (`~/.config/anilist-mcp-server/tokens.json` on

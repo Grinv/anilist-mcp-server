@@ -310,8 +310,9 @@ export function registerListTools(server: McpServer, client: AniListClient): voi
             "Entries per chunk, counted across all statuses combined. Defaults to 25 so an " +
               "unattended call stays small, but nothing caps it — pass a larger value (AniList " +
               "accepts values in the thousands) to pull a whole list in one call instead of " +
-              "paging. Each entry carries its dates, notes, custom lists and advanced scores, " +
-              "so a few hundred entries is already a large response.",
+              'paging. A compact row is small (a few hundred fit easily); with `format: "full"` ' +
+              "each entry carries its dates, notes, custom lists and advanced scores, so a few " +
+              "hundred entries is already a large response there.",
           ),
       }),
       outputSchema: z.object({

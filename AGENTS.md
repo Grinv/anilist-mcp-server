@@ -28,7 +28,8 @@ src/
                   # exposes ctx(): AniListContext); anilist/*.ts — one file per
                   # domain (activity, context, favourites, fields, list, media,
                   # misc, notification, people, recommendation, search, thread,
-                  # user), matching src/tools/*. Tool handlers call these
+                  # user), matching src/tools/* (plus fuzzyDate.ts: the
+                  # date-filter encoders several domains share). Tool handlers call these
                   # domain functions directly (e.g. `media.getMedia(client.ctx(), ...)`)
                   # rather than through a same-named method on AniListClient.
                   # anilist/ids.ts — branded numeric-ID type aliases (MediaId,

@@ -49,7 +49,7 @@ Check every one of these, not just a sample:
   actually-cached field with a similarly-named never-cached one — neither
   doc was self-evidently wrong, both required re-reading the client code to
   catch. Given this repo's especially broad write/social tool surface, the
-  mutating-tool enumeration (currently 13 — see `SECURITY.md`'s "The
+  mutating-tool enumeration (currently 14 — see `SECURITY.md`'s "The
   mutating tool surface") is the highest-value thing to re-check here
   specifically; it's exactly the kind of count that silently goes stale the
   next time a tool is added, renamed, or removed.

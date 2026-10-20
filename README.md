@@ -83,7 +83,10 @@ Once it's connected, just ask your agent in natural language.
 | `get_notifications`                                                                                   | token |
 | `login_anilist`, `submit_anilist_redirect`                                                            | login |
 
-`token` = needs an AniList login (run `login_anilist` once).
+`token` = needs an AniList login (run `login_anilist` once). A few `none` tools
+also have a filter that does: `onList` on `search_media`/`get_character`/
+`get_staff`/`get_studio`, `isFollowing` on `search_activity`, and
+`excludeInList` on `get_recommendations_for_media` error without a login.
 
 ## Prompts
 

@@ -31,6 +31,9 @@ token; the server can't write to anyone else's account:
 - **Deleting**: `delete_activity`, `delete_thread`, `delete_thread_comment`
 - **Account settings**: `update_user`
 
+One read tool also changes server state: `get_notifications` with
+`markAsRead: true` resets your unread-notification count.
+
 **Posts and deletions go to your own AniList account**, public and attributed
 to you just like anything you post on anilist.co directly. The server has no
 per-tool allow/deny list; the only gate is whether a token is configured, so

@@ -77,7 +77,7 @@
     },
     {
       "name": "get_user_list",
-      "description": "A user's full anime or manga list, grouped by status."
+      "description": "A user's anime or manga list, paged in chunks: compact rows by default, or full entries grouped by status."
     },
     {
       "name": "add_list_entry",

@@ -54,7 +54,10 @@ on `http://localhost:8082/callback`. Then call `get_authorized_user` to confirm.
 `localhost:8082` on the server isn't reachable from your browser, so after
 clicking Approve you'll land on a page that fails to load. **Copy the full URL
 from your browser's address bar** (it contains `?code=...`) and pass it to the
-**`submit_anilist_redirect`** tool. That completes the login.
+**`submit_anilist_redirect`** tool. That completes the login. It must reach the
+same server process that ran `login_anilist` (the URL's `state` is checked
+against that login attempt): if the server restarted in between, run
+`login_anilist` again.
 
 The token is stored at `~/.config/anilist-mcp-server/tokens.json`
 (`%APPDATA%\anilist-mcp-server\tokens.json` on Windows; override with

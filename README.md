@@ -1,4 +1,4 @@
-# AniList MCP Server
+# AniList MCP Server (Unofficial)
 
 [![npm version](https://img.shields.io/npm/v/anilist-mcp-server.svg)](https://www.npmjs.com/package/anilist-mcp-server)
 [![CI](https://github.com/Grinv/anilist-mcp-server/actions/workflows/ci.yml/badge.svg)](https://github.com/Grinv/anilist-mcp-server/actions/workflows/ci.yml)

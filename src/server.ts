@@ -38,7 +38,7 @@ export function buildServer(config: Config, logger: Logger): McpServer {
   // stderr/OpenTelemetry — which lib/logger.ts already does. Not worth
   // building on a path already marked for removal.
   const server = new McpServer(
-    { name: "anilist-mcp-server", title: "AniList MCP Server", version: VERSION },
+    { name: "anilist-mcp-server", title: "AniList MCP Server (Unofficial)", version: VERSION },
     {
       instructions: INSTRUCTIONS,
       // 2026-07-28's cacheable-result hints (only read by 2026-era clients;

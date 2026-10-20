@@ -154,7 +154,7 @@ query(
   `query($id:Int){Media(id:$id,type:ANIME){
     characters(perPage:1){edges{role node{id}}}
     staff(perPage:1){edges{role node{id}}}
-    relations{edges{relationType node{id}}}
+    relations{edges{relationType(version:3) node{id}}}
     stats{scoreDistribution{score amount}}
   }}`,
   { id: 154587 },

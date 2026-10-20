@@ -1693,7 +1693,11 @@ test("searchActivity converts createdAfter/createdBefore to unix seconds on both
   // Global feed (no user).
   await search.searchActivity(client.ctx(), undefined, undefined, 1, 10, created);
   assert.equal(callOf(0).variables.createdAt_greater, 1790812800, "offset honored");
-  assert.equal(callOf(0).variables.createdAt_lesser, 1790899201, "sub-second part rounded outward (strict bound)");
+  assert.equal(
+    callOf(0).variables.createdAt_lesser,
+    1790899201,
+    "sub-second part rounded outward (strict bound)",
+  );
   assert.match(callOf(0).query, /createdAt_greater:\$createdAt_greater/);
 
   // Numeric-id path (aliased existence check).

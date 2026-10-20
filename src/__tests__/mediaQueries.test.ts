@@ -222,7 +222,11 @@ test("get_anime_schedule converts airingAfter/airingBefore to unix seconds and l
   assert.notEqual(res.isError, true, JSON.stringify(res.content));
   const windowed = bodyOf(mock.calls[1]!.init);
   assert.equal(windowed.variables.after, Date.UTC(2026, 9, 20) / 1000);
-  assert.equal(windowed.variables.before, Date.UTC(2026, 9, 21) / 1000, "floored to whole seconds");
+  assert.equal(
+    windowed.variables.before,
+    Date.UTC(2026, 9, 21) / 1000 + 1,
+    "rounded up: airingAt_lesser is strict",
+  );
   assert.ok(!("notYetAired" in windowed.variables), "window alone decides");
   assert.match(windowed.query, /airingAt_greater:\$after,airingAt_lesser:\$before/);
 

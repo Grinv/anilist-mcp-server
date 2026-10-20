@@ -97,10 +97,11 @@ async function fetchByEitherId(
 
 /** AniList's `airingAt` filters take unix seconds; the schema already
  *  guarantees a parseable ISO 8601 string with an explicit offset, so
- *  Date.parse() can't come back NaN here. Floored, since `airingAt` is an
- *  `Int` and a fractional-second input would otherwise be rejected. */
-function toUnixSeconds(iso: string | undefined): number | undefined {
-  return iso === undefined ? undefined : Math.floor(Date.parse(iso) / 1000);
+ *  Date.parse() can't come back NaN here. Rounded to whole seconds (`airingAt`
+ *  is an `Int`) OUTWARD — down for "after", up for "before" — since both
+ *  bounds are strict, same as createdAtBounds() in clients/anilist/activity.ts. */
+function toUnixSeconds(iso: string | undefined, round: (n: number) => number): number | undefined {
+  return iso === undefined ? undefined : round(Date.parse(iso) / 1000);
 }
 
 /** MEDIA_FIELDS(+MEDIA_DETAIL_FIELDS) — only `id` is guaranteed; every other
@@ -659,8 +660,8 @@ export function registerMediaTools(server: McpServer, client: AniListClient): vo
       guard(async () =>
         jsonResult(
           await media.getSchedule(client.ctx(), mediaId, notYetAired, page, perPage, {
-            airingAfter: toUnixSeconds(airingAfter),
-            airingBefore: toUnixSeconds(airingBefore),
+            airingAfter: toUnixSeconds(airingAfter, Math.floor),
+            airingBefore: toUnixSeconds(airingBefore, Math.ceil),
           }),
         ),
       ),
@@ -673,10 +674,8 @@ export function registerMediaTools(server: McpServer, client: AniListClient): vo
       description:
         "[Requires login] Toggle an anime, manga, character, staff member, or studio in the " +
         "authenticated user's AniList favourites. Calling it again on the same `kind`+`id` " +
-        "un-favourites it. The response is not scoped to just the toggled item: it returns the " +
-        "account's entire current favourites (id-only) across all 5 categories " +
-        "(anime/manga/characters/staff/studios), so expect a wide result even for a single " +
-        "toggle. Resolve `id` first via search_media/get_media (kind: ANIME/MANGA), " +
+        "un-favourites it. The response returns the account's current favourites (id-only) " +
+        "of the toggled kind only, under its key (anime/manga/characters/staff/studios). Resolve `id` first via search_media/get_media (kind: ANIME/MANGA), " +
         "search_character/get_character, search_staff/get_staff, or search_studio/get_studio, " +
         "matching `kind`. Confirmed live: AniList does NOT validate that `id` actually belongs " +
         "to the given `kind` — e.g. passing an anime's ID with `kind: CHARACTER` succeeds " +

@@ -589,7 +589,7 @@ export function registerSearchTools(server: McpServer, client: AniListClient): v
       title: "Search activity feed",
       description:
         "Search/browse AniList's activity feed (list updates, text posts, messages), optionally " +
-        "filtered to one user or — with `isFollowing` [Requires login] — to users you follow, " +
+        "filtered to one user or — with `isFollowing` [Requires login] — to your following feed, " +
         "to one or more activity types, and/or to a creation-time window. Each result " +
         "already includes its full content (text/message/status, " +
         "`replyCount`/`likeCount`/`isLiked`, the posting user, " +
@@ -610,8 +610,9 @@ export function registerSearchTools(server: McpServer, client: AniListClient): v
           .boolean()
           .optional()
           .describe(
-            "[Requires login] Set true for your following feed: only activity from users the " +
-              "logged-in account follows (AniList's own `isFollowing` filter). Without a " +
+            "[Requires login] Set true for your following feed: activity from users the " +
+              "logged-in account follows plus its own (AniList's `isFollowing` filter — confirmed " +
+              "live: an account following nobody gets only its own activity). Without a " +
               "token this errors before any request rather than returning the global feed. " +
               "Can't be combined with `user`. false or omitted means no restriction.",
           ),

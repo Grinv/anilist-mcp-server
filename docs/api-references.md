@@ -323,6 +323,14 @@ anime's id>)` succeeded and added that id to the account's favourited
   array returns an empty page, hence the tools' non-empty `type` arrays.
   **`isFollowing: true` without a token is silently ignored** (the normal
   global feed comes back, no error) — `search_activity` gates it on login.
+  With a token it's the site's "Following" feed, **including the viewer's
+  own activity** (confirmed live: an account following nobody got only its
+  own 25 activities, never a stranger's).
+- **`onList` on filmography connections works as documented with a token**
+  (confirmed live 2026-10-20 on `Character.media`, `Studio.media`,
+  `Staff.characterMedia`): `true` returns only titles on the viewer's list,
+  `false` only titles not on it, no overlap — unlike `Page.recommendations`'
+  `onList`, which keys on the source title (see Recommendation below).
 
 - `SaveTextActivity(id, text, locked)`, `SaveMessageActivity(id, message,
 recipientId, private, locked, asMod)`.

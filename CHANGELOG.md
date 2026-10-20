@@ -6,10 +6,29 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- Add exclusion, tag-rank, country-of-origin, length and licensor filters to `search_media` (`genre_not_in`, `tag_not_in`, `minimumTagRank`, `countryOfOrigin`, `licensedBy_in`, …), all applied server-side. [3df0b9a](https://github.com/Grinv/anilist-mcp-server/commit/3df0b9a)
+- Add `createdAfter`/`createdBefore` to `search_activity` and `get_user_activity`, plus a `type` filter to `get_user_activity`. [3df0b9a](https://github.com/Grinv/anilist-mcp-server/commit/3df0b9a), [886a06e](https://github.com/Grinv/anilist-mcp-server/commit/886a06e)
+- Add `sort` to `get_user_list`, ordering entries server-side (within each status group). [886a06e](https://github.com/Grinv/anilist-mcp-server/commit/886a06e)
+- Add `voiceActorLanguage` and `role` to `get_media_characters`, and `airingAfter`/`airingBefore` to `get_anime_schedule`. [7117ab2](https://github.com/Grinv/anilist-mcp-server/commit/7117ab2)
+- Add pagination to `get_todays_birthdays`, sorted by favourites; it previously dropped everyone past the first 50. [7117ab2](https://github.com/Grinv/anilist-mcp-server/commit/7117ab2)
+
 ### Changed
 
-- Update `@modelcontextprotocol/server`/`client` to 2.3.1, which fixes several security advisories (GHSA-jm63-cq47-j5jp, GHSA-46jr-4wx8-v453).
-- Update zod to 4.6.7. An over-long `ids`/`malIds` batch in `get_media` now reports the tool's own "up to 50 IDs" message instead of Zod's generic "Too big".
+- Update `@modelcontextprotocol/server`/`client` to 2.3.1, which fixes several security advisories (GHSA-jm63-cq47-j5jp, GHSA-46jr-4wx8-v453). [f042f57](https://github.com/Grinv/anilist-mcp-server/commit/f042f57)
+- Update zod to 4.6.7. An over-long `ids`/`malIds` batch in `get_media` now reports the tool's own "up to 50 IDs" message instead of Zod's generic "Too big". [f042f57](https://github.com/Grinv/anilist-mcp-server/commit/f042f57)
+- `get_media_characters` lists main characters first; `search_thread` without a term lists the most recently replied-to threads, not the oldest. [7117ab2](https://github.com/Grinv/anilist-mcp-server/commit/7117ab2), [3df0b9a](https://github.com/Grinv/anilist-mcp-server/commit/3df0b9a)
+- `toggle_favourite` echoes only the toggled kind's favourites, not all five categories. [886a06e](https://github.com/Grinv/anilist-mcp-server/commit/886a06e)
+- `seasonal_overview` asks for the season's most popular titles, and pins the actual current season instead of anything still airing. [7117ab2](https://github.com/Grinv/anilist-mcp-server/commit/7117ab2)
+- Save an advanced-scored list entry in 2 requests instead of 3. [886a06e](https://github.com/Grinv/anilist-mcp-server/commit/886a06e)
+- Stop returning the deprecated `mediaListOptions.*.theme` field from profile tools. [7117ab2](https://github.com/Grinv/anilist-mcp-server/commit/7117ab2)
+
+### Fixed
+
+- Fix titles on hiatus being reported as `RELEASING`, and relations missing `SOURCE`/`COMPILATION`/`CONTAINS`/`SAME_UNIVERSE`: both now use AniList's current enum versions. [7117ab2](https://github.com/Grinv/anilist-mcp-server/commit/7117ab2)
+- Cap `perPage` at 25 on `get_media_characters`/`staff`/`reviews` and `get_recommendations_for_media`, AniList's real limit there; they advertised 50. [7117ab2](https://github.com/Grinv/anilist-mcp-server/commit/7117ab2)
+- Correct `get_recommendations_for_media`: `excludeInList` filters each fetched page locally, so a page can come back short. [7117ab2](https://github.com/Grinv/anilist-mcp-server/commit/7117ab2)
 
 ## [0.9.0] - 2026-09-24
 

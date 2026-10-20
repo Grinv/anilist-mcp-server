@@ -20,6 +20,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `onList` on `search_media` and `get_character`/`get_staff`/`get_studio` now requires login; without one AniList silently ignored it and returned unfiltered results. [4452400](https://github.com/Grinv/anilist-mcp-server/commit/4452400)
 - Rename the display name to "AniList MCP Server (Unofficial)", as AniList's naming guidelines require; the package name is unchanged. [9545ada](https://github.com/Grinv/anilist-mcp-server/commit/9545ada)
 - Update `@modelcontextprotocol/server`/`client` to 2.3.1, which fixes several security advisories (GHSA-jm63-cq47-j5jp, GHSA-46jr-4wx8-v453). [f042f57](https://github.com/Grinv/anilist-mcp-server/commit/f042f57)
 - Update zod to 4.6.7. An over-long `ids`/`malIds` batch in `get_media` now reports the tool's own "up to 50 IDs" message instead of Zod's generic "Too big". [f042f57](https://github.com/Grinv/anilist-mcp-server/commit/f042f57)

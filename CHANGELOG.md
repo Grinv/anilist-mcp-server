@@ -48,6 +48,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - A date filter with a `day` but no `month` now errors; it silently meant January 1st. [60a99c4](https://github.com/Grinv/anilist-mcp-server/commit/60a99c4)
 - `update_list_entry` with only `listEntryId` is rejected, like `update_list_entries`; it sent a write that changed nothing. [60a99c4](https://github.com/Grinv/anilist-mcp-server/commit/60a99c4)
 - Correct `get_user_activity`/`get_user_recent_activity`'s `user` descriptions: `search_activity` also errors on an unknown user. [60a99c4](https://github.com/Grinv/anilist-mcp-server/commit/60a99c4)
+- `search_character`/`search_staff`/`search_studio`/`search_user` reject a blank `term` instead of sending it to AniList. [b211fe0](https://github.com/Grinv/anilist-mcp-server/commit/b211fe0)
+- `search_media` rejects an empty `sort` (it dropped the relevance default) and `get_notifications` an empty `type_in`. [b211fe0](https://github.com/Grinv/anilist-mcp-server/commit/b211fe0)
 
 ## [0.9.0] - 2026-09-24
 

@@ -46,7 +46,7 @@ export function registerPrompts(server: McpServer): void {
             content: {
               type: "text" as const,
               text:
-                `Recommend ${which} similar to "${title}".\n` +
+                `Recommend ${which} similar to ${JSON.stringify(title)}.\n` +
                 `Steps: call search_media with type: "${mediaType}" to resolve it to an AniList id, ` +
                 `then get_recommendations_for_media with that id as \`mediaId\` (not \`id\` — ` +
                 `that's the param name for the different get_recommendation tool). Present 5-8 ` +
@@ -153,7 +153,7 @@ export function registerPrompts(server: McpServer): void {
               text:
                 `Find hidden-gem ${which}: high AniList average score but not widely known.\n` +
                 `Call search_media with type: "${mediaType}"` +
-                (genre ? `, genres: ["${genre}"]` : "") +
+                (genre ? `, genres: [${JSON.stringify(genre)}]` : "") +
                 `, sort: ["SCORE_DESC"], averageScore_greater: 75, popularity_lesser: 50000 ` +
                 `and perPage: 25 — the sort and both filters matter, since a search_media call ` +
                 `with neither browses AniList's default (id) order rather than anything ` +
@@ -183,7 +183,10 @@ export function registerPrompts(server: McpServer): void {
     ({ user }) => {
       // Prompt args are always strings, but the tools' `user` field reads any
       // string as a username — so a numeric ID must reach them as a number.
-      const userArg = /^\d+$/.test(user) ? user : JSON.stringify(user);
+      // Only a valid one, though: "007" or "0" rendered bare would be sent as
+      // 7 or rejected, and an all-digit username needs to stay a string.
+      const isId = /^[1-9]\d{0,9}$/.test(user) && Number(user) <= 2147483647;
+      const userArg = isId ? user : JSON.stringify(user);
       return {
         messages: [
           {
@@ -191,7 +194,7 @@ export function registerPrompts(server: McpServer): void {
             content: {
               type: "text" as const,
               text:
-                `Summarize what AniList user "${user}" has been up to lately.\n` +
+                `Summarize what AniList user ${JSON.stringify(user)} has been up to lately.\n` +
                 `Pass \`user: ${userArg}\` (exactly as written) to each tool below. ` +
                 `Call get_user_activity for their recent activity posts (list updates, text posts), ` +
                 `and get_user_list with statuses: ["CURRENT"] — once with type: "ANIME" and again ` +

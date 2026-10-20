@@ -702,17 +702,50 @@ test("blank search terms and an empty sort/type_in are rejected before any reque
   installFetch(t, mock);
   const { client, close } = await connectServer({ ANILIST_ACCESS_TOKEN: "tok" });
   t.after(close);
-  const calls: [string, Record<string, unknown>][] = [
-    ["search_character", { term: "   " }],
-    ["search_staff", { term: "   " }],
-    ["search_studio", { term: "   " }],
-    ["search_user", { term: "   " }],
-    ["search_media", { term: "Naruto", sort: [] }],
-    ["get_notifications", { type_in: [] }],
+  // [tool, args, the field the rejection must be about]
+  const calls: [string, Record<string, unknown>, string][] = [
+    ["search_character", { term: "   " }, "term"],
+    ["search_staff", { term: "   " }, "term"],
+    ["search_studio", { term: "   " }, "term"],
+    ["search_user", { term: "   " }, "term"],
+    ["search_media", { type: "ANIME", term: "   " }, "term"],
+    ["search_thread", { term: "   " }, "term"],
+    ["get_studio", { name: "   " }, "name"],
+    ["get_user_profile", { user: "   " }, "user"],
+    ["search_media", { type: "ANIME", term: "Naruto", sort: [] }, "sort"],
+    ["get_notifications", { type_in: [] }, "type_in"],
   ];
-  for (const [name, args] of calls) {
+  for (const [name, args, field] of calls) {
     const res = await client.callTool({ name, arguments: args });
     assert.equal(res.isError, true, `${name} ${JSON.stringify(args)} should be rejected`);
+    const text = (res.content as { type: "text"; text: string }[])[0]!.text;
+    assert.match(text, new RegExp(field), `${name}: rejected for the wrong reason: ${text}`);
   }
   assert.equal(mock.calls.length, 0);
+});
+
+test("search terms, studio names and usernames reach AniList trimmed", async (t) => {
+  const mock = mockFetch((_url, init) => {
+    const body = JSON.parse(init?.body as string) as { query: string };
+    if (body.query.includes("Studio(")) return jsonResponse({ data: { Studio: { id: 21 } } });
+    if (body.query.includes("User("))
+      return jsonResponse({ data: { User: { id: 1, name: "Grinv" } } });
+    return jsonResponse({ data: { Page: { pageInfo: { hasNextPage: false }, media: [] } } });
+  });
+  installFetch(t, mock);
+  const { client, close } = await connectServer({
+    CACHE_TTL_MS: "0",
+    ANILIST_MIN_INTERVAL_MS: "0",
+  });
+  t.after(close);
+  const vars = (i: number) =>
+    (JSON.parse(mock.calls[i]!.init?.body as string) as { variables: Record<string, unknown> })
+      .variables;
+
+  await client.callTool({ name: "search_media", arguments: { type: "ANIME", term: "  bebop  " } });
+  assert.equal(vars(0).search, "bebop");
+  await client.callTool({ name: "get_studio", arguments: { name: "  Madhouse " } });
+  assert.equal(vars(1).search, "Madhouse");
+  await client.callTool({ name: "get_user_profile", arguments: { user: " Grinv " } });
+  assert.equal(vars(2).name, "Grinv");
 });

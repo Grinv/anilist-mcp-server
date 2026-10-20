@@ -71,12 +71,9 @@ export async function searchMedia(
     }
   }`;
   const f = opts.filter ?? {};
-  // An empty/whitespace-only term must behave like an omitted one (the
-  // documented term-less browse/ranking mode) rather than being sent to
-  // AniList as a literal `search: ""`, which matches nothing and silently
-  // returns zero results. Trim so stray surrounding whitespace isn't sent
-  // either.
-  const search = opts.term?.trim() || undefined;
+  // The tool schema trims `term` and rejects a blank one: a literal
+  // `search: ""` matches nothing upstream and silently returns zero results.
+  const search = opts.term;
   // SEARCH_MATCH ranks by relevance to `search`, so it's meaningless without a
   // term. Default to it only when there's actually a term; a term-less call
   // with no explicit sort browses in AniList's own default order instead of a
@@ -220,10 +217,8 @@ export async function searchThread(
       id title siteUrl replyCount viewCount isSticky createdAt user{id name} categories{id name}
     }
   }}`;
-  // Same empty/whitespace-term fix as searchMedia above — an explicit
-  // `search: ""` matches nothing, silently returning zero results instead of
-  // the intended term-less browse/filter mode. Trimmed, also like searchMedia.
-  const search = term?.trim() || undefined;
+  // Trimmed and non-blank via the tool schema, same as searchMedia above.
+  const search = term;
   // SEARCH_MATCH without a term degrades to oldest-thread-ID-first (confirmed
   // live: threads 1, 2, 3, ... from 2014), so a term-less browse sorts by most
   // recent reply instead — what anilist.co/forum/recent shows, minus pinning

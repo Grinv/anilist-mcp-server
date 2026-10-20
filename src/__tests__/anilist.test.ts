@@ -290,7 +290,7 @@ test("searchMedia passes isAdult through when set, and omits it when left undefi
   assert.equal(vars.isAdult, false);
 });
 
-test("searchMedia defaults sort to SEARCH_MATCH only when a term is present, and trims the term", async (t) => {
+test("searchMedia defaults sort to SEARCH_MATCH only when a term is present", async (t) => {
   const mock = mockFetch(() => jsonResponse({ data: { Page: { media: [] } } }));
   installFetch(t, mock);
   // Disable the read cache (else the no-term and whitespace-term calls, which
@@ -313,22 +313,12 @@ test("searchMedia defaults sort to SEARCH_MATCH only when a term is present, and
   assert.equal(varsOf(1).search, undefined);
   assert.equal(varsOf(1).sort, undefined, "no default sort for a term-less browse");
 
-  // A whitespace-only term is treated as no term at all (dropped, no relevance sort).
-  await search.searchMedia(client.ctx(), "ANIME", { term: "   ", filter: {} });
-  assert.equal(varsOf(2).search, undefined, "whitespace-only term is dropped");
-  assert.equal(varsOf(2).sort, undefined);
-
-  // Surrounding whitespace on a real term is trimmed before sending.
-  await search.searchMedia(client.ctx(), "ANIME", { term: "  bebop  ", filter: {} });
-  assert.equal(varsOf(3).search, "bebop", "term is trimmed");
-  assert.deepEqual(varsOf(3).sort, ["SEARCH_MATCH"]);
-
   // An explicit sort is always passed through unchanged.
   await search.searchMedia(client.ctx(), "ANIME", {
     sort: ["SCORE_DESC", "POPULARITY_DESC"],
     filter: {},
   });
-  assert.deepEqual(varsOf(4).sort, ["SCORE_DESC", "POPULARITY_DESC"]);
+  assert.deepEqual(varsOf(2).sort, ["SCORE_DESC", "POPULARITY_DESC"]);
 });
 
 test("getRecommendationsForMedia requests mediaListEntry and, when excludeInList is set, filters out recommendations already on the caller's list", async (t) => {
@@ -1682,7 +1672,7 @@ test("searchMedia forwards the exclusion/length/country/licensor filters, and om
   }
 });
 
-test("searchThread trims the term, relevance-sorts only with a term, and sorts a term-less browse by latest reply", async (t) => {
+test("searchThread relevance-sorts only with a term, and sorts a term-less browse by latest reply", async (t) => {
   const mock = mockFetch(() =>
     jsonResponse({ data: { Page: { pageInfo: emptyPageInfo, threads: [] } } }),
   );
@@ -1694,18 +1684,14 @@ test("searchThread trims the term, relevance-sorts only with a term, and sorts a
   const varsOf = (i: number) =>
     JSON.parse(mock.calls[i]!.init?.body as string).variables as Record<string, unknown>;
 
-  await search.searchThread(client.ctx(), "  spring season  ");
-  assert.equal(varsOf(0).search, "spring season", "term is trimmed before sending");
+  await search.searchThread(client.ctx(), "spring season");
+  assert.equal(varsOf(0).search, "spring season");
   assert.deepEqual(varsOf(0).sort, ["SEARCH_MATCH"]);
 
   // Term-less SEARCH_MATCH degrades to oldest-ID-first live, so browse by latest reply.
   await search.searchThread(client.ctx());
   assert.equal(varsOf(1).search, undefined);
   assert.deepEqual(varsOf(1).sort, ["REPLIED_AT_DESC"]);
-
-  await search.searchThread(client.ctx(), "   ");
-  assert.equal(varsOf(2).search, undefined, "whitespace-only term is dropped");
-  assert.deepEqual(varsOf(2).sort, ["REPLIED_AT_DESC"]);
 });
 
 test("searchActivity converts createdAfter/createdBefore to unix seconds on both query paths, and omits them when unset", async (t) => {

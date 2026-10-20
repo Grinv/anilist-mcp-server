@@ -112,6 +112,8 @@ const mediaSearchInput = z.object({
   type: z.enum(MEDIA_TYPES).describe("Whether to search anime or manga."),
   term: z
     .string()
+    .trim()
+    .min(1)
     .optional()
     .describe("Free-text search term (matches title). Omit to only filter."),
   genres: z
@@ -541,6 +543,8 @@ export function registerSearchTools(server: McpServer, client: AniListClient): v
       inputSchema: z.object({
         term: z
           .string()
+          .trim()
+          .min(1)
           .optional()
           .describe(
             "Free-text search term (matches thread title/body); results are relevance-ranked. " +

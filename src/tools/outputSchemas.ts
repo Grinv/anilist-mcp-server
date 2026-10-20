@@ -287,7 +287,7 @@ export { MEDIA_TYPES, MEDIA_LIST_STATUSES } from "../clients/anilist/enums.js";
  *  domains) so the custom error message stays in one place instead of being
  *  hand-copied (and left un-customized) per file. */
 export const userIdOrName = z
-  .union([userId, z.string().min(1)], {
+  .union([userId, z.string().trim().min(1)], {
     // Same fix as media.ts's idsSchema: a plain string `error` fires for
     // every union-mismatch reason, so branch on `issue.input` to avoid
     // telling the caller "is required" when a wrongly-typed value WAS given.

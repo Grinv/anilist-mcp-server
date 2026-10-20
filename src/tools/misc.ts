@@ -210,6 +210,7 @@ export function registerMiscTools(server: McpServer, client: AniListClient): voi
           id: studioId.optional().describe("AniList studio ID. Provide this or `name`."),
           name: z
             .string()
+            .trim()
             .min(1)
             .optional()
             .describe("Studio name to look up. Provide this or `id`."),

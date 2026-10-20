@@ -91,7 +91,10 @@ export const activityItem = z.discriminatedUnion("type", [
  *  exactly as before. `extra` appends a tool-specific sentence. */
 export function activityTypeFilter(extra = "") {
   return z
-    .union([z.enum(ACTIVITY_TYPES), z.array(z.enum(ACTIVITY_TYPES)).min(1)])
+    .union([z.enum(ACTIVITY_TYPES), z.array(z.enum(ACTIVITY_TYPES)).min(1)], {
+      // A union's default error is a bare "Invalid input", naming neither branch.
+      error: `type must be one of ${ACTIVITY_TYPES.join(", ")}, or a non-empty array of them.`,
+    })
     .optional()
     .describe(
       "Restrict to this activity type, or pass an array to match ANY of several (e.g. " +

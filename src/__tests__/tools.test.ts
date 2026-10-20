@@ -479,7 +479,7 @@ test("personal/mutation tools without a token return an actionable error instead
     ["get_authorized_user", {}],
     ["get_notifications", {}],
     ["toggle_follow_user", { id: 1 }],
-    ["update_user", {}],
+    ["update_user", { about: "x" }],
     ["post_text_activity", { text: "hello" }],
     ["post_message_activity", { recipientId: 1, message: "hi" }],
     ["delete_activity", { id: 1 }],
@@ -568,7 +568,7 @@ test("every gated mutation tool succeeds end-to-end with a token, not just add_l
     ["toggle_favourite", { kind: "STAFF", id: 1 }],
     ["toggle_favourite", { kind: "STUDIO", id: 1 }],
     ["toggle_follow_user", { id: 1 }],
-    ["update_user", {}],
+    ["update_user", { about: "x" }],
     ["post_text_activity", { text: "hello" }],
     ["post_message_activity", { recipientId: 1, message: "hi" }],
     ["delete_activity", { id: 1 }],
@@ -778,5 +778,28 @@ test("every tool rejects an unknown argument instead of silently dropping it", a
   });
   assert.equal(res.isError, true);
   assert.match((res.content as { text: string }[])[0]!.text, /Unrecognized key: "genre_in"/);
+  assert.equal(mock.calls.length, 0);
+});
+
+test("update_user with no fields and an unknown activity type are rejected before any fetch", async (t) => {
+  const mock = mockFetch(() => {
+    throw new Error("must not be called");
+  });
+  installFetch(t, mock);
+  const { client, close } = await connectServer({ ANILIST_ACCESS_TOKEN: "tok" });
+  t.after(close);
+  const textOf = (res: Awaited<ReturnType<typeof client.callTool>>) =>
+    (res.content as { text: string }[])[0]!.text;
+
+  const empty = await client.callTool({ name: "update_user", arguments: {} });
+  assert.equal(empty.isError, true);
+  assert.match(textOf(empty), /No values to apply/);
+
+  // A union's default error is a bare "Invalid input"; this one names the choices.
+  for (const name of ["get_user_activity", "search_activity"]) {
+    const res = await client.callTool({ name, arguments: { user: 1, type: "FOO" } });
+    assert.equal(res.isError, true, name);
+    assert.match(textOf(res), /type must be one of TEXT, .*MESSAGE/, name);
+  }
   assert.equal(mock.calls.length, 0);
 });

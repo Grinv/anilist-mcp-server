@@ -43,6 +43,31 @@ test("a compute() in flight across a clear() doesn't cache its pre-clear result"
   assert.equal(cache.get("k"), undefined, "but the pre-clear result must not be cached");
 });
 
+test("a pre-clear compute() settling doesn't drop the post-clear in-flight slot", async () => {
+  const cache = new TtlCache<string>(60_000);
+  let releaseOld!: (v: string) => void;
+  let releaseNew!: (v: string) => void;
+  let calls = 0;
+  const old = cache.wrap("k", () => new Promise<string>((r) => (releaseOld = r)));
+  cache.clear();
+  const fresh = cache.wrap("k", () => {
+    calls += 1;
+    return new Promise<string>((r) => (releaseNew = r));
+  });
+  releaseOld("stale");
+  await old;
+  // The old compute's cleanup must not have removed the new one's slot: a
+  // third caller still shares the in-flight request instead of starting one.
+  const third = cache.wrap("k", async () => {
+    calls += 1;
+    return "duplicate";
+  });
+  releaseNew("fresh");
+  assert.equal(await fresh, "fresh");
+  assert.equal(await third, "fresh");
+  assert.equal(calls, 1);
+});
+
 test("ttl <= 0 disables caching", async () => {
   const cache = new TtlCache<number>(0);
   let calls = 0;

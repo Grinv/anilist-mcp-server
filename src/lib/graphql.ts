@@ -83,11 +83,11 @@ export class GraphQLClient {
       const key = JSON.stringify({ query, variables, auth: authHeader?.Authorization ?? null });
       return this.#cache.wrap(key, () => this.#send<T>(query, variables, authHeader)) as Promise<T>;
     }
-    // Mutations are never retried: a timeout or 5xx doesn't mean AniList
-    // didn't apply the write, and replaying it re-flips a Toggle* (undoing
-    // the favourite/follow) or posts a duplicate activity/thread.
+    // A mutation is only retried on a 429: a timeout or 5xx doesn't mean
+    // AniList didn't apply the write, and replaying it re-flips a Toggle*
+    // (undoing the favourite/follow) or posts a duplicate activity/thread.
     try {
-      return await this.#send<T>(query, variables, authHeader, isMutation ? 0 : undefined);
+      return await this.#send<T>(query, variables, authHeader, isMutation);
     } catch (err) {
       if (isMutation && err instanceof ApiError && OUTCOME_UNKNOWN.has(err.code)) {
         throw new ApiError({
@@ -118,7 +118,7 @@ export class GraphQLClient {
     query: string,
     variables: Record<string, unknown>,
     authHeader?: Record<string, string>,
-    retries?: number,
+    nonIdempotent = false,
   ): Promise<T> {
     const body = JSON.stringify({ query, variables: stripUndefined(variables) });
     // AniList's rate-limit (429) and outage (403) responses carry a non-2xx
@@ -130,7 +130,7 @@ export class GraphQLClient {
       method: "POST",
       body,
       ...(authHeader ? { headers: authHeader } : {}),
-      ...(retries === undefined ? {} : { retries }),
+      nonIdempotent,
     });
     if (res.errors?.length) {
       // Most inline errors[] entries carry no `status` (e.g. query/argument

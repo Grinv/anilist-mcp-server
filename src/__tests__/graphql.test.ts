@@ -116,7 +116,7 @@ test("a 429 response is mapped to a retryable rate_limited ApiError by the share
   );
 });
 
-test("a mutation is never retried, even on a retryable 5xx (a replay could re-flip a Toggle*)", async (t) => {
+test("a mutation isn't retried on a 5xx (a replay could re-flip a Toggle*)", async (t) => {
   const mock = mockFetch(() => jsonResponse({ message: "Server Error" }, { status: 500 }));
   installFetch(t, mock);
   await assert.rejects(
@@ -125,6 +125,22 @@ test("a mutation is never retried, even on a retryable 5xx (a replay could re-fl
       err instanceof ApiError && err.code === "server_error" && err.writeMayHaveApplied,
   );
   assert.equal(mock.calls.length, 1);
+});
+
+test("a mutation is retried on a 429 — AniList rejected it before applying anything", async (t) => {
+  let calls = 0;
+  const mock = mockFetch(() => {
+    calls += 1;
+    return calls === 1
+      ? jsonResponse(
+          { data: null, errors: [{ message: "Too Many Requests.", status: 429 }] },
+          { status: 429, headers: { "retry-after": "0" } },
+        )
+      : jsonResponse({ data: { ok: true } });
+  });
+  installFetch(t, mock);
+  assert.deepEqual(await client().request("mutation{ok}"), { ok: true });
+  assert.equal(calls, 2);
 });
 
 test("a mutation rejected outright (e.g. validation) isn't flagged as possibly applied", async (t) => {

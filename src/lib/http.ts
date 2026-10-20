@@ -13,6 +13,10 @@ export interface RequestOptions {
   timeoutMs?: number;
   /** Max retry attempts for retryable failures (network/timeout/5xx/429). */
   retries?: number;
+  /** For a request that changes state: retry only a 429, which the server
+   *  rejected before acting. A timeout, network error or 5xx may have been
+   *  applied, so replaying one could apply it twice. */
+  nonIdempotent?: boolean;
   signal?: AbortSignal;
 }
 
@@ -50,7 +54,9 @@ export class HttpClient {
         return await this.#once<T>(url, options, timeoutMs);
       } catch (err) {
         const apiErr = err instanceof ApiError ? err : toNetworkError(err);
-        if (!apiErr.retryable || attempt >= retries) throw apiErr;
+        const retryable =
+          apiErr.retryable && (!options.nonIdempotent || apiErr.code === "rate_limited");
+        if (!retryable || attempt >= retries) throw apiErr;
         const backoff = backoffMs(attempt, apiErr);
         this.#opts.logger.debug(
           `retrying ${url} after ${backoff}ms (attempt ${attempt + 1}/${retries}, ${apiErr.code})`,

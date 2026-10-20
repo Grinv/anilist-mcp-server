@@ -29,6 +29,38 @@ const fuzzyDate = z
   })
   .describe("A partial date; omit fields you don't know (e.g. just {year: 2026}).");
 
+// get_user_list's startedAt/completedAt bounds. Same shape as search_media's
+// own date-range filter (year required — a bound needs at least a year),
+// encoded to AniList's YYYYMMDD `FuzzyDateInt` by encodeFuzzyDateInt().
+// Confirmed live (joshjoshjosh/Cinusunil, ANIME): both `_greater` and
+// `_lesser` are STRICT (`completedAt_greater: 20250212` dropped the
+// 2025-02-12 entries that `completedAt: 20250212` matched; same for
+// startedAt), and an entry with no date at all passes ANY `_lesser` bound on
+// its own (`completedAt_lesser: 20190000` returned all 106 undated COMPLETED
+// entries) while failing every `_greater` — so pairing the two excludes them.
+// `greater {2025,12,31}` + `lesser {2027}` returned exactly the same 24
+// entries as AniList's `completedAt_like: "2026%"`, so the documented
+// "within a year" recipe needs no separate `_like` parameter.
+const listDateBound = (what: string, side: "greater" | "lesser") =>
+  z
+    .object({
+      year: z.int().positive().describe("Required — a date bound needs at least a year."),
+      month: z.int().min(1).max(12).optional(),
+      day: z.int().min(1).max(31).optional(),
+    })
+    .optional()
+    .describe(
+      `Only entries ${what} strictly ${side === "greater" ? "AFTER" : "BEFORE"} this date ` +
+        "(AniList filters server-side; the bound date itself is excluded). An omitted " +
+        `month/day counts as 0, so {year: 2026} here means ${
+          side === "greater" ? '"from 2026-01-01 on"' : '"up to 2025-12-31"'
+        }. ` +
+        (side === "lesser"
+          ? "Entries with no date recorded also pass this bound on its own — pair it with the " +
+            "matching `_greater` bound to exclude them."
+          : "Entries with no date recorded never match."),
+    );
+
 // Bounds shared by add_list_entry/update_list_entry — extracted so the two
 // near-duplicate schemas can't drift out of sync on a *limit* the way this
 // project already shipped once (the `priority` describe-text asymmetry).
@@ -192,7 +224,11 @@ export function registerListTools(server: McpServer, client: AniListClient): voi
         "fetching everything and discarding — asking for just CURRENT costs a fraction of a " +
         "whole-list read. Pass `sort` (e.g. UPDATED_TIME_DESC) to have AniList order the list " +
         "before chunking, so a small `perChunk` returns the top entries by that key rather than " +
-        "an arbitrary slice. Works for any public/unlisted user. " +
+        'an arbitrary slice. To answer "what did they finish/start in a period", use the ' +
+        "`completedAt_*`/`startedAt_*` bounds (strict, server-side) instead of scanning the list " +
+        "— e.g. everything completed in 2026 is `completedAt_greater: {year: 2025, month: 12, " +
+        "day: 31}` plus `completedAt_lesser: {year: 2027}`; chunking then counts only the " +
+        "matching entries. Works for any public/unlisted user. " +
         "Accepts an exact AniList username directly — no need to call search_user first unless " +
         "you only have a partial/fuzzy name. Paginated by `chunk`/`perChunk` (AniList's own " +
         "mechanism for this — counted across entries of ALL statuses combined, not per status), " +
@@ -243,6 +279,10 @@ export function registerListTools(server: McpServer, client: AniListClient): voi
               "`statuses` for a single fully ordered run. Omit for AniList's default order " +
               "(oldest-added first within each group).",
           ),
+        startedAt_greater: listDateBound("started", "greater"),
+        startedAt_lesser: listDateBound("started", "lesser"),
+        completedAt_greater: listDateBound("completed", "greater"),
+        completedAt_lesser: listDateBound("completed", "lesser"),
         chunk: z
           .int()
           .positive()
@@ -306,7 +346,19 @@ export function registerListTools(server: McpServer, client: AniListClient): voi
       }),
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
-    ({ type, user, format, statuses, sort, chunk, perChunk }) =>
+    ({
+      type,
+      user,
+      format,
+      statuses,
+      sort,
+      startedAt_greater,
+      startedAt_lesser,
+      completedAt_greater,
+      completedAt_lesser,
+      chunk,
+      perChunk,
+    }) =>
       guard(async () =>
         jsonResult(
           await list.getUserList(client.ctx(), type, user, {
@@ -315,6 +367,10 @@ export function registerListTools(server: McpServer, client: AniListClient): voi
             format,
             statuses,
             sort,
+            startedAt_greater,
+            startedAt_lesser,
+            completedAt_greater,
+            completedAt_lesser,
           }),
         ),
       ),

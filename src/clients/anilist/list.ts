@@ -2,6 +2,7 @@ import type { AniListContext } from "./context.js";
 import { ApiError } from "../../lib/errors.js";
 import type { MediaId, ListEntryId, UserId } from "./ids.js";
 import type { MediaType, MediaListStatus, MediaListSort } from "./enums.js";
+import { encodeFuzzyDateInt } from "./fuzzyDate.js";
 
 export interface MediaListEntryInput {
   mediaId?: MediaId;
@@ -42,6 +43,19 @@ export interface UserListOptions {
   /** Server-side `sort`, AniList's own `[MediaListSort]` — later keys break
    *  ties in earlier ones. Omitted when absent (AniList's default order). */
   sort?: MediaListSort[];
+  /** Server-side `startedAt_*`/`completedAt_*` bounds, each encoded to a
+   *  `FuzzyDateInt` and omitted when absent. Strict on both sides, and an
+   *  undated entry passes a `_lesser` bound — see getUserList(). */
+  startedAt_greater?: ListDateBound;
+  startedAt_lesser?: ListDateBound;
+  completedAt_greater?: ListDateBound;
+  completedAt_lesser?: ListDateBound;
+}
+
+export interface ListDateBound {
+  year: number;
+  month?: number;
+  day?: number;
 }
 
 export type UserListResult =
@@ -163,11 +177,17 @@ export async function getUserList(
   // entry-id order within each group (i.e. by when they were added). The
   // dedupe in toCompactRows() is unaffected: it keeps an entry's first
   // occurrence, and a repeat in a custom-list group is the same entry.
+  // The startedAt/completedAt bounds are AniList's own `FuzzyDateInt`
+  // filters (YYYYMMDD). Confirmed live: strict on both sides, an undated
+  // entry passes any `_lesser` bound alone but no `_greater` one, and like
+  // `status_in` they're applied before chunking (chunk 3 at `perChunk: 3`
+  // over a 7-entry completedAt window returned the single 7th entry, with
+  // `hasNextChunk: false`) — see the tool schema's listDateBound() comment.
   // Compact skips the group metadata entirely — toCompactRows() discards it,
   // so there's no reason to pay for it upstream either.
   const groupFields = format === "compact" ? "" : "name isCustomList isSplitCompletedList status ";
   const selection = format === "compact" ? COMPACT_SELECTION : FULL_SELECTION;
-  const query = `query($userId:Int,$userName:String,$type:MediaType,$chunk:Int,$perChunk:Int,$statusIn:[MediaListStatus],$sort:[MediaListSort]){MediaListCollection(userId:$userId,userName:$userName,type:$type,chunk:$chunk,perChunk:$perChunk,status_in:$statusIn,sort:$sort){
+  const query = `query($userId:Int,$userName:String,$type:MediaType,$chunk:Int,$perChunk:Int,$statusIn:[MediaListStatus],$sort:[MediaListSort],$startedGreater:FuzzyDateInt,$startedLesser:FuzzyDateInt,$completedGreater:FuzzyDateInt,$completedLesser:FuzzyDateInt){MediaListCollection(userId:$userId,userName:$userName,type:$type,chunk:$chunk,perChunk:$perChunk,status_in:$statusIn,sort:$sort,startedAt_greater:$startedGreater,startedAt_lesser:$startedLesser,completedAt_greater:$completedGreater,completedAt_lesser:$completedLesser){
     hasNextChunk
     lists{${groupFields}entries{
       ${selection}
@@ -180,6 +200,10 @@ export async function getUserList(
     perChunk,
     statusIn: statuses,
     sort,
+    startedGreater: encodeFuzzyDateInt(opts.startedAt_greater),
+    startedLesser: encodeFuzzyDateInt(opts.startedAt_lesser),
+    completedGreater: encodeFuzzyDateInt(opts.completedAt_greater),
+    completedLesser: encodeFuzzyDateInt(opts.completedAt_lesser),
   };
   // Authenticated (when available) so the caller's own private entries and
   // viewer-relative fields resolve correctly, not just what an anonymous

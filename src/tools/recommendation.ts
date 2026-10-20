@@ -121,8 +121,8 @@ export function registerRecommendationTools(server: McpServer, client: AniListCl
           .describe(
             "[Requires login] Omit recommendations already on your own list. Filtered after " +
               "fetching this page, so a page can come back with fewer than `perPage` results — " +
-              "not an error, just fewer new ones on that page. No-ops (nothing filtered) if not " +
-              "logged in, since there's no list to check against.",
+              "not an error, just fewer new ones on that page. Errors if not logged in, since " +
+              "there's no list to check against.",
           ),
       }),
       outputSchema: z.object({

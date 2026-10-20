@@ -25,6 +25,10 @@ export interface ApiErrorOptions {
    *  sent at all" apart from "credentials were sent but still rejected" for
    *  401/403 — those two cases need very different actionable advice. */
   authenticated?: boolean;
+  /** Set on a mutation that failed with a timeout, network error or 5xx:
+   *  AniList may still have applied it, so messageFor() (lib/result.ts) says
+   *  to check before retrying instead of its usual "please retry". */
+  writeMayHaveApplied?: boolean;
 }
 
 export class ApiError extends Error {
@@ -32,6 +36,7 @@ export class ApiError extends Error {
   readonly status: number | undefined;
   readonly retryable: boolean;
   readonly authenticated: boolean | undefined;
+  readonly writeMayHaveApplied: boolean;
 
   constructor(opts: ApiErrorOptions) {
     super(opts.message, opts.cause === undefined ? undefined : { cause: opts.cause });
@@ -40,6 +45,7 @@ export class ApiError extends Error {
     this.status = opts.status;
     this.retryable = opts.retryable ?? false;
     this.authenticated = opts.authenticated;
+    this.writeMayHaveApplied = opts.writeMayHaveApplied ?? false;
   }
 }
 

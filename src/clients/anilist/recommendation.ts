@@ -24,9 +24,10 @@ export async function getRecommendationsForMedia(
   perPage = 10,
   excludeInList = false,
 ): Promise<unknown> {
-  // mediaListEntry is viewer-relative — only resolves when authHeader() carries
-  // a token; requesting it unauthenticated is harmless (always comes back
-  // null, so excludeInList silently filters nothing rather than erroring).
+  // mediaListEntry is viewer-relative — only resolves when a token is sent;
+  // requesting it unauthenticated is harmless (always null). excludeInList
+  // needs it, though: without a token it would filter nothing and pass the
+  // whole page off as titles new to the user, so that requires login.
   const query = `query($id:Int,$page:Int,$perPage:Int){Media(id:$id){recommendations(page:$page,perPage:$perPage,sort:RATING_DESC){
     pageInfo{hasNextPage}
     nodes{id rating userRating mediaRecommendation{id title{romaji english} siteUrl averageScore genres mediaListEntry{id status}}}
@@ -34,7 +35,7 @@ export async function getRecommendationsForMedia(
   const data = await ctx.gql.request<{ Media: { recommendations: RecommendationsPage } | null }>(
     query,
     { id: mediaId, page, perPage },
-    ctx.authHeader(),
+    excludeInList ? ctx.requireAuth() : ctx.authHeader(),
   );
   const { recommendations } = assertFound(data.Media, `No anime/manga found with ID ${mediaId}.`);
   if (!excludeInList) return recommendations;

@@ -33,6 +33,15 @@ export function apiErrorToResult(err: ApiError): ToolResult {
 }
 
 function messageFor(err: ApiError): string {
+  if (err.writeMayHaveApplied) {
+    // Not "please retry": a timed-out or 5xx'd write may still have landed,
+    // and repeating it re-flips a Toggle* or posts a duplicate.
+    return (
+      `The write's outcome is unknown (${err.code}): ${err.message} AniList may still have ` +
+      "applied it. Re-read the affected data before retrying — repeating a toggle undoes it, " +
+      "and repeating a post duplicates it."
+    );
+  }
   switch (err.code) {
     case "unauthorized":
       // A real upstream 401 (err.status is set by toHttpError()) gets one of

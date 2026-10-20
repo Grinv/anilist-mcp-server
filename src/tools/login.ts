@@ -88,7 +88,9 @@ export function registerLoginTools(server: McpServer, client: AniListClient): vo
         "redirected to after clicking Approve (the one containing ?code=...). Use this when " +
         "login didn't complete automatically — e.g. the server runs on a remote/headless host. " +
         "Pass the whole URL, not just the code: its `state` is checked against the login " +
-        "attempt, and a bare code is rejected.",
+        "attempt, so a bare code or a URL from another login is rejected. Fails if no login " +
+        "is in progress (e.g. the server restarted since login_anilist) — run login_anilist " +
+        "again.",
       inputSchema: z.object({
         redirect_url: z
           .string()

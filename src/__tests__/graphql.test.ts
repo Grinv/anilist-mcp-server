@@ -121,9 +121,39 @@ test("a mutation is never retried, even on a retryable 5xx (a replay could re-fl
   installFetch(t, mock);
   await assert.rejects(
     () => client().request("mutation($id:Int){ToggleFavourite(animeId:$id){anime{nodes{id}}}}"),
-    (err: unknown) => err instanceof ApiError && err.code === "server_error",
+    (err: unknown) =>
+      err instanceof ApiError && err.code === "server_error" && err.writeMayHaveApplied,
   );
   assert.equal(mock.calls.length, 1);
+});
+
+test("a mutation rejected outright (e.g. validation) isn't flagged as possibly applied", async (t) => {
+  const mock = mockFetch(() =>
+    jsonResponse({ data: null, errors: [{ message: "validation", status: 400 }] }),
+  );
+  installFetch(t, mock);
+  await assert.rejects(
+    () => client().request("mutation{ok}"),
+    (err: unknown) => err instanceof ApiError && !err.writeMayHaveApplied,
+  );
+});
+
+test("a failed mutation still clears the read cache — it may have been applied upstream", async (t) => {
+  let calls = 0;
+  const mock = mockFetch((_url, init) => {
+    if (/mutation/.test(init?.body as string)) {
+      return jsonResponse({ message: "Server Error" }, { status: 500 });
+    }
+    calls += 1;
+    return jsonResponse({ data: { Viewer: { id: calls } } });
+  });
+  installFetch(t, mock);
+  const c = cachedClient();
+
+  await c.request("query{Viewer{id}}");
+  await assert.rejects(() => c.request("mutation{ok}"));
+  await c.request("query{Viewer{id}}");
+  assert.equal(calls, 2, "the read checking a failed write must re-hit the network");
 });
 
 test("the read cache is keyed by the actual auth header value, not just whether one was present", async (t) => {

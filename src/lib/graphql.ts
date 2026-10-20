@@ -6,7 +6,7 @@
 // that made the previous third-party AniList MCP unable to write list
 // entries — see docs/api-references.md.
 import { HttpClient } from "./http.js";
-import { ApiError, classifyStatus } from "./errors.js";
+import { ApiError, classifyStatus, type ApiErrorCode } from "./errors.js";
 import type { TtlCache } from "./cache.js";
 import type { Logger } from "./logger.js";
 
@@ -31,6 +31,9 @@ export interface GraphQLRequestOptions {
    *  the wrong category with no error). */
   skipCache?: boolean;
 }
+
+/** Failures after which a mutation may or may not have been applied. */
+const OUTCOME_UNKNOWN: ReadonlySet<ApiErrorCode> = new Set(["timeout", "network", "server_error"]);
 
 interface GraphQLErrorEntry {
   message: string;
@@ -83,17 +86,32 @@ export class GraphQLClient {
     // Mutations are never retried: a timeout or 5xx doesn't mean AniList
     // didn't apply the write, and replaying it re-flips a Toggle* (undoing
     // the favourite/follow) or posts a duplicate activity/thread.
-    const result = await this.#send<T>(query, variables, authHeader, isMutation ? 0 : undefined);
-    // A successful mutation can change the answer to any previously-cached
-    // read — not just of the resource it touched (e.g. toggling a favourite
-    // also changes that entity's `isFavourite` on every query that embeds
-    // it), so a targeted per-key invalidation can't be relied on to catch
-    // every affected entry. Confirmed live: get_character right after
-    // favourite still showed the pre-toggle `isFavourite` for the rest of
-    // the TTL window. Clearing everything trades a little cache-warmth for
-    // guaranteed-fresh reads after a write, which matters far more here.
-    if (this.#cache) this.#cache.clear();
-    return result;
+    try {
+      return await this.#send<T>(query, variables, authHeader, isMutation ? 0 : undefined);
+    } catch (err) {
+      if (isMutation && err instanceof ApiError && OUTCOME_UNKNOWN.has(err.code)) {
+        throw new ApiError({
+          code: err.code,
+          message: err.message,
+          status: err.status,
+          retryable: err.retryable,
+          authenticated: err.authenticated,
+          writeMayHaveApplied: true,
+          cause: err,
+        });
+      }
+      throw err;
+    } finally {
+      // A mutation can change the answer to any previously-cached read —
+      // not just of the resource it touched (e.g. toggling a favourite also
+      // changes that entity's `isFavourite` on every query that embeds it),
+      // so a targeted per-key invalidation can't be relied on to catch every
+      // affected entry. Confirmed live: get_character right after favourite
+      // still showed the pre-toggle `isFavourite` for the rest of the TTL
+      // window. Cleared on failure too: a timed-out write may still have
+      // landed, and the read that checks it must not be served from cache.
+      if (this.#cache) this.#cache.clear();
+    }
   }
 
   async #send<T>(

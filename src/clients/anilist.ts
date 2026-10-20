@@ -191,14 +191,20 @@ export class AniListClient {
   }
 
   async #completeWithCode(code: string, state: string | null): Promise<void> {
-    // Only checked when we actually started a login in this process — a
-    // submit_anilist_redirect call with no matching startLogin has nothing to
-    // compare against, so it proceeds (best-effort CSRF protection, not a
-    // hard requirement of the grant itself).
-    if (this.#pendingState && state === null) {
-      // A bare code carries no `state` to check. Still rejected rather than
-      // let through: accepting one would let a prompt-injected agent log the
-      // user into someone else's account with that account's code.
+    // A code is only accepted for a login this process started: otherwise
+    // there's no `state` to check it against, and accepting it would let a
+    // prompt-injected agent log the user into someone else's account with
+    // that account's code. A restart between login_anilist and the paste
+    // loses the state too — the user just runs login_anilist again.
+    if (!this.#pendingState) {
+      throw new ApiError({
+        code: "bad_request",
+        message:
+          "No AniList login is in progress. Run login_anilist first, then submit the URL " +
+          "your browser is redirected to.",
+      });
+    }
+    if (state === null) {
       throw new ApiError({
         code: "bad_request",
         message:
@@ -206,7 +212,7 @@ export class AniListClient {
           "checked against), not just the code.",
       });
     }
-    if (this.#pendingState && state !== this.#pendingState) {
+    if (state !== this.#pendingState) {
       throw new ApiError({
         code: "unauthorized",
         message:

@@ -50,6 +50,16 @@ test("apiErrorToResult produces an actionable message per error code", () => {
   }
 });
 
+test("apiErrorToResult: a possibly-applied write says to check, not to retry", () => {
+  const r = apiErrorToResult(
+    new ApiError({ code: "timeout", message: "detail", writeMayHaveApplied: true }),
+  );
+  const text = r.content[0]!.text;
+  assert.match(text, /may still have applied it/);
+  assert.match(text, /Re-read/);
+  assert.doesNotMatch(text, /Please retry/);
+});
+
 test("apiErrorToResult: a real upstream 401 with a token sent may be invalid/expired or just not permitted", () => {
   const r = apiErrorToResult(
     new ApiError({ code: "unauthorized", message: "detail", status: 401, authenticated: true }),

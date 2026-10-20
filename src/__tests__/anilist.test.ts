@@ -357,7 +357,7 @@ test("getRecommendationsForMedia requests mediaListEntry and, when excludeInList
     }),
   );
   installFetch(t, mock);
-  const client = new AniListClient(testConfig({}), silentLogger());
+  const client = new AniListClient(testConfig({ ANILIST_ACCESS_TOKEN: "tok" }), silentLogger());
 
   const withoutFilter = (await recommendation.getRecommendationsForMedia(
     client.ctx(),
@@ -407,7 +407,7 @@ test("getRecommendationsForMedia doesn't crash when nodes is null and excludeInL
     }),
   );
   installFetch(t, mock);
-  const client = new AniListClient(testConfig({}), silentLogger());
+  const client = new AniListClient(testConfig({ ANILIST_ACCESS_TOKEN: "tok" }), silentLogger());
 
   const result = (await recommendation.getRecommendationsForMedia(
     client.ctx(),
@@ -1271,11 +1271,14 @@ test("submitRedirect exchanges the code for a token and persists it (no client_s
         ANILIST_CLIENT_ID: "id",
         ANILIST_CLIENT_SECRET: "secret",
         ANILIST_TOKEN_STORE: storePath,
+        ANILIST_OAUTH_PORT: "41828",
       }),
       silentLogger(),
     );
     assert.equal(client.isConfigured(), false);
-    await client.submitRedirect("http://localhost:8082/callback?code=AUTHCODE");
+    const { authorizeUrl } = await client.startLogin({ open: () => {} });
+    const state = new URL(authorizeUrl).searchParams.get("state")!;
+    await client.submitRedirect(`http://localhost:41828/callback?code=AUTHCODE&state=${state}`);
     assert.equal(client.isConfigured(), true);
 
     const persisted = JSON.parse(readFileSync(storePath, "utf8")) as TokenState;
@@ -1309,6 +1312,26 @@ test("submitRedirect rejects a state that doesn't match the login attempt that s
     (err: unknown) =>
       err instanceof ApiError && err.code === "unauthorized" && /state mismatch/i.test(err.message),
   );
+});
+
+test("submitRedirect without a login in progress is rejected before any token exchange", async (t) => {
+  // Without a pending state there's nothing to check the code against — a
+  // fresh process (or one whose login already completed) must not swap the
+  // account to whoever's code was pasted.
+  const mock = mockFetch(() => jsonResponse({ access_token: "unused" }));
+  installFetch(t, mock);
+  const client = new AniListClient(
+    testConfig({ ANILIST_CLIENT_ID: "id", ANILIST_CLIENT_SECRET: "secret" }),
+    silentLogger(),
+  );
+  await assert.rejects(
+    () => client.submitRedirect("http://localhost:8082/callback?code=X&state=anything"),
+    (err: unknown) =>
+      err instanceof ApiError &&
+      err.code === "bad_request" &&
+      /run login_anilist/i.test(err.message),
+  );
+  assert.equal(mock.calls.length, 0, "no token exchange without a login in progress");
 });
 
 test("submitRedirect with a bare code after login_anilist asks for the full URL", async (t) => {
@@ -1372,11 +1395,17 @@ test("a failed token exchange surfaces an actionable, classified ApiError (route
   const mock = mockFetch(() => jsonResponse({ error: "invalid_grant" }, { status: 400 }));
   installFetch(t, mock);
   const client = new AniListClient(
-    testConfig({ ANILIST_CLIENT_ID: "id", ANILIST_CLIENT_SECRET: "secret" }),
+    testConfig({
+      ANILIST_CLIENT_ID: "id",
+      ANILIST_CLIENT_SECRET: "secret",
+      ANILIST_OAUTH_PORT: "41829",
+    }),
     silentLogger(),
   );
+  const { authorizeUrl } = await client.startLogin({ open: () => {} });
+  const state = new URL(authorizeUrl).searchParams.get("state")!;
   await assert.rejects(
-    () => client.submitRedirect("http://localhost:8082/callback?code=BADCODE"),
+    () => client.submitRedirect(`http://localhost:41829/callback?code=BADCODE&state=${state}`),
     (err: unknown) =>
       err instanceof ApiError &&
       err.code === "bad_request" &&

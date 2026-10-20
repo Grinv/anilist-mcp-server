@@ -311,6 +311,8 @@ test("onList without a login errors instead of returning unfiltered results as t
     ["get_character", { id: 40, onList: false }],
     ["get_staff", { id: 95185, onList: true }],
     ["get_studio", { id: 21, onList: true }],
+    // Same gap: without a token mediaListEntry is always null, nothing filtered.
+    ["get_recommendations_for_media", { mediaId: 1, excludeInList: true }],
   ];
   for (const [name, args] of calls) {
     const res = await client.callTool({ name, arguments: args });

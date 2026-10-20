@@ -41,6 +41,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Correct `search_media`'s `startDate_*`/`endDate_*` descriptions: the bounds are strict, so `startDate_lesser: {year: 2020}` excludes 2020. [ed0f51f](https://github.com/Grinv/anilist-mcp-server/commit/ed0f51f)
 - Correct `search_user`'s `includeDescription`: a user's bio comes back as `about`, not `description`. [ed0f51f](https://github.com/Grinv/anilist-mcp-server/commit/ed0f51f)
 - `catch_up_activity` passes a numeric user ID as a number; as a string it was looked up as a username and failed. [ed0f51f](https://github.com/Grinv/anilist-mcp-server/commit/ed0f51f)
+- `update_user` requires `enabled`/`disabled` on every `notificationOptions`/`disabledListActivity` entry; omitted, AniList unset the notification type or failed with a 500. [44d7d92](https://github.com/Grinv/anilist-mcp-server/commit/44d7d92)
+- `get_anime_schedule` with `notYetAired: false` lists the newest aired episodes first, not the oldest on record. [44d7d92](https://github.com/Grinv/anilist-mcp-server/commit/44d7d92)
 
 ## [0.9.0] - 2026-09-24
 

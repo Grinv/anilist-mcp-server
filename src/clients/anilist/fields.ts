@@ -112,6 +112,19 @@ export const MEDIA_DETAIL_FIELDS = `
   }
 `;
 
+/** A list entry's `advancedScores` reads back on AniList's raw 0-100 scale
+ *  (confirmed live: writing `{Story: 8}` read back `{Story: 80}`) — 10x what
+ *  add_list_entry/update_list_entry take, and 10x the entry's own `score`.
+ *  Scale it to 0-10 so a read value can be written straight back. */
+export function advancedScoresToPoint10<T>(entry: T): T {
+  const scores = (entry as { advancedScores?: unknown } | null | undefined)?.advancedScores;
+  if (!scores || typeof scores !== "object" || Array.isArray(scores)) return entry;
+  const scaled = Object.fromEntries(
+    Object.entries(scores).map(([k, v]) => [k, typeof v === "number" ? v / 10 : v]),
+  );
+  return { ...entry, advancedScores: scaled };
+}
+
 /** Unbounded field (see MEDIA_DETAIL_FIELDS's comment above) — appended only
  *  when the caller opts in. */
 export const MEDIA_STREAMING_EPISODES_FIELD = `streamingEpisodes { title thumbnail url site }`;

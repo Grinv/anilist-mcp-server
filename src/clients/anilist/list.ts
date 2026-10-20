@@ -3,6 +3,7 @@ import { ApiError } from "../../lib/errors.js";
 import type { MediaId, ListEntryId, UserId } from "./ids.js";
 import type { MediaType, MediaListStatus, MediaListSort } from "./enums.js";
 import { encodeFuzzyDateInt } from "./fuzzyDate.js";
+import { advancedScoresToPoint10 } from "./fields.js";
 
 /** A list-entry date. `year` is required: a date without one (even `{}`)
  *  clears the stored date upstream (confirmed live). */
@@ -223,7 +224,13 @@ export async function getUserList(
     };
   }>(query, variables, ctx.authHeader());
   const { lists, hasNextChunk } = data.MediaListCollection;
-  if (format === "full") return { format: "full", lists, hasNextChunk };
+  if (format === "full") {
+    const scaled = lists?.map((l) => ({
+      ...l,
+      entries: l.entries?.map(advancedScoresToPoint10) ?? null,
+    }));
+    return { format: "full", lists: scaled ?? null, hasNextChunk };
+  }
   return { format: "compact", ...toCompactRows(lists), columns: COMPACT_COLUMNS, hasNextChunk };
 }
 
@@ -403,7 +410,7 @@ export async function saveListEntry(
     },
     header,
   );
-  return data.SaveMediaListEntry;
+  return advancedScoresToPoint10(data.SaveMediaListEntry);
 }
 
 /** Every value `UpdateMediaListEntries` can set on a whole batch at once.

@@ -217,7 +217,13 @@ const mediaObject = z
         customLists: z
           .array(z.object({ name: z.string().nullish(), enabled: z.boolean().nullish() }).loose())
           .nullish(),
-        advancedScores: z.json().nullish(),
+        advancedScores: z
+          .json()
+          .nullish()
+          .describe(
+            "Per-category advanced scores, a {category: score} map on the same 0-10 scale as " +
+              "`score`. 0 for a category never set.",
+          ),
         startedAt: fuzzyDateOut.nullish(),
         completedAt: fuzzyDateOut.nullish(),
         updatedAt: z.number().nonnegative().nullish(),

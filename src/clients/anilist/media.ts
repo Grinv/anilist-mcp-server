@@ -9,6 +9,7 @@ import {
   MEDIA_COMPACT_FIELDS,
   MEDIA_DESCRIPTION_FIELD,
   MEDIA_DETAIL_FIELDS,
+  advancedScoresToPoint10,
   MEDIA_STREAMING_EPISODES_FIELD,
   existsFragment,
 } from "./fields.js";
@@ -56,7 +57,7 @@ async function fetchMedia(
     // so the array stays the same length as `ids` and a caller can tell
     // "this ID doesn't exist" apart from "this title just has sparse data".
     const byId = new Map(data.Page.media.map((m) => [m[idField], m]));
-    return ids.map((id) => byId.get(id) ?? null);
+    return ids.map((id) => withPoint10ListEntry(byId.get(id) ?? null));
   }
   const query = `query($id:Int,$type:MediaType){Media(${idField}:$id,type:$type){${fields}}}`;
   const data = await ctx.gql.request<{ Media: unknown }>(
@@ -65,10 +66,17 @@ async function fetchMedia(
     ctx.authHeader(),
   );
   const label = idField === "idMal" ? "MyAnimeList ID" : "ID";
-  return assertFound(
-    data.Media,
-    `No ${type === "MANGA" ? "manga" : "anime"} found with ${label} ${ids}.`,
+  return withPoint10ListEntry(
+    assertFound(
+      data.Media,
+      `No ${type === "MANGA" ? "manga" : "anime"} found with ${label} ${ids}.`,
+    ),
   );
+}
+
+function withPoint10ListEntry<T>(media: T): T {
+  const entry = (media as { mediaListEntry?: unknown } | null)?.mediaListEntry;
+  return entry ? { ...media, mediaListEntry: advancedScoresToPoint10(entry) } : media;
 }
 
 export async function getMedia(

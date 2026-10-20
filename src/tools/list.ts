@@ -131,10 +131,10 @@ const listEntry = z
       .json()
       .nullish()
       .describe(
-        "Per-category advanced scores as AniList actually stores them — an untyped value " +
-          "(the write side takes a plain {category: score} map via add_list_entry/" +
-          "update_list_entry's `advancedScores`, but the echoed read-back shape isn't " +
-          "guaranteed to match it).",
+        "Per-category advanced scores as AniList actually stores them, as a " +
+          "{category: score} map on the same 0-10 scale as `score` (so a value read here can " +
+          "be passed straight back to add_list_entry/update_list_entry's `advancedScores`). " +
+          "Every configured category is present — AniList stores 0 for any not set.",
       ),
     media: listEntryMediaLite.nullish(),
   })

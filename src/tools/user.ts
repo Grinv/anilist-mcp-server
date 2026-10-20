@@ -392,8 +392,9 @@ export function registerUserTools(server: McpServer, client: AniListClient): voi
               "Preferred list score format. It affects how scores DISPLAY on anilist.co only: " +
                 "every score crossing this server stays on its own documented scale whatever " +
                 "this is set to, so no conversion is needed on your end. A personal list-entry " +
-                "score is 0-10 both on write (add_list_entry/update_list_entry) and on read " +
-                "(get_user_list, get_media's `mediaListEntry`); `averageScore`/`meanScore` and " +
+                "score and its `advancedScores` are 0-10 both on write (add_list_entry/" +
+                "update_list_entry) and on read (get_user_list, get_media's `mediaListEntry`); " +
+                "`averageScore`/`meanScore` and " +
                 "the search filters are 0-100.",
             ),
           rowOrder: z

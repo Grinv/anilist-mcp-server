@@ -230,7 +230,9 @@ completedAt: FuzzyDateInput)` — note **`advancedScores`** is plural (a
   predictable `[{name, enabled}]` array (confirmed live). `advancedScores`
   reads back as `{categoryName: score}` on the same raw 0-100 scale as
   `scoreRaw` (confirmed live: writing `{Story: 8}` read back as `{Story:
-80, ...other configured categories: 0}`). Also confirmed live: naming a
+80, ...other configured categories: 0}`) — the server divides it by 10 on
+  every read (`advancedScoresToPoint10()` in `fields.ts`), so callers see
+  the same 0-10 scale they write. Also confirmed live: naming a
   custom list on an entry that doesn't already exist in the account's own
   `animeListOptions`/`mangaListOptions` `customLists` (see User below) is
   silently a no-op — the list must be created account-side first.

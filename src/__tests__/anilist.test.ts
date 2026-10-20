@@ -655,6 +655,53 @@ test("saveListEntry resolves advancedScores against the account's own configured
   );
 });
 
+test("advancedScores read back on the same 0-10 scale they're written on, on every read path", async (t) => {
+  // Confirmed live: AniList echoes the raw 0-100 values (`{Story: 8}` reads
+  // back as `{Story: 80}`), 10x the entry's own POINT_10_DECIMAL `score`.
+  const entry = { id: 9, score: 8.5, advancedScores: { Story: 85, Characters: 0 } };
+  const mock = mockFetch((_url, init) => {
+    const { query } = JSON.parse(init?.body as string) as { query: string };
+    if (query.includes("SaveMediaListEntry")) {
+      return jsonResponse({ data: { SaveMediaListEntry: entry } });
+    }
+    if (query.includes("MediaListCollection")) {
+      return jsonResponse({
+        data: { MediaListCollection: { hasNextChunk: false, lists: [{ entries: [entry] }] } },
+      });
+    }
+    if (query.includes("Viewer{mediaListOptions")) {
+      return advancedScoringPreRead(
+        {
+          animeList: { advancedScoring: ["Story", "Characters"], advancedScoringEnabled: true },
+          mangaList: { advancedScoring: [], advancedScoringEnabled: false },
+        },
+        { Media: { type: "ANIME" } },
+      );
+    }
+    return jsonResponse({ data: { Media: { id: 42, mediaListEntry: entry } } });
+  });
+  installFetch(t, mock);
+  const client = new AniListClient(testConfig({ ANILIST_ACCESS_TOKEN: "tok" }), silentLogger());
+  const expected = { Story: 8.5, Characters: 0 };
+
+  const saved = (await list.saveListEntry(client.ctx(), {
+    mediaId: id<MediaId>(42),
+    advancedScores: { Story: 8.5 },
+  })) as typeof entry;
+  assert.deepEqual(saved.advancedScores, expected, "save echo");
+
+  const detail = (await media.getMedia(client.ctx(), "ANIME", id<MediaId>(42))) as {
+    mediaListEntry: typeof entry;
+  };
+  assert.deepEqual(detail.mediaListEntry.advancedScores, expected, "get_media");
+
+  const full = (await list.getUserList(client.ctx(), "ANIME", "someone", { format: "full" })) as {
+    lists: { entries: (typeof entry)[] }[];
+  };
+  assert.deepEqual(full.lists[0]!.entries[0]!.advancedScores, expected, "get_user_list full");
+  assert.equal(entry.advancedScores.Story, 85, "the fixture itself must not be mutated");
+});
+
 test("saveListEntry fetches the advanced-scoring categories and the media type in ONE pre-read", async (t) => {
   const mock = mockFetch((_url, init) => {
     if (isMutation(init)) return jsonResponse({ data: { SaveMediaListEntry: { id: 9 } } });

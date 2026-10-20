@@ -115,7 +115,10 @@
     { "name": "get_media_relations", "description": "Prequels/sequels/side stories of a title." },
     { "name": "get_anime_schedule", "description": "Upcoming episode air times." },
     { "name": "get_character", "description": "A character's profile by ID." },
-    { "name": "get_staff", "description": "A staff member's profile by ID." },
+    {
+      "name": "get_staff",
+      "description": "A staff member's profile by ID, with production credits or voice roles."
+    },
     {
       "name": "get_todays_birthdays",
       "description": "Characters or staff members whose birthday is today."

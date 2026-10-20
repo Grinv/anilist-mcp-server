@@ -83,6 +83,27 @@ const staffObject = z
         edges: z.array(mediaCredit.extend({ staffRole: z.string().nullish() })),
       })
       .nullish(),
+    characterMedia: z
+      .object({
+        pageInfo: pageInfoSchema.optional(),
+        edges: z.array(
+          mediaCredit.extend({
+            characterRole: z.string().nullish(),
+            characters: z
+              .array(
+                z
+                  .object({
+                    id: anilistId,
+                    name: z.object({ full: z.string().nullish() }).nullish(),
+                  })
+                  .loose()
+                  .nullable(),
+              )
+              .nullish(),
+          }),
+        ),
+      })
+      .nullish(),
   })
   .loose();
 
@@ -144,21 +165,29 @@ export function registerPeopleTools(server: McpServer, client: AniListClient): v
         "popular first, with their `staffRole` — e.g. Director, Character Design, Theme Song " +
         "Performance — in each). Use search_staff first to resolve a name to its ID. " +
         "Voice-acting roles are NOT part of `staffMedia` (confirmed live: Kana Hanazawa's lists " +
-        "only her theme/insert song credits), so don't read a short `staffMedia` as a voice " +
-        "actor's full career. `staffMedia` is paginated (`page`/`perPage`, max 25) — check " +
-        "`staffMedia.pageInfo.hasNextPage` before treating it as the full list. Narrow it with " +
-        "`type` (anime or manga only) or `onList`.",
+        'only her theme/insert song credits) — for a voice actor, pass `credits: "voice"` to ' +
+        "get `characterMedia` instead: each title with the character(s) voiced and their " +
+        "`characterRole`. Either list is paginated (`page`/`perPage`, max 25) — check its " +
+        "`pageInfo.hasNextPage` before treating it as the full list. Narrow it with `onList`, " +
+        "or `type` (anime or manga only; production credits only).",
       inputSchema: z.object({
         id: staffId.describe("AniList staff ID."),
         ...personFilmographyFields("staffMedia"),
+        credits: z
+          .enum(["production", "voice"])
+          .default("production")
+          .describe(
+            'Which filmography to return: "production" (`staffMedia` — director, writer, ' +
+              'theme song, …) or "voice" (`characterMedia` — voice-acting roles). One per call.',
+          ),
       }),
       outputSchema: z.object({ staff: staffObject }),
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
-    ({ id, page, perPage, type, onList }) =>
+    ({ id, page, perPage, type, onList, credits }) =>
       guard(async () =>
         jsonResult({
-          staff: await people.getStaff(client.ctx(), id, { page, perPage, type, onList }),
+          staff: await people.getStaff(client.ctx(), id, { page, perPage, type, onList, credits }),
         }),
       ),
   );

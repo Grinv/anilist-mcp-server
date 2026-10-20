@@ -1,5 +1,5 @@
 import type { AniListContext } from "./context.js";
-import { assertFound } from "../../lib/errors.js";
+import { ApiError, assertFound } from "../../lib/errors.js";
 import type { CharacterId, StaffId } from "./ids.js";
 import type { BirthdayKind, MediaType } from "./enums.js";
 import {
@@ -7,6 +7,8 @@ import {
   CHARACTER_DETAIL_FIELDS,
   STAFF_FIELDS,
   STAFF_DETAIL_FIELDS,
+  STAFF_VOICE_FIELDS,
+  STAFF_VOICE_VARS,
   PERSON_DESCRIPTION_FIELD,
   PERSON_FILMOGRAPHY_VARS,
 } from "./fields.js";
@@ -20,6 +22,8 @@ export interface PersonFilmographyOptions {
   type?: MediaType;
   onList?: boolean;
 }
+
+export type StaffCredits = "production" | "voice";
 
 export async function getCharacter(
   ctx: AniListContext,
@@ -39,10 +43,23 @@ export async function getCharacter(
 export async function getStaff(
   ctx: AniListContext,
   id: StaffId,
-  opts: PersonFilmographyOptions = {},
+  opts: PersonFilmographyOptions & { credits?: StaffCredits } = {},
 ): Promise<unknown> {
-  const query = `query($id:Int,${PERSON_FILMOGRAPHY_VARS}){Staff(id:$id){${STAFF_FIELDS}${PERSON_DESCRIPTION_FIELD}${STAFF_DETAIL_FIELDS}}}`;
-  const { page = 1, perPage = 25, type, onList } = opts;
+  const { page = 1, perPage = 25, type, onList, credits = "production" } = opts;
+  const voice = credits === "voice";
+  // characterMedia has no `type` argument, so rather than silently ignoring
+  // one, say so before any request.
+  if (voice && type !== undefined) {
+    throw new ApiError({
+      code: "bad_request",
+      message:
+        '`type` only filters production credits; omit it with `credits: "voice"` (voice ' +
+        "roles are AniList's anime/game casting, not split by media type).",
+    });
+  }
+  const query = voice
+    ? `query($id:Int,${STAFF_VOICE_VARS}){Staff(id:$id){${STAFF_FIELDS}${PERSON_DESCRIPTION_FIELD}${STAFF_VOICE_FIELDS}}}`
+    : `query($id:Int,${PERSON_FILMOGRAPHY_VARS}){Staff(id:$id){${STAFF_FIELDS}${PERSON_DESCRIPTION_FIELD}${STAFF_DETAIL_FIELDS}}}`;
   const data = await ctx.gql.request<{ Staff: unknown }>(
     query,
     { id, page, perPage, type, onList },

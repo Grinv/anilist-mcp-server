@@ -214,3 +214,83 @@ test("filmography perPage above AniList's nested 25 ceiling is rejected locally"
   }
   assert.equal(mock.calls.length, 0);
 });
+
+test('get_staff credits: "voice" selects characterMedia (voice roles) instead of staffMedia', async (t) => {
+  // Live 2026-10-20 response for this exact selection (description omitted
+  // from the selection there; perPage 2).
+  const mock = mockFetch(() =>
+    jsonResponse({
+      data: {
+        Staff: {
+          id: 95185,
+          name: { full: "Kana Hanazawa", native: "花澤香菜" },
+          image: {
+            large: "https://s4.anilist.co/file/anilistcdn/staff/large/n95185-x8ZYvtN7SegC.png",
+          },
+          primaryOccupations: ["Voice Actor", "Vocalist"],
+          favourites: 17287,
+          isFavourite: false,
+          siteUrl: "https://anilist.co/staff/95185",
+          characterMedia: {
+            pageInfo: { hasNextPage: true },
+            edges: [
+              {
+                characterRole: "SUPPORTING",
+                characters: [{ id: 136072, name: { full: "Mitsuri Kanroji" } }],
+                node: {
+                  id: 101922,
+                  title: { romaji: "Kimetsu no Yaiba", english: "Demon Slayer: Kimetsu no Yaiba" },
+                  type: "ANIME",
+                  format: "TV",
+                },
+              },
+              {
+                characterRole: "SUPPORTING",
+                characters: [{ id: 88413, name: { full: "Rize Kamishiro" } }],
+                node: {
+                  id: 20605,
+                  title: { romaji: "Tokyo Ghoul", english: "Tokyo Ghoul" },
+                  type: "ANIME",
+                  format: "TV",
+                },
+              },
+            ],
+          },
+        },
+      },
+    }),
+  );
+  installFetch(t, mock);
+  const { client, close } = await connectServer({ ANILIST_MIN_INTERVAL_MS: "0" });
+  t.after(close);
+  const res = await client.callTool({
+    name: "get_staff",
+    arguments: { id: 95185, perPage: 2, credits: "voice" },
+  });
+  assert.notEqual(res.isError, true, JSON.stringify(res.content));
+  const body = sent(mock.calls[0]!.init);
+  assert.match(body.query, /characterMedia\(page: \$page, perPage: \$perPage/);
+  assert.doesNotMatch(body.query, /staffMedia|\$type/, "characterMedia takes no type arg");
+  const staff = (
+    res.structuredContent as {
+      staff: { characterMedia: { edges: { characters: { name: { full: string } }[] }[] } };
+    }
+  ).staff;
+  assert.equal(staff.characterMedia.edges[0]!.characters[0]!.name.full, "Mitsuri Kanroji");
+});
+
+test('get_staff rejects `type` with credits: "voice" before any request', async (t) => {
+  const mock = mockFetch(() => {
+    throw new Error("must not be called");
+  });
+  installFetch(t, mock);
+  const { client, close } = await connectServer({ ANILIST_MIN_INTERVAL_MS: "0" });
+  t.after(close);
+  const res = await client.callTool({
+    name: "get_staff",
+    arguments: { id: 95185, credits: "voice", type: "MANGA" },
+  });
+  assert.equal(res.isError, true);
+  assert.match((res.content as { text: string }[])[0]!.text, /only filters production credits/);
+  assert.equal(mock.calls.length, 0);
+});

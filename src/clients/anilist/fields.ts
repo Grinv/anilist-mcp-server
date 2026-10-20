@@ -188,6 +188,19 @@ export const STAFF_DETAIL_FIELDS = `
   }
 `;
 
+/** get_staff's `credits: "voice"` alternative to STAFF_DETAIL_FIELDS: the
+ *  voice-acting roles staffMedia leaves out, one edge per title with the
+ *  character(s) voiced in it. `characterMedia` takes no `type` argument (live
+ *  schema), hence its own, narrower variable list. */
+export const STAFF_VOICE_FIELDS = `
+  characterMedia(page: $page, perPage: $perPage, sort: POPULARITY_DESC, onList: $onList) {
+    pageInfo { hasNextPage }
+    edges { characterRole characters { id name { full } } node { id title { romaji english } type format } }
+  }
+`;
+
+export const STAFF_VOICE_VARS = `$page:Int,$perPage:Int,$onList:Boolean`;
+
 export const STUDIO_FIELDS = `
   id
   name

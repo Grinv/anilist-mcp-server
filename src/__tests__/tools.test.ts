@@ -753,3 +753,30 @@ test("search terms, studio names and usernames reach AniList trimmed", async (t)
   await client.callTool({ name: "get_user_profile", arguments: { user: " Grinv " } });
   assert.equal(vars(2).name, "Grinv");
 });
+
+test("every tool rejects an unknown argument instead of silently dropping it", async (t) => {
+  // Confirmed live before strict schemas: search_media({genre_in: [...]})
+  // (genre_not_in's sibling name — the real field is `genres`) returned the
+  // unfiltered top list, and get_anime_schedule({id}) the site-wide schedule.
+  const mock = mockFetch(() => {
+    throw new Error("must not be called — validation should reject first");
+  });
+  installFetch(t, mock);
+  const { client, close } = await connectServer({});
+  t.after(close);
+  const { tools } = await client.listTools();
+  for (const tool of tools) {
+    assert.equal(
+      tool.inputSchema.additionalProperties,
+      false,
+      `${tool.name}'s inputSchema must be strict`,
+    );
+  }
+  const res = await client.callTool({
+    name: "search_media",
+    arguments: { type: "ANIME", genre_in: ["Mahou Shoujo"] },
+  });
+  assert.equal(res.isError, true);
+  assert.match((res.content as { text: string }[])[0]!.text, /Unrecognized key: "genre_in"/);
+  assert.equal(mock.calls.length, 0);
+});

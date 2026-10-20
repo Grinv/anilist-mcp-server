@@ -224,7 +224,7 @@ export function registerUserTools(server: McpServer, client: AniListClient): voi
         "username directly — no need to call search_user first unless you only have a " +
         "partial/fuzzy name and need to look up the exact one. Need statistics too? Use " +
         "get_full_user_info instead of also calling get_user_stats separately.",
-      inputSchema: z.object({ user: userIdOrName }),
+      inputSchema: z.strictObject({ user: userIdOrName }),
       outputSchema: z.object({ profile: userProfileObject }),
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
@@ -247,7 +247,7 @@ export function registerUserTools(server: McpServer, client: AniListClient): voi
         "so don't treat a zeroed result as 'this account has no list activity' without " +
         "cross-checking get_user_list. Need the profile too? Use get_full_user_info instead of " +
         "also calling get_user_profile separately.",
-      inputSchema: z.object({ user: userIdOrName }),
+      inputSchema: z.strictObject({ user: userIdOrName }),
       outputSchema: z.object({ stats: userStatsObject }),
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
@@ -268,7 +268,7 @@ export function registerUserTools(server: McpServer, client: AniListClient): voi
         "only have a partial/fuzzy name. Its embedded statistics carry the same staleness " +
         "caveat as get_user_stats: AniList's own aggregation can lag and read all-zero even " +
         "for an account with real list entries.",
-      inputSchema: z.object({ user: userIdOrName }),
+      inputSchema: z.strictObject({ user: userIdOrName }),
       outputSchema: z.object({ user: fullUserObject }),
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
@@ -288,7 +288,7 @@ export function registerUserTools(server: McpServer, client: AniListClient): voi
         "exact AniList username directly — no need to call search_user first unless you only " +
         "have a partial/fuzzy name (username resolution costs one extra internal lookup " +
         "either way).",
-      inputSchema: z.object({
+      inputSchema: z.strictObject({
         user: userIdOrName.describe(
           "AniList user ID, or username. An unknown ID or username errors rather than " +
             "returning an empty feed.",
@@ -326,7 +326,7 @@ export function registerUserTools(server: McpServer, client: AniListClient): voi
         "not name-matched, so reordering/renaming its entries silently reinterprets already-" +
         "scored list entries (see update_user's own `advancedScoring` field for detail) — " +
         "fetch it here first too before changing it.",
-      inputSchema: z.object({}),
+      inputSchema: z.strictObject({}),
       outputSchema: z.object({ user: userProfileObject }),
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
@@ -340,7 +340,7 @@ export function registerUserTools(server: McpServer, client: AniListClient): voi
       description:
         "[Requires login] Toggle following another AniList user from the authenticated " +
         "user's account. Calling it again on the same user unfollows them.",
-      inputSchema: z.object({
+      inputSchema: z.strictObject({
         id: userId.describe(
           "AniList numeric user ID to follow/unfollow — this mutation has no username form; " +
             "resolve one via search_user or get_user_profile first.",
@@ -371,7 +371,7 @@ export function registerUserTools(server: McpServer, client: AniListClient): voi
         "one field's ARRAY VALUE is a full replace even though its sibling fields and the " +
         "other list type merge normally).",
       inputSchema: z.toZod<UpdateUserFields>()(
-        z.object({
+        z.strictObject({
           about: z.string().optional().describe("New profile 'about' text."),
           titleLanguage: z
             .enum(TITLE_LANGUAGES)

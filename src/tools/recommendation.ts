@@ -91,7 +91,7 @@ export function registerRecommendationTools(server: McpServer, client: AniListCl
         "`nodes[].id` 404 here anyway (7 of 10 tested for one title), with no correlation to " +
         "that pairing's `rating`. A 404 on an id you just got from that tool doesn't mean the " +
         "pairing doesn't exist, only that this specific lookup can't resolve it.",
-      inputSchema: z.object({ id: recommendationId.describe("AniList recommendation ID.") }),
+      inputSchema: z.strictObject({ id: recommendationId.describe("AniList recommendation ID.") }),
       outputSchema: z.object({ recommendation: recommendationObject }),
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
@@ -112,7 +112,7 @@ export function registerRecommendationTools(server: McpServer, client: AniListCl
         "it's already on your own list — set `excludeInList: true` to drop those from the " +
         "fetched page instead of checking each one yourself (a local post-fetch filter: " +
         "AniList's own `onList` filter applies to the source title, not the recommended one).",
-      inputSchema: z.object({
+      inputSchema: z.strictObject({
         mediaId: mediaId.describe("AniList ID of the anime/manga to get recommendations for."),
         ...paginationFields(10, NESTED_MAX_PER_PAGE),
         excludeInList: z

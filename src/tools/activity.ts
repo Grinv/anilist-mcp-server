@@ -118,7 +118,7 @@ export function registerActivityTools(server: McpServer, client: AniListClient):
       description:
         "Get a single AniList activity post (list update, text post, or message) by its ID, " +
         "including `replyCount`, `likeCount`, and `isLiked`.",
-      inputSchema: z.object({
+      inputSchema: z.strictObject({
         id: activityId.describe(
           "AniList activity ID — from get_user_activity, get_user_recent_activity, " +
             "search_activity, or the id returned by post_text_activity/post_message_activity.",
@@ -145,7 +145,7 @@ export function registerActivityTools(server: McpServer, client: AniListClient):
         "search_activity instead to browse without pinning to one user. Use " +
         "get_user_recent_activity instead if you just want a quick, fixed-size (5-item) recent " +
         "snapshot without paginating.",
-      inputSchema: z.object({
+      inputSchema: z.strictObject({
         user: userIdOrName.describe(
           "AniList user ID, or username. An unknown ID or username errors rather than " +
             "returning an empty feed.",
@@ -198,7 +198,7 @@ export function registerActivityTools(server: McpServer, client: AniListClient):
       description:
         "[Requires login] Post a new text-status update to the authenticated user's own " +
         "AniList profile, or update an existing one by passing its `id`.",
-      inputSchema: z.object({
+      inputSchema: z.strictObject({
         text: z
           .string()
           .min(5)
@@ -232,7 +232,7 @@ export function registerActivityTools(server: McpServer, client: AniListClient):
         "tool, not AniList itself: AniList's underlying mutation does accept a `private` " +
         "argument, but this tool doesn't expose it, so every message sent through it is " +
         "public. Don't use it for anything the sender expects to stay confidential.",
-      inputSchema: z.object({
+      inputSchema: z.strictObject({
         recipientId: userId.describe(
           "AniList numeric user ID of the message recipient (resolve a username via " +
             "search_user first).",
@@ -268,7 +268,7 @@ export function registerActivityTools(server: McpServer, client: AniListClient):
         "[Requires login] Delete an activity post the authenticated user owns. This cannot be " +
         "undone, and calling it again on an already-deleted id errors rather than silently " +
         "succeeding.",
-      inputSchema: z.object({
+      inputSchema: z.strictObject({
         id: activityId.describe(
           "AniList activity ID to delete — from get_user_activity, get_user_recent_activity, " +
             "search_activity, or the id returned by a previous " +

@@ -112,7 +112,7 @@ export function registerMiscTools(server: McpServer, client: AniListClient): voi
         "List every genre name AniList uses to tag anime/manga (e.g. Action, Comedy, Slice of " +
         "Life). Call this before filtering search_media by genre, so you pass a " +
         "name AniList actually recognizes.",
-      inputSchema: z.object({}),
+      inputSchema: z.strictObject({}),
       outputSchema: z.object({ genres: z.array(z.string()) }),
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
@@ -149,7 +149,7 @@ export function registerMiscTools(server: McpServer, client: AniListClient): voi
         "expecting them all in one response. Use this to look up a tag's exact name before " +
         "passing it to search_media's `tag_in` — tag names are case-sensitive, and an " +
         "unrecognized name doesn't error, it just silently matches nothing (confirmed live).",
-      inputSchema: z.object({
+      inputSchema: z.strictObject({
         ...paginationFields(25),
       }),
       outputSchema: z.object({
@@ -172,7 +172,7 @@ export function registerMiscTools(server: McpServer, client: AniListClient): voi
         "Defaults to the last 7 days; use `page`/`perPage` to go further back. Confirmed live " +
         "(bypassing this tool's own 25 cap): AniList's SiteStatistics field silently caps " +
         "`perPage` at 25 itself, so this tool's own limit doesn't lose you anything.",
-      inputSchema: z.object({
+      inputSchema: z.strictObject({
         page: z.int().positive().default(1).describe("Page number for pagination."),
         perPage: z
           .int()
@@ -206,7 +206,7 @@ export function registerMiscTools(server: McpServer, client: AniListClient): voi
         "need to browse multiple candidates rather than take the closest match. If both `id` " +
         "and `name` are given, `id` takes precedence and `name` is ignored.",
       inputSchema: z
-        .object({
+        .strictObject({
           id: studioId.optional().describe("AniList studio ID. Provide this or `name`."),
           name: z
             .string()

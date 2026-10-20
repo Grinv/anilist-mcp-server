@@ -116,10 +116,12 @@ npm run check:api      # live upstream health-check (network)
   same concept across every tool that takes it — grep sibling tools before
   naming a new field for an existing concept. A name that silently diverges
   (e.g. `search_activity`'s old `userId` vs every other user-scoped tool's
-  `user`) isn't caught by schema validation (no schema in this codebase is
-  `.strict()`) — the mismatched key is just dropped, and the tool silently
-  falls back to whatever the field being absent means, instead of erroring
-  (see `CHANGELOG.md` 0.2.2 for the bug this caused live).
+  `user`) once made the mismatched key silently dropped, so the tool fell
+  back to whatever the field being absent means instead of erroring (see
+  `CHANGELOG.md` 0.2.2 for the bug this caused live). Every tool
+  `inputSchema` is now a `z.strictObject()` — an unknown key is rejected
+  ("Unrecognized key") rather than dropped; keep new ones strict too (a test
+  in `tools.test.ts` checks every registered tool).
 - Every tool declares an `outputSchema` alongside `inputSchema`, describing the
   `structuredContent` shape `jsonResult()` returns. Model top-level keys
   precisely; for arrays of AniList media/character/staff/etc. objects and

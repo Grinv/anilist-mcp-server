@@ -23,7 +23,7 @@ export function registerLoginTools(server: McpServer, client: AniListClient): vo
         "listener, which typically succeeds even when the server runs remotely (SSH/headless) " +
         "and the browser can never reach it; you (or the user) know the actual machine layout, " +
         "the response doesn't.",
-      inputSchema: z.object({}),
+      inputSchema: z.strictObject({}),
       outputSchema: z.object({
         authorize_url: z
           .string()
@@ -91,7 +91,7 @@ export function registerLoginTools(server: McpServer, client: AniListClient): vo
         "attempt, so a bare code or a URL from another login is rejected. Fails if no login " +
         "is in progress (e.g. the server restarted since login_anilist) — run login_anilist " +
         "again.",
-      inputSchema: z.object({
+      inputSchema: z.strictObject({
         redirect_url: z
           .string()
           .min(1)

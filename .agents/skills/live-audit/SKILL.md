@@ -246,12 +246,12 @@ Sweep every file under `src/tools/`, `src/clients/anilist/`, and `src/lib/`
   schema constant's usage sites and diff the field names at each call site,
   don't just check that each one individually looks reasonable. This bug
   class can't be caught by testing well-formed values (every call site
-  works fine on its own) or by a clean-error check (no schema in this
-  codebase is `.strict()`, so a plausible-but-wrong name is silently
-  dropped as an unrecognized key instead of erroring) — the tool then quietly
-  falls back to whatever its field being _absent_ means (e.g. an unfiltered
-  global feed), which looks like a legitimate result, not a bug, unless you
-  already know what the correctly-filtered result should look like. Confirmed
+  works fine on its own). Every tool `inputSchema` is now strict, so a
+  caller's wrong name errors with "Unrecognized key" — but the divergence
+  itself still costs every caller that guessed the sibling's name a failed
+  call. Before strict schemas it was worse: the key was silently dropped and
+  the tool fell back to whatever its field being _absent_ means (e.g. an
+  unfiltered global feed), which looked like a legitimate result. Confirmed
   live: `search_activity({user: <id>})` silently returned the global feed
   instead of erroring or filtering, because the real field is `userId`.
   Same diff-don't-review-in-isolation method applies to describe-TEXT depth,

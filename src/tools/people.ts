@@ -140,7 +140,7 @@ export function registerPeopleTools(server: McpServer, client: AniListClient): v
         "character can appear in far more titles than one page holds, so check " +
         "`media.pageInfo.hasNextPage` before treating it as the full list. Narrow it with " +
         "`type` (anime or manga only) or `onList`.",
-      inputSchema: z.object({
+      inputSchema: z.strictObject({
         id: characterId.describe("AniList character ID."),
         ...personFilmographyFields("media"),
       }),
@@ -170,7 +170,7 @@ export function registerPeopleTools(server: McpServer, client: AniListClient): v
         "`characterRole`. Either list is paginated (`page`/`perPage`, max 25) — check its " +
         "`pageInfo.hasNextPage` before treating it as the full list. Narrow it with `onList`, " +
         "or `type` (anime or manga only; production credits only).",
-      inputSchema: z.object({
+      inputSchema: z.strictObject({
         id: staffId.describe("AniList staff ID."),
         ...personFilmographyFields("staffMedia"),
         credits: z
@@ -205,7 +205,7 @@ export function registerPeopleTools(server: McpServer, client: AniListClient): v
         "those tools' `media`/`staffMedia` filmography, nor each entry's bio (`description`) " +
         "unless you set `includeDescription` — call get_character/get_staff by ID for an " +
         "entry's full roles/works and bio, don't read a missing filmography here as 'none'.",
-      inputSchema: z.object({
+      inputSchema: z.strictObject({
         kind: z.enum(BIRTHDAY_KINDS).describe("Whether to list characters or staff members."),
         includeDescription: personDescriptionField("get_character/get_staff"),
         ...paginationFields(50),

@@ -26,7 +26,7 @@ export function registerNotificationTools(server: McpServer, client: AniListClie
         "(e.g. an AIRING item includes `media`/`episode`, a FOLLOWING item includes `user`, an " +
         "ACTIVITY_MESSAGE item includes `message.message` — the actual DM text is nested one " +
         "level inside `message`).",
-      inputSchema: z.object({
+      inputSchema: z.strictObject({
         type_in: z
           .array(z.enum(NOTIFICATION_TYPES))
           .nonempty()

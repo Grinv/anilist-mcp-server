@@ -242,7 +242,7 @@ export function registerListTools(server: McpServer, client: AniListClient): voi
         "~11,000 most recently updated unique entries — irrelevant for virtually every account, " +
         "but a hard ceiling if one is ever hit (older entries beyond it aren't retrievable " +
         "through this field at all, by any chunk).",
-      inputSchema: z.object({
+      inputSchema: z.strictObject({
         type: z.enum(MEDIA_TYPES).describe("Whether to get the anime or manga list."),
         user: userIdOrName,
         format: z
@@ -397,7 +397,7 @@ export function registerListTools(server: McpServer, client: AniListClient): voi
         "fields AniList zeroes/replaces rather than merges, so they're worth reading back; " +
         "otherwise the echo is trimmed, since a list sync is hundreds of writes.",
       inputSchema: z.toZod<ListEntryValues & { mediaId: MediaId }>()(
-        z.object({
+        z.strictObject({
           mediaId: mediaId.describe("AniList anime/manga ID to add (from search_media)."),
           status: z
             .enum(MEDIA_LIST_STATUSES)
@@ -488,7 +488,7 @@ export function registerListTools(server: McpServer, client: AniListClient): voi
         "only when you set them — those are the fields AniList zeroes/replaces rather than " +
         "merges; otherwise the echo is trimmed.",
       inputSchema: z.toZod<ListEntryValues & { listEntryId: ListEntryId }>()(
-        z.object({
+        z.strictObject({
           listEntryId: listEntryId.describe("The list ENTRY id to update (not the media id)."),
           status: z.enum(MEDIA_LIST_STATUSES).optional().describe("New list status."),
           score: scoreBounds.describe(
@@ -582,7 +582,7 @@ export function registerListTools(server: McpServer, client: AniListClient): voi
         "applies NOTHING, so there is never a half-applied batch to clean up — but the error " +
         "does not say which id was at fault, so re-check the ids against get_user_list. " +
         "Returns a summary (how many were updated, and their ids), not the full entries.",
-      inputSchema: z.object({
+      inputSchema: z.strictObject({
         listEntryIds: z
           .array(listEntryId)
           .nonempty()
@@ -621,7 +621,7 @@ export function registerListTools(server: McpServer, client: AniListClient): voi
         "its list-entry ID (NOT the media id) — get it from get_user_list. This cannot be " +
         "undone, and calling it again on an already-deleted id errors rather than silently " +
         "succeeding.",
-      inputSchema: z.object({
+      inputSchema: z.strictObject({
         listEntryId: listEntryId.describe("The list ENTRY id to delete (not the media id)."),
       }),
       outputSchema: z.object({ result: deleteResult }),

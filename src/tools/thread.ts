@@ -91,7 +91,7 @@ export function registerThreadTools(server: McpServer, client: AniListClient): v
       description:
         "Get an AniList forum thread's title, body and metadata (including `replyCount`, " +
         "`viewCount`, `likeCount`, `isLiked`) by its ID.",
-      inputSchema: z.object({
+      inputSchema: z.strictObject({
         id: threadId.describe(
           "AniList thread ID — use search_thread to find one, or pass one already known " +
             "(e.g. from an AniList forum URL, anilist.co/forum/thread/<id>).",
@@ -111,7 +111,7 @@ export function registerThreadTools(server: McpServer, client: AniListClient): v
         "List top-level comments posted on an AniList forum thread, by the thread's ID. " +
         "Replies (posted via post_thread_comment's `parentCommentId`) are nested under their " +
         "parent's `childComments` rather than appearing as separate entries in this list.",
-      inputSchema: z.object({
+      inputSchema: z.strictObject({
         threadId: threadId.describe(
           "AniList thread ID — use search_thread to find one, or pass one already known " +
             "(e.g. from an AniList forum URL, or from get_thread).",
@@ -150,7 +150,7 @@ export function registerThreadTools(server: McpServer, client: AniListClient): v
         "sticky/locked can silently no-op and categories/mediaCategories can silently drop " +
         "existing values (see those fields' own descriptions below).",
       inputSchema: z
-        .object({
+        .strictObject({
           title: z
             .string()
             .min(6)
@@ -252,7 +252,7 @@ export function registerThreadTools(server: McpServer, client: AniListClient): v
       description:
         "[Requires login] Post a new comment on an AniList forum thread from the authenticated " +
         "user's account, or update an existing one by passing its `id`.",
-      inputSchema: z.object({
+      inputSchema: z.strictObject({
         threadId: threadId.describe(
           "AniList thread ID to comment on (from get_thread/search_thread).",
         ),
@@ -305,7 +305,7 @@ export function registerThreadTools(server: McpServer, client: AniListClient): v
         "[Requires login] Delete a forum thread the authenticated user owns, by its ID (from " +
         "search_thread, get_thread, or the id returned by post_thread). This cannot be undone, " +
         "and calling it again on an already-deleted id errors rather than silently succeeding.",
-      inputSchema: z.object({ id: threadId.describe("AniList thread ID to delete.") }),
+      inputSchema: z.strictObject({ id: threadId.describe("AniList thread ID to delete.") }),
       outputSchema: z.object({ result: deleteResult }),
       annotations: deleteToolAnnotations,
     },
@@ -322,7 +322,7 @@ export function registerThreadTools(server: McpServer, client: AniListClient): v
         "get_thread_comments or the id returned by post_thread_comment). This cannot be " +
         "undone, and calling it again on an already-deleted id errors rather than silently " +
         "succeeding.",
-      inputSchema: z.object({ id: commentId.describe("AniList comment ID to delete.") }),
+      inputSchema: z.strictObject({ id: commentId.describe("AniList comment ID to delete.") }),
       outputSchema: z.object({ result: deleteResult }),
       annotations: deleteToolAnnotations,
     },

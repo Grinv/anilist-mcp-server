@@ -428,7 +428,7 @@ export function registerMediaTools(server: McpServer, client: AniListClient): vo
         "Returns a single object if you passed a single ID, or an array (same order as the IDs " +
         "you passed, with `null` in place of any that didn't resolve to a real anime/manga) if " +
         "you passed an array.",
-      inputSchema: z.object({
+      inputSchema: z.strictObject({
         type: mediaType.describe(
           "Whether the IDs refer to anime or manga. Required for `malIds` in particular: MAL " +
             "numbers the two separately, so the same ID means different titles.",
@@ -477,7 +477,7 @@ export function registerMediaTools(server: McpServer, client: AniListClient): vo
         "Get an anime/manga's watch/read-status counts (watching/completed/planning/etc.) and " +
         "score distribution histogram across all AniList users. Use search_media first to " +
         "resolve a title to its AniList ID.",
-      inputSchema: z.object({ type: mediaType, id: mediaId.describe("AniList ID.") }),
+      inputSchema: z.strictObject({ type: mediaType, id: mediaId.describe("AniList ID.") }),
       outputSchema: z.object({ statistics: statisticsObject }),
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
@@ -498,7 +498,7 @@ export function registerMediaTools(server: McpServer, client: AniListClient): vo
         "(confirmed live) — and in AniList's own relevance order within each. Voice actors come " +
         "back in every dub language unless you set `voiceActorLanguage`; set `role` to list " +
         "only one role (e.g. just the MAIN cast).",
-      inputSchema: z.object({
+      inputSchema: z.strictObject({
         type: mediaType,
         id: mediaId.describe("AniList ID."),
         ...paginationFields(25, NESTED_MAX_PER_PAGE),
@@ -540,7 +540,7 @@ export function registerMediaTools(server: McpServer, client: AniListClient): vo
         "AniList ID. No explicit ordering is requested — don't assume results are sorted by " +
         "role or popularity (unlike get_staff's reverse-direction lookup, which IS " +
         "popularity-sorted).",
-      inputSchema: z.object({
+      inputSchema: z.strictObject({
         type: mediaType,
         id: mediaId.describe("AniList ID."),
         ...paginationFields(25, NESTED_MAX_PER_PAGE),
@@ -564,7 +564,7 @@ export function registerMediaTools(server: McpServer, client: AniListClient): vo
         "descriptions). Always includes `summary` (a short excerpt); set `includeBody` to also " +
         "fetch each review's full text (can be long — leave it off unless you actually need " +
         "the full text). Use search_media first to resolve a title to its AniList ID.",
-      inputSchema: z.object({
+      inputSchema: z.strictObject({
         type: mediaType,
         id: mediaId.describe("AniList ID."),
         ...paginationFields(10, NESTED_MAX_PER_PAGE),
@@ -594,7 +594,7 @@ export function registerMediaTools(server: McpServer, client: AniListClient): vo
         "ADAPTATION (this title adapted into another format), SOURCE (the material this title " +
         "was adapted from), COMPILATION, CONTAINS, SAME_UNIVERSE or OTHER. Use search_media " +
         "first to resolve a title to its AniList ID.",
-      inputSchema: z.object({
+      inputSchema: z.strictObject({
         type: mediaType,
         id: mediaId.describe("AniList anime/manga ID."),
       }),
@@ -620,7 +620,7 @@ export function registerMediaTools(server: McpServer, client: AniListClient): vo
         "— manga has no airing schedule; a manga id (like any non-anime id) is rejected as " +
         "not-found rather than silently returning an empty schedule, though that error reads the " +
         "same as a nonexistent id and doesn't single out the manga/anime mismatch.",
-      inputSchema: z.object({
+      inputSchema: z.strictObject({
         mediaId: mediaId.optional().describe("Restrict to this AniList anime ID (not manga)."),
         notYetAired: z
           .boolean()
@@ -686,7 +686,7 @@ export function registerMediaTools(server: McpServer, client: AniListClient): vo
         "`isFavourite` can briefly still show the pre-toggle value — a confirmed AniList-side " +
         "read-after-write lag, not a bug in this call; this tool's own `isFavourite` already " +
         "reflects the new state.",
-      inputSchema: z.object({
+      inputSchema: z.strictObject({
         kind: z.enum(FAVOURITE_KINDS).describe("Which kind of entity `id` refers to."),
         id: anilistId.describe("AniList ID of that anime/manga/character/staff/studio."),
       }),

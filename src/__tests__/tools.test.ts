@@ -407,9 +407,12 @@ test("get_media's id batches stop at AniList's own 50-per-page ceiling", async (
       arguments: { type: "ANIME", [field]: Array.from({ length: 51 }, (_, i) => i + 1) },
     });
     assert.equal(tooMany.isError, true, `${field} must reject a batch over 50`);
+    // Since zod 4.6.6 an over-long array surfaces as the union's own
+    // invalid_union (our custom message) rather than the inner too_big
+    // issue — so assert the custom text still names the ceiling.
     assert.match(
       (tooMany.content as { type: "text"; text: string }[])[0]!.text,
-      new RegExp(`${field}: Too big: expected array to have <=50 items`),
+      new RegExp(`${field}: ${field} must be a single .*up to 50 IDs\\.`),
     );
   }
 });

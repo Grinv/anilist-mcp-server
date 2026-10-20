@@ -6,6 +6,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- Update `@modelcontextprotocol/server`/`client` to 2.3.1, which fixes several security advisories (GHSA-jm63-cq47-j5jp, GHSA-46jr-4wx8-v453).
+- Update zod to 4.6.7. An over-long `ids`/`malIds` batch in `get_media` now reports the tool's own "up to 50 IDs" message instead of Zod's generic "Too big".
+
 ## [0.9.0] - 2026-09-24
 
 ### Added

@@ -137,12 +137,17 @@ npm run check:api      # live upstream health-check (network)
   `z.set()`/`z.symbol()`/`z.void()`/`z.custom()` in a tool's `inputSchema` or
   `outputSchema`.** `@modelcontextprotocol/server` v2 converts every
   registered schema to JSON Schema via Zod's own `~standard.jsonSchema`
-  bridge (`node_modules/@modelcontextprotocol/server/dist/src-CX2iR2pK.mjs`,
-  `standardSchemaToJsonSchema()`) with no `unrepresentable` override — and
-  that bridge, like `z.toJSONSchema()` itself, defaults `unrepresentable` to
-  `"throw"` (`zod/v4/core/to-json-schema.js`), not `"any"`. One of these
-  types anywhere in a tool schema throws at `registerTool()` time — i.e. it
-  crashes server startup, not just the one tool call. A reach for `z.date()`
+  bridge (`standardSchemaToJsonSchema()` in
+  `node_modules/@modelcontextprotocol/server/dist/src-*.mjs`) with no
+  `unrepresentable` override — and that bridge, like `z.toJSONSchema()`
+  itself, defaults `unrepresentable` to `"throw"`
+  (`zod/v4/core/to-json-schema.js`), not `"any"`. Since SDK 2.3.0 that
+  conversion is lazy (at `tools/list`, not `registerTool()`), so the server
+  now starts fine — but one of these types anywhere in any tool schema makes
+  every `tools/list` call throw (confirmed on 2.3.1: "Date cannot be
+  represented in JSON Schema"), i.e. the client sees no tools at all, not
+  just a broken one. Worse than the old startup crash, since nothing fails
+  until a client connects. A reach for `z.date()`
   on a "since"-style parameter is the likely way this bites; use a
   date/time **string** format instead (e.g. `z.iso.datetime()`).
 - Mocked-`fetch` test fixtures must mirror the real upstream response shape
@@ -176,7 +181,7 @@ typecheck:scripts`, folded into `npm run lint`) instead of the main
   support refresh tokens — access tokens are long-lived JWTs (~1 year);
   re-authentication via `login_anilist` is the only way to renew one.
 - **MCP SDK**: this project runs on stable **`@modelcontextprotocol/server` v2**
-  (`2.0.0`, pinned exact — not a `^range`) ahead of the sibling servers
+  (`2.3.1`, pinned exact — not a `^range`) ahead of the sibling servers
   (`mal-mcp`/`tmdb-mcp`/`steam-games-mcp`, all still on v1). Re-run the full
   test suite, including `e2e.test.ts`, before merging any future SDK bump.
 - **No `logging` MCP capability.** `notifications/message`/`logging/setLevel`

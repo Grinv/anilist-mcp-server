@@ -308,6 +308,16 @@ completedAt: FuzzyDateInput)` — note **`advancedScores`** is plural (a
 CharacterConnection, staff: StaffConnection, studios: StudioConnection }`
   (each a `{nodes: [...]}` connection). `toggleFavourite()` selects only the
   toggled kind's connection — a toggle can't change the other four.
+- **A newly added favourite goes to the END of the list, and a favourites
+  connection returns 25 per page by default** (both confirmed live
+  2026-10-20). So on a long list the toggled id can be missing from the
+  response even though it was added. `toggleFavourite()` asks for
+  `perPage:50` plus `pageInfo{hasNextPage}` and derives `isFavourite`
+  (true/false, or null when the list continues past that page).
+- **A list-entry date with no `year` — even `{}` — CLEARS the stored date**
+  (confirmed live 2026-10-20 via `UpdateMediaListEntries`: `startedAt: {}`
+  wiped a set start date). The list tools' date input requires `year`, so
+  this can't happen by accident; omit the field to leave a date unchanged.
 - **`ToggleFavourite` does not validate that `id` actually belongs to the
   given `kind`** — confirmed live: `ToggleFavourite(characterId: <a real
 anime's id>)` succeeded and added that id to the account's favourited

@@ -403,7 +403,7 @@ test("get_media requires exactly one of ids/malIds, and still distinguishes a wr
 });
 
 test("get_media's id batches stop at AniList's own 50-per-page ceiling", async (t) => {
-  // NOT a comfort cap. The batch path builds `Page(perPage: ids.length)`, and
+  // NOT a comfort cap. The batch path builds a single `Page(perPage: 50)`, and
   // AniList clamps perPage to 50: confirmed live that 60 ids *all known to
   // exist* came back as exactly 50 media with `pageInfo.perPage` 50 and no
   // error at all. The surplus would land in fetchMedia's `?? null` branch,
@@ -714,6 +714,10 @@ test("blank search terms and an empty sort/type_in are rejected before any reque
     ["get_user_profile", { user: "   " }, "user"],
     ["search_media", { type: "ANIME", term: "Naruto", sort: [] }, "sort"],
     ["get_notifications", { type_in: [] }, "type_in"],
+    // Live: a date with no year CLEARS the stored one, so it must never be sent.
+    ["update_list_entries", { listEntryIds: [1], startedAt: {} }, "year"],
+    ["update_list_entry", { listEntryId: 1, completedAt: { month: 7 } }, "year"],
+    ["add_list_entry", { mediaId: 1, startedAt: {} }, "year"],
   ];
   for (const [name, args, field] of calls) {
     const res = await client.callTool({ name, arguments: args });

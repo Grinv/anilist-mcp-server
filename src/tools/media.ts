@@ -29,7 +29,7 @@ import {
 const mediaType = z.enum(MEDIA_TYPES).describe("Whether `id` refers to anime or manga.");
 
 /** 50, not a round number of our choosing: the batch path builds
- *  `Page(perPage: ids.length)`, and AniList silently clamps `perPage` above
+ *  a single `Page(perPage: 50)`, and AniList silently clamps `perPage` above
  *  50 (confirmed live), which would turn the surplus ids into nulls that look
  *  exactly like "no such title". See media.ts's fetchMedia(). */
 const MAX_BATCH = 50;
@@ -666,8 +666,11 @@ export function registerMediaTools(server: McpServer, client: AniListClient): vo
       description:
         "[Requires login] Toggle an anime, manga, character, staff member, or studio in the " +
         "authenticated user's AniList favourites. Calling it again on the same `kind`+`id` " +
-        "un-favourites it. The response returns the account's current favourites (id-only) " +
-        "of the toggled kind only, under its key (anime/manga/characters/staff/studios). Resolve `id` first via search_media/get_media (kind: ANIME/MANGA), " +
+        "un-favourites it. Read `isFavourite` for the outcome: true = now favourited, false = " +
+        "now removed, null = can't tell (the list runs past the first 50 returned, and a " +
+        "newly added favourite goes to its end). `favourites` holds the first page (up to 50, " +
+        "id-only) of the toggled kind, under its key (anime/manga/characters/staff/studios). " +
+        "Resolve `id` first via search_media/get_media (kind: ANIME/MANGA), " +
         "search_character/get_character, search_staff/get_staff, or search_studio/get_studio, " +
         "matching `kind`. Confirmed live: AniList does NOT validate that `id` actually belongs " +
         "to the given `kind` — e.g. passing an anime's ID with `kind: CHARACTER` succeeds " +
@@ -675,13 +678,22 @@ export function registerMediaTools(server: McpServer, client: AniListClient): vo
         "`id` from the tool matching `kind` rather than reusing an ID you already have on hand. " +
         "Note: immediately re-checking with get_media/get_character/get_staff/get_studio's own " +
         "`isFavourite` can briefly still show the pre-toggle value — a confirmed AniList-side " +
-        "read-after-write lag, not a bug in this call; this tool's own response already " +
-        "reflects the new favourites list correctly.",
+        "read-after-write lag, not a bug in this call; this tool's own `isFavourite` already " +
+        "reflects the new state.",
       inputSchema: z.object({
         kind: z.enum(FAVOURITE_KINDS).describe("Which kind of entity `id` refers to."),
         id: anilistId.describe("AniList ID of that anime/manga/character/staff/studio."),
       }),
-      outputSchema: z.object({ favourites: toggleFavouriteResult }),
+      outputSchema: z.object({
+        favourites: toggleFavouriteResult,
+        isFavourite: z
+          .boolean()
+          .nullable()
+          .describe(
+            "true: now a favourite; false: no longer one; null: undetermined (the toggled " +
+              "id isn't in the first 50 returned and the list continues).",
+          ),
+      }),
       annotations: {
         readOnlyHint: false,
         destructiveHint: false,
@@ -690,8 +702,6 @@ export function registerMediaTools(server: McpServer, client: AniListClient): vo
       },
     },
     ({ kind, id }) =>
-      guard(async () =>
-        jsonResult({ favourites: await favourites.toggleFavourite(client.ctx(), kind, id) }),
-      ),
+      guard(async () => jsonResult(await favourites.toggleFavourite(client.ctx(), kind, id))),
   );
 }

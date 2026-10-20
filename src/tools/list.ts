@@ -21,13 +21,16 @@ import {
   personalScoreOut,
 } from "./outputSchemas.js";
 
+// `year` is required: confirmed live, sending `{}` (or a date with no year)
+// CLEARS the stored date rather than leaving it alone — on update_list_entries
+// that would wipe it across every listed entry. Omit the whole field to keep it.
 const fuzzyDate = z
   .object({
-    year: z.int().positive().optional(),
+    year: z.int().positive().describe("Required — omit the whole date to leave it unchanged."),
     month: z.int().min(1).max(12).optional(),
     day: z.int().min(1).max(31).optional(),
   })
-  .describe("A partial date; omit fields you don't know (e.g. just {year: 2026}).");
+  .describe("A partial date; omit month/day you don't know (e.g. just {year: 2026}).");
 
 // get_user_list's startedAt/completedAt bounds. Same shape as search_media's
 // own date-range filter (year required — a bound needs at least a year),

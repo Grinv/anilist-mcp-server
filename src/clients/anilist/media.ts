@@ -36,13 +36,13 @@ async function fetchMedia(
       ? MEDIA_COMPACT_FIELDS
       : `${MEDIA_FIELDS}${MEDIA_DESCRIPTION_FIELD}${MEDIA_DETAIL_FIELDS}${includeStreamingEpisodes ? MEDIA_STREAMING_EPISODES_FIELD : ""}`;
   if (Array.isArray(ids)) {
-    // `perPage` is set from the batch size, so the tool's own cap on that
-    // array MUST stay at or below 50: AniList silently clamps a larger
-    // `perPage` back to 50 (confirmed live), which here would drop the
-    // surplus ids into the `?? null` branch below — indistinguishable from
-    // "this id doesn't exist". Raising the tool-side cap past 50 without
-    // paginating would therefore lose data with no error.
-    const query = `query($ids:[Int],$type:MediaType){Page(perPage:${ids.length}){media(${idField}_in:$ids,type:$type){${fields}}}}`;
+    // Always the full 50 (AniList's max), not ids.length: several AniList
+    // entries can share one idMal, and an extra match would otherwise take a
+    // page slot and push a requested id into the `?? null` branch below —
+    // indistinguishable from "this id doesn't exist". The tool's own cap on
+    // the array MUST therefore stay at or below 50: AniList silently clamps a
+    // larger `perPage` back to 50 (confirmed live).
+    const query = `query($ids:[Int],$type:MediaType){Page(perPage:50){media(${idField}_in:$ids,type:$type){${fields}}}}`;
     const data = await ctx.gql.request<{ Page: { media: Record<string, number>[] } }>(
       query,
       { ids, type },

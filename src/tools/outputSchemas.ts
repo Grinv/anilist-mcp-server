@@ -262,7 +262,10 @@ export const fuzzyDateOut = z
   .loose();
 
 const favouriteNodesList = z
-  .object({ nodes: z.array(z.object({ id: anilistId }).loose()).nullish() })
+  .object({
+    pageInfo: z.object({ hasNextPage: z.boolean().nullish() }).loose().nullish(),
+    nodes: z.array(z.object({ id: anilistId }).loose()).nullish(),
+  })
   .loose();
 
 export const toggleFavouriteResult = z

@@ -116,6 +116,9 @@ test("getMediaByMalId filters on idMal and re-keys results by idMal, not id", as
   const { query } = JSON.parse(mock.calls[0]!.init?.body as string) as { query: string };
   assert.match(query, /idMal_in:\$ids/);
   assert.doesNotMatch(query, /[^M]id_in:/, "must not fall back to the AniList-id filter");
+  // Not perPage:3 — AniList entries can share an idMal, and an extra match
+  // would take a slot and push a requested id off the page.
+  assert.match(query, /Page\(perPage:50\)/);
 });
 
 test("getMedia(single id) queries Media(), getMedia(array) queries Page.media()", async (t) => {
@@ -835,7 +838,13 @@ test("toggleFavourite uses the correct AniList argument name and selects only th
   for (const [kind, [argName, connection]] of Object.entries(expected)) {
     await t.test(kind, async (st) => {
       const mock = mockFetch(() =>
-        jsonResponse({ data: { ToggleFavourite: { [connection]: { nodes: [{ id: 7 }] } } } }),
+        jsonResponse({
+          data: {
+            ToggleFavourite: {
+              [connection]: { pageInfo: { hasNextPage: false }, nodes: [{ id: 7 }] },
+            },
+          },
+        }),
       );
       installFetch(st, mock);
       const client = new AniListClient(testConfig({ ANILIST_ACCESS_TOKEN: "tok" }), silentLogger());
@@ -847,9 +856,32 @@ test("toggleFavourite uses the correct AniList argument name and selects only th
       );
       const query = JSON.parse(mock.calls[0]!.init?.body as string).query as string;
       assert.match(query, new RegExp(`ToggleFavourite\\(${argName}:\\$id\\)`));
-      const selected = connections.filter((c) => new RegExp(`[{}]${c}\\{nodes`).test(query));
+      const selected = connections.filter((c) =>
+        new RegExp(`[{}]${c}\\(perPage:50\\)`).test(query),
+      );
       assert.deepEqual(selected, [connection], `only ${connection} may be selected:\n${query}`);
-      assert.deepEqual(result, { [connection]: { nodes: [{ id: 7 }] } });
+      assert.equal(result.isFavourite, true);
+    });
+  }
+});
+
+test("toggleFavourite: isFavourite is false only when the toggled id is absent from a complete list", async (t) => {
+  // Live: a newly added favourite goes to the END of the list, so on a list
+  // longer than one page it can be missing from the response while favourited.
+  const cases: [unknown, boolean | null][] = [
+    [{ pageInfo: { hasNextPage: false }, nodes: [{ id: 3 }] }, false],
+    [{ pageInfo: { hasNextPage: true }, nodes: [{ id: 3 }] }, null],
+    [{ pageInfo: { hasNextPage: true }, nodes: [{ id: 3 }, { id: 7 }] }, true],
+  ];
+  for (const [anime, expected] of cases) {
+    await t.test(JSON.stringify(anime), async (st) => {
+      installFetch(
+        st,
+        mockFetch(() => jsonResponse({ data: { ToggleFavourite: { anime } } })),
+      );
+      const client = new AniListClient(testConfig({ ANILIST_ACCESS_TOKEN: "tok" }), silentLogger());
+      const result = await favourites.toggleFavourite(client.ctx(), "ANIME", 7);
+      assert.equal(result.isFavourite, expected);
     });
   }
 });

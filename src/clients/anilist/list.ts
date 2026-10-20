@@ -4,6 +4,14 @@ import type { MediaId, ListEntryId, UserId } from "./ids.js";
 import type { MediaType, MediaListStatus, MediaListSort } from "./enums.js";
 import { encodeFuzzyDateInt } from "./fuzzyDate.js";
 
+/** A list-entry date. `year` is required: a date without one (even `{}`)
+ *  clears the stored date upstream (confirmed live). */
+export interface FuzzyDateInput {
+  year: number;
+  month?: number;
+  day?: number;
+}
+
 export interface MediaListEntryInput {
   mediaId?: MediaId;
   listEntryId?: ListEntryId;
@@ -19,8 +27,8 @@ export interface MediaListEntryInput {
   private?: boolean;
   notes?: string;
   hiddenFromStatusLists?: boolean;
-  startedAt?: { year?: number; month?: number; day?: number };
-  completedAt?: { year?: number; month?: number; day?: number };
+  startedAt?: FuzzyDateInput;
+  completedAt?: FuzzyDateInput;
   customLists?: string[];
   /** Per-category scores on a 0-10 scale, keyed by the account's own advanced
    *  scoring category names (see docs/api-references.md). */
@@ -418,8 +426,8 @@ export interface BulkListEntryValues {
   private?: boolean;
   notes?: string;
   hiddenFromStatusLists?: boolean;
-  startedAt?: { year?: number; month?: number; day?: number };
-  completedAt?: { year?: number; month?: number; day?: number };
+  startedAt?: FuzzyDateInput;
+  completedAt?: FuzzyDateInput;
 }
 
 /** Applies ONE set of values to many list entries in a single request, via

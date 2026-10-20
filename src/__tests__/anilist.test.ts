@@ -1398,3 +1398,119 @@ test("updateListEntries refuses a call that would write nothing", async (t) => {
   );
   assert.equal(mock.calls.length, 0, "an empty update must not reach AniList at all");
 });
+
+// An empty page is a real AniList response shape for these selections
+// (pageInfo plus an empty list), so it doubles as an accurate fixture for
+// every variables-only assertion below.
+const emptyPageInfo = { total: 0, currentPage: 1, lastPage: 1, hasNextPage: false };
+
+test("searchMedia forwards the exclusion/length/country/licensor filters, and omits each when unset", async (t) => {
+  const mock = mockFetch(() =>
+    jsonResponse({ data: { Page: { pageInfo: { ...emptyPageInfo, perPage: 10 }, media: [] } } }),
+  );
+  installFetch(t, mock);
+  const client = new AniListClient(
+    testConfig({ CACHE_TTL_MS: "0", ANILIST_MIN_INTERVAL_MS: "0" }),
+    silentLogger(),
+  );
+  const filter = {
+    genre_not_in: ["Action"],
+    tag_not_in: ["Isekai"],
+    minimumTagRank: 90,
+    format_not_in: ["MOVIE"],
+    status_not_in: ["CANCELLED"],
+    countryOfOrigin: "KR",
+    duration_greater: 20,
+    duration_lesser: 30,
+    chapters_greater: 100,
+    chapters_lesser: 500,
+    volumes_greater: 1,
+    volumes_lesser: 10,
+    licensedBy_in: ["Crunchyroll"],
+  };
+  await search.searchMedia(client.ctx(), "MANGA", { filter });
+  const body = JSON.parse(mock.calls[0]!.init?.body as string) as {
+    query: string;
+    variables: Record<string, unknown>;
+  };
+  for (const [key, value] of Object.entries(filter)) {
+    assert.deepEqual(body.variables[key], value, `${key} must reach the GraphQL variables`);
+    assert.match(body.query, new RegExp(`\\$${key}:`), `${key} must be declared in the query`);
+    assert.match(body.query, new RegExp(`${key}:\\$${key}`), `${key} must be passed to media()`);
+  }
+  assert.match(body.query, /\$countryOfOrigin:CountryCode/);
+
+  await search.searchMedia(client.ctx(), "MANGA", { filter: {} });
+  const unset = JSON.parse(mock.calls[1]!.init?.body as string).variables as Record<
+    string,
+    unknown
+  >;
+  for (const key of Object.keys(filter)) {
+    assert.ok(!(key in unset), `an unset ${key} must be omitted, not sent as null`);
+  }
+});
+
+test("searchThread trims the term, relevance-sorts only with a term, and sorts a term-less browse by latest reply", async (t) => {
+  const mock = mockFetch(() =>
+    jsonResponse({ data: { Page: { pageInfo: emptyPageInfo, threads: [] } } }),
+  );
+  installFetch(t, mock);
+  const client = new AniListClient(
+    testConfig({ CACHE_TTL_MS: "0", ANILIST_MIN_INTERVAL_MS: "0" }),
+    silentLogger(),
+  );
+  const varsOf = (i: number) =>
+    JSON.parse(mock.calls[i]!.init?.body as string).variables as Record<string, unknown>;
+
+  await search.searchThread(client.ctx(), "  spring season  ");
+  assert.equal(varsOf(0).search, "spring season", "term is trimmed before sending");
+  assert.deepEqual(varsOf(0).sort, ["SEARCH_MATCH"]);
+
+  // Term-less SEARCH_MATCH degrades to oldest-ID-first live, so browse by latest reply.
+  await search.searchThread(client.ctx());
+  assert.equal(varsOf(1).search, undefined);
+  assert.deepEqual(varsOf(1).sort, ["REPLIED_AT_DESC"]);
+
+  await search.searchThread(client.ctx(), "   ");
+  assert.equal(varsOf(2).search, undefined, "whitespace-only term is dropped");
+  assert.deepEqual(varsOf(2).sort, ["REPLIED_AT_DESC"]);
+});
+
+test("searchActivity converts createdAfter/createdBefore to unix seconds on both query paths, and omits them when unset", async (t) => {
+  const mock = mockFetch((_url, init) => {
+    const body = JSON.parse(init?.body as string) as { query: string };
+    if (body.query.includes("exists:User")) {
+      return jsonResponse({
+        data: { exists: { id: 7640432 }, feed: { pageInfo: emptyPageInfo, activities: [] } },
+      });
+    }
+    return jsonResponse({ data: { Page: { pageInfo: emptyPageInfo, activities: [] } } });
+  });
+  installFetch(t, mock);
+  const client = new AniListClient(
+    testConfig({ CACHE_TTL_MS: "0", ANILIST_MIN_INTERVAL_MS: "0" }),
+    silentLogger(),
+  );
+  const callOf = (i: number) =>
+    JSON.parse(mock.calls[i]!.init?.body as string) as {
+      query: string;
+      variables: Record<string, unknown>;
+    };
+  const created = { after: "2026-10-01T09:00:00+09:00", before: "2026-10-02T00:00:00.999Z" };
+
+  // Global feed (no user).
+  await search.searchActivity(client.ctx(), undefined, undefined, 1, 10, created);
+  assert.equal(callOf(0).variables.createdAt_greater, 1790812800, "offset honored");
+  assert.equal(callOf(0).variables.createdAt_lesser, 1790899200, "sub-second part floored");
+  assert.match(callOf(0).query, /createdAt_greater:\$createdAt_greater/);
+
+  // Numeric-id path (aliased existence check).
+  await search.searchActivity(client.ctx(), id<UserId>(7640432), undefined, 1, 10, created);
+  assert.equal(callOf(1).variables.createdAt_greater, 1790812800);
+  assert.equal(callOf(1).variables.createdAt_lesser, 1790899200);
+  assert.match(callOf(1).query, /createdAt_lesser:\$createdAt_lesser/);
+
+  await search.searchActivity(client.ctx());
+  assert.ok(!("createdAt_greater" in callOf(2).variables), "unset bound is omitted");
+  assert.ok(!("createdAt_lesser" in callOf(2).variables), "unset bound is omitted");
+});

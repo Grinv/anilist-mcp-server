@@ -30,6 +30,11 @@ function encodeFuzzyDateInt(date?: {
   return date.year * 10000 + (date.month ?? 0) * 100 + (date.day ?? 0);
 }
 
+/** ISO 8601 datetime → unix seconds (floored), or undefined when unset. */
+function toUnixSeconds(iso?: string): number | undefined {
+  return iso === undefined ? undefined : Math.floor(Date.parse(iso) / 1000);
+}
+
 export async function searchMedia(
   ctx: AniListContext,
   type: MediaType,
@@ -56,7 +61,11 @@ export async function searchMedia(
     $episodes_greater:Int,$episodes_lesser:Int,
     $startDate_greater:FuzzyDateInt,$startDate_lesser:FuzzyDateInt,
     $endDate_greater:FuzzyDateInt,$endDate_lesser:FuzzyDateInt,
-    $source_in:[MediaSource]
+    $source_in:[MediaSource],
+    $genre_not_in:[String],$tag_not_in:[String],$minimumTagRank:Int,
+    $format_not_in:[MediaFormat],$status_not_in:[MediaStatus],$countryOfOrigin:CountryCode,
+    $duration_greater:Int,$duration_lesser:Int,$chapters_greater:Int,$chapters_lesser:Int,
+    $volumes_greater:Int,$volumes_lesser:Int,$licensedBy_in:[String]
   ){
     Page(page:$page,perPage:$perPage){
       pageInfo{total currentPage lastPage hasNextPage perPage}
@@ -69,7 +78,13 @@ export async function searchMedia(
         episodes_greater:$episodes_greater,episodes_lesser:$episodes_lesser,
         startDate_greater:$startDate_greater,startDate_lesser:$startDate_lesser,
         endDate_greater:$endDate_greater,endDate_lesser:$endDate_lesser,
-        source_in:$source_in
+        source_in:$source_in,
+        genre_not_in:$genre_not_in,tag_not_in:$tag_not_in,minimumTagRank:$minimumTagRank,
+        format_not_in:$format_not_in,status_not_in:$status_not_in,countryOfOrigin:$countryOfOrigin,
+        duration_greater:$duration_greater,duration_lesser:$duration_lesser,
+        chapters_greater:$chapters_greater,chapters_lesser:$chapters_lesser,
+        volumes_greater:$volumes_greater,volumes_lesser:$volumes_lesser,
+        licensedBy_in:$licensedBy_in
       ){${fields}}
     }
   }`;
@@ -112,6 +127,19 @@ export async function searchMedia(
       endDate_greater: encodeFuzzyDateInt(f.endDate_greater as { year?: number } | undefined),
       endDate_lesser: encodeFuzzyDateInt(f.endDate_lesser as { year?: number } | undefined),
       source_in: f.source_in,
+      genre_not_in: f.genre_not_in,
+      tag_not_in: f.tag_not_in,
+      minimumTagRank: f.minimumTagRank,
+      format_not_in: f.format_not_in,
+      status_not_in: f.status_not_in,
+      countryOfOrigin: f.countryOfOrigin,
+      duration_greater: f.duration_greater,
+      duration_lesser: f.duration_lesser,
+      chapters_greater: f.chapters_greater,
+      chapters_lesser: f.chapters_lesser,
+      volumes_greater: f.volumes_greater,
+      volumes_lesser: f.volumes_lesser,
+      licensedBy_in: f.licensedBy_in,
     },
     ctx.authHeader(),
   );
@@ -204,19 +232,24 @@ export async function searchThread(
   page = 1,
   perPage = 10,
 ): Promise<unknown> {
-  const query = `query($search:String,$categoryId:Int,$mediaCategoryId:Int,$page:Int,$perPage:Int){Page(page:$page,perPage:$perPage){
+  const query = `query($search:String,$categoryId:Int,$mediaCategoryId:Int,$page:Int,$perPage:Int,$sort:[ThreadSort]){Page(page:$page,perPage:$perPage){
     pageInfo{total currentPage lastPage hasNextPage}
-    threads(search:$search,categoryId:$categoryId,mediaCategoryId:$mediaCategoryId,sort:[SEARCH_MATCH]){
+    threads(search:$search,categoryId:$categoryId,mediaCategoryId:$mediaCategoryId,sort:$sort){
       id title siteUrl replyCount viewCount isSticky createdAt user{id name} categories{id name}
     }
   }}`;
   // Same empty/whitespace-term fix as searchMedia above — an explicit
   // `search: ""` matches nothing, silently returning zero results instead of
-  // the intended term-less browse/filter mode.
-  const search = term?.trim() ? term : undefined;
+  // the intended term-less browse/filter mode. Trimmed, also like searchMedia.
+  const search = term?.trim() || undefined;
+  // SEARCH_MATCH without a term degrades to oldest-thread-ID-first (confirmed
+  // live: threads 1, 2, 3, ... from 2014), so a term-less browse sorts by most
+  // recent reply instead — what anilist.co/forum/recent shows, minus pinning
+  // sticky threads to the top.
+  const sort = search ? ["SEARCH_MATCH"] : ["REPLIED_AT_DESC"];
   const data = await ctx.gql.request<{ Page: unknown }>(
     query,
-    { search, categoryId, mediaCategoryId, page, perPage },
+    { search, categoryId, mediaCategoryId, page, perPage, sort },
     ctx.authHeader(),
   );
   return data.Page;
@@ -228,8 +261,13 @@ export async function searchActivity(
   type?: string,
   page = 1,
   perPage = 10,
+  created: { after?: string; before?: string } = {},
 ): Promise<unknown> {
   const header = ctx.authHeader();
+  // `createdAt_greater`/`_lesser` take unix seconds and are both strict
+  // (confirmed live); the tool layer accepts ISO 8601 datetimes instead.
+  const createdAt_greater = toUnixSeconds(created.after);
+  const createdAt_lesser = toUnixSeconds(created.before);
   // AniList's `activities` field only accepts a numeric `userId` filter, so a
   // username has a genuine data dependency (its numeric id must be known
   // before `activities(userId:...)` can even be built) and needs a separate
@@ -241,16 +279,16 @@ export async function searchActivity(
   // existsFragment() aliases the existence check into the same request,
   // same pattern as getUserActivity.
   if (typeof user === "number") {
-    const query = `query($userId:Int,$type:ActivityType,$page:Int,$perPage:Int){
+    const query = `query($userId:Int,$type:ActivityType,$page:Int,$perPage:Int,$createdAt_greater:Int,$createdAt_lesser:Int){
       ${existsFragment("User", "userId")}
       feed:Page(page:$page,perPage:$perPage){
         pageInfo{total currentPage lastPage hasNextPage}
-        activities(userId:$userId,type:$type,sort:ID_DESC){${ACTIVITY_FRAGMENT}}
+        activities(userId:$userId,type:$type,createdAt_greater:$createdAt_greater,createdAt_lesser:$createdAt_lesser,sort:ID_DESC){${ACTIVITY_FRAGMENT}}
       }
     }`;
     const data = await ctx.gql.request<{ exists: { id: number } | null; feed: unknown }>(
       query,
-      { userId: user, type, page, perPage },
+      { userId: user, type, page, perPage, createdAt_greater, createdAt_lesser },
       header,
     );
     assertFound(data.exists, `No AniList user found with ID ${user}.`);
@@ -258,13 +296,13 @@ export async function searchActivity(
   }
   const userId: UserId | undefined =
     typeof user === "string" ? await resolveUserId(ctx, user, header) : undefined;
-  const query = `query($userId:Int,$type:ActivityType,$page:Int,$perPage:Int){Page(page:$page,perPage:$perPage){
+  const query = `query($userId:Int,$type:ActivityType,$page:Int,$perPage:Int,$createdAt_greater:Int,$createdAt_lesser:Int){Page(page:$page,perPage:$perPage){
     pageInfo{total currentPage lastPage hasNextPage}
-    activities(userId:$userId,type:$type,sort:ID_DESC){${ACTIVITY_FRAGMENT}}
+    activities(userId:$userId,type:$type,createdAt_greater:$createdAt_greater,createdAt_lesser:$createdAt_lesser,sort:ID_DESC){${ACTIVITY_FRAGMENT}}
   }}`;
   const data = await ctx.gql.request<{ Page: unknown }>(
     query,
-    { userId, type, page, perPage },
+    { userId, type, page, perPage, createdAt_greater, createdAt_lesser },
     header,
   );
   return data.Page;

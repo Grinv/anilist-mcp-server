@@ -203,6 +203,84 @@ const mediaSearchInput = z.object({
     .array(z.enum(SOURCES))
     .optional()
     .describe("Restrict to entries adapted from these source material types."),
+  genre_not_in: z
+    .array(z.string())
+    .optional()
+    .describe(
+      "Exclude entries having ANY of these genres. Unlike `genres`, an unrecognized name " +
+        "excludes nothing (no-op, confirmed live).",
+    ),
+  tag_not_in: z
+    .array(z.string())
+    .optional()
+    .describe("Exclude entries having ANY of these exact tag names (see `tag_in`)."),
+  minimumTagRank: z
+    .int()
+    .min(0)
+    .max(100)
+    .optional()
+    .describe(
+      "Only count a tag in `tag_in`/`tag_not_in` when its relevance rank (0-100, as in " +
+        "get_media's `tags[].rank`) is at least this — e.g. 90 for titles where the tag is " +
+        "central, not incidental. Applies to both lists (confirmed live).",
+    ),
+  format_not_in: z.array(z.enum(FORMATS)).optional().describe("Exclude these formats."),
+  status_not_in: z.array(z.enum(STATUSES)).optional().describe("Exclude these release statuses."),
+  countryOfOrigin: z
+    .string()
+    .regex(/^[A-Z]{2}$/)
+    .optional()
+    .describe(
+      'Restrict to this country of origin, as an uppercase ISO 3166-1 alpha-2 code (e.g. "JP", ' +
+        '"KR" for manhwa, "CN" for manhua/donghua, "TW"). An unused code matches nothing.',
+    ),
+  duration_greater: z
+    .int()
+    .nonnegative()
+    .optional()
+    .describe(
+      "Anime only: episode length strictly greater than this, in minutes. With type: MANGA " +
+        "AniList silently applies it to volume count instead (shared column, confirmed live).",
+    ),
+  duration_lesser: z
+    .int()
+    .nonnegative()
+    .optional()
+    .describe("Anime only: episode length strictly less than this, in minutes (see above)."),
+  chapters_greater: z
+    .int()
+    .nonnegative()
+    .optional()
+    .describe(
+      "Manga only: more chapters than this. Same underlying column as `episodes_greater` — " +
+        "with type: ANIME it filters episode count (confirmed live).",
+    ),
+  chapters_lesser: z
+    .int()
+    .nonnegative()
+    .optional()
+    .describe("Manga only: fewer chapters than this (same column as `episodes_lesser`)."),
+  volumes_greater: z
+    .int()
+    .nonnegative()
+    .optional()
+    .describe(
+      "Manga only: more volumes than this. With type: ANIME AniList silently applies it to " +
+        "episode duration instead (shared column, confirmed live).",
+    ),
+  volumes_lesser: z
+    .int()
+    .nonnegative()
+    .optional()
+    .describe("Manga only: fewer volumes than this (see above)."),
+  licensedBy_in: z
+    .array(z.string())
+    .optional()
+    .describe(
+      "Restrict to entries licensed/streamed by ANY of these sites (names as in get_media's " +
+        '`externalLinks[].site`, e.g. "Crunchyroll", "Netflix"; case-insensitive). An ' +
+        "unrecognized site name matches nothing.",
+    ),
   sfw: z
     .boolean()
     .default(false)
@@ -242,11 +320,12 @@ export function registerSearchTools(server: McpServer, client: AniListClient): v
     {
       title: "Search anime/manga",
       description:
-        "Search AniList for anime or manga by title and/or filters (genre, format, status, " +
-        "season/year), or browse term-less by ranking (top-rated, most popular, trending — see " +
-        "the `sort` parameter) when you don't have a title to search for. Adult (NSFW) results " +
-        "are included unless you set `sfw: true` — see the `sfw` parameter. Returns AniList IDs " +
-        "to use with get_media and other ID-based tools.",
+        "Search AniList for anime or manga by title and/or filters (genre, tag, format, status, " +
+        "season/year, country, length — most with an exclusion variant), or browse term-less " +
+        "by ranking (top-rated, most popular, trending — see the `sort` parameter) when you " +
+        "don't have a title to search for. Adult (NSFW) results are included unless you set " +
+        "`sfw: true` — see the `sfw` parameter. Returns AniList IDs to use with get_media and " +
+        "other ID-based tools.",
       inputSchema: mediaSearchInput,
       outputSchema: z.object({
         results: z
@@ -284,6 +363,19 @@ export function registerSearchTools(server: McpServer, client: AniListClient): v
               endDate_greater: args.endDate_greater,
               endDate_lesser: args.endDate_lesser,
               source_in: args.source_in,
+              genre_not_in: args.genre_not_in,
+              tag_not_in: args.tag_not_in,
+              minimumTagRank: args.minimumTagRank,
+              format_not_in: args.format_not_in,
+              status_not_in: args.status_not_in,
+              countryOfOrigin: args.countryOfOrigin,
+              duration_greater: args.duration_greater,
+              duration_lesser: args.duration_lesser,
+              chapters_greater: args.chapters_greater,
+              chapters_lesser: args.chapters_lesser,
+              volumes_greater: args.volumes_greater,
+              volumes_lesser: args.volumes_lesser,
+              licensedBy_in: args.licensedBy_in,
             },
           }),
         }),
@@ -417,7 +509,8 @@ export function registerSearchTools(server: McpServer, client: AniListClient): v
           .string()
           .optional()
           .describe(
-            "Free-text search term (matches thread title/body). Omit to just filter/browse.",
+            "Free-text search term (matches thread title/body); results are relevance-ranked. " +
+              "Omit to browse, most recently replied-to first.",
           ),
         categoryId: categoryId
           .optional()
@@ -466,8 +559,9 @@ export function registerSearchTools(server: McpServer, client: AniListClient): v
       title: "Search activity feed",
       description:
         "Search/browse AniList's activity feed (list updates, text posts, messages), optionally " +
-        "filtered to one user and/or one activity type. Each result already includes its full " +
-        "content (text/message/status, `replyCount`/`likeCount`/`isLiked`, the posting user, " +
+        "filtered to one user, one activity type, and/or a creation-time window. Each result " +
+        "already includes its full content (text/message/status, " +
+        "`replyCount`/`likeCount`/`isLiked`, the posting user, " +
         "and — for list activity — the media) — no follow-up get_activity call needed unless " +
         "you need to re-check one specific result's `replyCount`/`likeCount`/`isLiked` later " +
         "(e.g. after liking it).",
@@ -489,6 +583,17 @@ export function registerSearchTools(server: McpServer, client: AniListClient): v
             "Restrict to this activity type. MEDIA_LIST matches both ANIME_LIST and MANGA_LIST " +
               "activities; use ANIME_LIST/MANGA_LIST to restrict to just one.",
           ),
+        createdAfter: z.iso
+          .datetime({ offset: true })
+          .optional()
+          .describe(
+            "Only activity created strictly after this ISO 8601 datetime with an offset " +
+              '(e.g. "2026-10-01T00:00:00Z"); compared at whole-second precision.',
+          ),
+        createdBefore: z.iso
+          .datetime({ offset: true })
+          .optional()
+          .describe("Only activity created strictly before this ISO 8601 datetime."),
         ...paginationFields(10),
       }),
       outputSchema: z.object({
@@ -501,10 +606,13 @@ export function registerSearchTools(server: McpServer, client: AniListClient): v
       }),
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
-    ({ user, type, page, perPage }) =>
+    ({ user, type, createdAfter, createdBefore, page, perPage }) =>
       guard(async () =>
         jsonResult({
-          results: await search.searchActivity(client.ctx(), user, type, page, perPage),
+          results: await search.searchActivity(client.ctx(), user, type, page, perPage, {
+            after: createdAfter,
+            before: createdBefore,
+          }),
         }),
       ),
   );

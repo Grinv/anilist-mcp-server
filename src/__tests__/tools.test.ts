@@ -613,3 +613,56 @@ test("login_anilist reports a clear error when no client id/secret is configured
   const text = (res.content as { type: "text"; text: string }[])[0]!.text;
   assert.match(text, /ANILIST_CLIENT_ID/);
 });
+
+test("search_media and search_activity reject out-of-range or malformed new filter values before any fetch", async (t) => {
+  const mock = mockFetch(() => {
+    throw new Error("must not be called — Zod should reject before any fetch");
+  });
+  installFetch(t, mock);
+  const { client, close } = await connectServer({ ANILIST_MIN_INTERVAL_MS: "0" });
+  t.after(close);
+
+  const bad: [string, Record<string, unknown>][] = [
+    ["search_media", { type: "ANIME", minimumTagRank: 101 }],
+    ["search_media", { type: "ANIME", minimumTagRank: -1 }],
+    ["search_media", { type: "ANIME", countryOfOrigin: "jp" }],
+    ["search_media", { type: "ANIME", countryOfOrigin: "JPN" }],
+    ["search_media", { type: "ANIME", format_not_in: ["CARTOON"] }],
+    ["search_media", { type: "ANIME", status_not_in: ["DONE"] }],
+    ["search_media", { type: "ANIME", duration_greater: -5 }],
+    ["search_media", { type: "MANGA", chapters_lesser: 1.5 }],
+    ["search_activity", { createdAfter: "yesterday" }],
+    ["search_activity", { createdAfter: "2026-10-01" }],
+    ["search_activity", { createdBefore: "2026-10-01T00:00:00" }],
+  ];
+  for (const [name, args] of bad) {
+    const res = await client.callTool({ name, arguments: args });
+    assert.equal(res.isError, true, `${name} ${JSON.stringify(args)} must be rejected`);
+  }
+  assert.equal(mock.calls.length, 0);
+});
+
+test("search_activity forwards createdAfter/createdBefore as unix-second createdAt bounds", async (t) => {
+  const mock = mockFetch(() =>
+    jsonResponse({
+      data: {
+        Page: {
+          pageInfo: { total: 0, currentPage: 1, lastPage: 1, hasNextPage: false },
+          activities: [],
+        },
+      },
+    }),
+  );
+  installFetch(t, mock);
+  const { client, close } = await connectServer({ ANILIST_MIN_INTERVAL_MS: "0" });
+  t.after(close);
+
+  const res = await client.callTool({
+    name: "search_activity",
+    arguments: { createdAfter: "2026-10-01T00:00:00Z", createdBefore: "2026-10-02T00:00:00Z" },
+  });
+  assert.notEqual(res.isError, true, `search_activity errored: ${JSON.stringify(res.content)}`);
+  const vars = JSON.parse(mock.calls[0]!.init?.body as string).variables as Record<string, unknown>;
+  assert.equal(vars.createdAt_greater, 1790812800);
+  assert.equal(vars.createdAt_lesser, 1790899200);
+});

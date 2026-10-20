@@ -302,6 +302,7 @@ const mediaSearchInput = z.object({
     ),
   sort: z
     .array(z.enum(MEDIA_SORTS))
+    .nonempty()
     .optional()
     .describe(
       'Sort order, most-significant key first (e.g. ["SCORE_DESC"] for highest-rated first, ' +

@@ -104,9 +104,9 @@ export class GraphQLClient {
   ): Promise<T> {
     const body = JSON.stringify({ query, variables: stripUndefined(variables) });
     // AniList's rate-limit (429) and outage (403) responses carry a non-2xx
-    // status, which lib/http.ts already turns into a retryable ApiError via
-    // classifyStatus() before we ever see the body — no special-casing needed
-    // here for those. This only has to handle 2xx responses that still carry
+    // status, which lib/http.ts already turns into an ApiError via
+    // classifyStatus() before we ever see the body (429 retryable, 403 not —
+    // see docs/api-references.md) — no special-casing needed here for those. This only has to handle 2xx responses that still carry
     // a GraphQL `errors[]` envelope (e.g. query/argument validation errors).
     const res = await this.#http.requestJson<GraphQLResponse<T>>("", {
       method: "POST",

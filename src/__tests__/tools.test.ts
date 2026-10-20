@@ -692,3 +692,27 @@ test("search_activity forwards createdAfter/createdBefore as unix-second created
   assert.equal(vars.createdAt_greater, 1790812800);
   assert.equal(vars.createdAt_lesser, 1790899200);
 });
+
+test("blank search terms and an empty sort/type_in are rejected before any request", async (t) => {
+  // A whitespace-only term used to go upstream as-is; `sort: []` silently
+  // replaced the SEARCH_MATCH default with no ordering at all.
+  const mock = mockFetch(() => {
+    throw new Error("must not be called — these inputs should fail before any fetch");
+  });
+  installFetch(t, mock);
+  const { client, close } = await connectServer({ ANILIST_ACCESS_TOKEN: "tok" });
+  t.after(close);
+  const calls: [string, Record<string, unknown>][] = [
+    ["search_character", { term: "   " }],
+    ["search_staff", { term: "   " }],
+    ["search_studio", { term: "   " }],
+    ["search_user", { term: "   " }],
+    ["search_media", { term: "Naruto", sort: [] }],
+    ["get_notifications", { type_in: [] }],
+  ];
+  for (const [name, args] of calls) {
+    const res = await client.callTool({ name, arguments: args });
+    assert.equal(res.isError, true, `${name} ${JSON.stringify(args)} should be rejected`);
+  }
+  assert.equal(mock.calls.length, 0);
+});

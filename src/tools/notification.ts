@@ -29,6 +29,7 @@ export function registerNotificationTools(server: McpServer, client: AniListClie
       inputSchema: z.object({
         type_in: z
           .array(z.enum(NOTIFICATION_TYPES))
+          .nonempty()
           .optional()
           .describe(
             "Restrict to these notification types. Omit to get every type. This only filters " +

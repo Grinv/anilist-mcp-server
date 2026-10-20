@@ -128,6 +128,13 @@ export async function searchMedia(
   return data.Page;
 }
 
+/** Trimmed search term; a blank one is a caller mistake, not a query. */
+function requireTerm(term: string): string {
+  const trimmed = term.trim();
+  if (!trimmed) throw new ApiError({ code: "bad_request", message: "`term` must not be blank." });
+  return trimmed;
+}
+
 export async function searchCharacter(
   ctx: AniListContext,
   term: string,
@@ -142,7 +149,7 @@ export async function searchCharacter(
   }}`;
   const data = await ctx.gql.request<{ Page: unknown }>(
     query,
-    { search: term, page, perPage },
+    { search: requireTerm(term), page, perPage },
     ctx.authHeader(),
   );
   return data.Page;
@@ -162,7 +169,7 @@ export async function searchStaff(
   }}`;
   const data = await ctx.gql.request<{ Page: unknown }>(
     query,
-    { search: term, page, perPage },
+    { search: requireTerm(term), page, perPage },
     ctx.authHeader(),
   );
   return data.Page;
@@ -180,7 +187,7 @@ export async function searchStudio(
   }}`;
   const data = await ctx.gql.request<{ Page: unknown }>(
     query,
-    { search: term, page, perPage },
+    { search: requireTerm(term), page, perPage },
     ctx.authHeader(),
   );
   return data.Page;
@@ -200,7 +207,7 @@ export async function searchUser(
   }}`;
   const data = await ctx.gql.request<{ Page: unknown }>(
     query,
-    { search: term, page, perPage },
+    { search: requireTerm(term), page, perPage },
     ctx.authHeader(),
   );
   return data.Page;

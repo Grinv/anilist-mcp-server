@@ -6,6 +6,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-10-20
+
 ### Added
 
 - Add exclusion, tag-rank, country-of-origin, length and licensor filters to `search_media` (`genre_not_in`, `tag_not_in`, `minimumTagRank`, `countryOfOrigin`, `licensedBy_in`, …), all applied server-side. [3df0b9a](https://github.com/Grinv/anilist-mcp-server/commit/3df0b9a)

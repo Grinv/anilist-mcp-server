@@ -37,25 +37,29 @@ The only inputs it handles are:
 
 ## Usage and third-party sharing
 
-Every tool call makes one outbound HTTPS request, to AniList's own
-infrastructure: the public GraphQL API (`graphql.anilist.co`) for every tool,
-plus AniList's OAuth endpoints (`anilist.co/api/v2/oauth/*`) only during the
-one-time `login_anilist` / `submit_anilist_redirect` login flow. No other
-third party is ever contacted.
+Tool calls make outbound HTTPS requests only to AniList's own
+infrastructure: the public GraphQL API (`graphql.anilist.co`) for every tool
+except the login pair, and AniList's OAuth endpoints
+(`anilist.co/api/v2/oauth/*`) only during the one-time `login_anilist` /
+`submit_anilist_redirect` login flow. A read answered from the in-memory cache
+(see below) makes no request at all; a few take two (e.g. an activity feed by
+username first resolves the username to an ID). No other third party is ever
+contacted.
 
 - **Reads** (search, details, genres/tags, recommendations, forum threads,
   activity feeds, public/unlisted user profiles and lists) call the public
-  GraphQL endpoint with no credentials and touch only public data.
-- **Your access token, when configured**, rides on every GraphQL request that
-  needs it, as a standard `Authorization: Bearer <token>` header. To AniList
+  GraphQL endpoint and need no credentials. When a token is configured it is
+  sent with reads too (so viewer-relative fields such as `isFavourite` reflect
+  your account), but reads never change anything.
+- **Your access token, when configured**, rides on every GraphQL request, as a standard `Authorization: Bearer <token>` header. To AniList
   the request looks the same as one you'd make while logged in.
 - **This server can write to and post from your real AniList account** when a
   personal/mutation tool runs with a valid token. That's the main thing
   setting it apart from a read-only MCP server. These tools write to
   `graphql.anilist.co` when called, with no confirmation step of the server's
   own:
-  - **Your list**: `add_list_entry`, `update_list_entry`, `remove_list_entry`
-    add, change (status, score, progress, notes, dates, custom lists,
+  - **Your list**: `add_list_entry`, `update_list_entry`,
+    `update_list_entries`, `remove_list_entry` add, change (status, score, progress, notes, dates, custom lists,
     advanced scores, rewatches), or delete entries on your anime/manga list.
   - **Favourites and follows**: `toggle_favourite` (anime, manga, characters,
     staff, or studios) and `toggle_follow_user`.
@@ -106,7 +110,7 @@ maintainer.
   have been applied — so the next read is fresh. The cache is cleared when
   the process exits and is never shared across machines or users.
 - **Your access token**: if obtained via `login_anilist`, it is written to a
-  single local file (`~/.config/anilist-mcp-server/tokens.json` on
+  single local file (`$XDG_CONFIG_HOME/anilist-mcp-server/tokens.json` (default `~/.config/…`) on
   macOS/Linux, `%APPDATA%\anilist-mcp-server\tokens.json` on Windows, or the
   path in `ANILIST_TOKEN_STORE`), created with `0600` permissions
   (owner-read/write only) so it survives restarts without a fresh login

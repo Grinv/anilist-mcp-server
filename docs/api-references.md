@@ -80,7 +80,7 @@ before changing `src/clients/anilist/*.ts` or `src/lib/graphql.ts`.
 - Every response carries `X-RateLimit-Limit`/`X-RateLimit-Remaining`. A `429`
   additionally carries `Retry-After` (seconds) and `X-RateLimit-Reset` (unix
   ts), plus a GraphQL body `{data: null, errors: [{message, status: 429}]}`.
-  `lib/http.ts`'s `classifyStatus()` + backoff already handles this generically
+  `lib/errors.ts`'s `classifyStatus()` (used by `lib/http.ts`) + backoff already handles this generically
   (429 → retryable, honors `Retry-After`) — no AniList-specific code needed.
 - A separate, undocumented **burst limiter** also exists ("designed to stop
   you from hammering the API with too many requests in a very short period").
@@ -95,7 +95,7 @@ before changing `src/clients/anilist/*.ts` or `src/lib/graphql.ts`.
   `{"errors":[{"message":"The AniList API has been temporarily disabled due to
 severe stability issues. Please check the official AniList Discord..." ,
 "status":403}],"data":null}` — distinct from the 429 rate-limit case, and
-  not something a client-side retry can fix. `lib/http.ts`'s `classifyStatus()`
+  not something a client-side retry can fix. `lib/errors.ts`'s `classifyStatus()` (used by `lib/http.ts`)
   maps 403 → `forbidden`, non-retryable, which is the right behavior here too.
 - AniList may also manually IP-block excessive traffic (rare); blocked
   requests never reach their origin servers.

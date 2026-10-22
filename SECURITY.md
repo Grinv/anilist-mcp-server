@@ -1,7 +1,7 @@
 # Security
 
 `anilist-mcp-server` only talks to AniList's own GraphQL API. But of this
-project's four sibling servers, it has the widest write/social surface: it can
+project and its three sibling servers, it has the widest write/social surface: it can
 post and delete public content, and change account settings, on the AniList
 account it's configured with.
 
@@ -44,7 +44,7 @@ the agent means to do before letting it act.
 ## Token storage
 
 - A token obtained via `login_anilist` is written to a single local file
-  (`~/.config/anilist-mcp-server/tokens.json` on macOS/Linux,
+  (`$XDG_CONFIG_HOME/anilist-mcp-server/tokens.json` (default `~/.config/…`) on macOS/Linux,
   `%APPDATA%\anilist-mcp-server\tokens.json` on Windows, or the path in
   `ANILIST_TOKEN_STORE`), created with `0600` permissions (owner-read/write
   only). Pre-supplying `ANILIST_ACCESS_TOKEN` directly instead keeps the

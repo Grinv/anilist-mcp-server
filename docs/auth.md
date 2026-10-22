@@ -5,7 +5,7 @@ anilist-mcp-server has three credential tiers, each unlocking more than the last
 | Tier                                 | What you set                                                               | What it unlocks                                                                                                                                                                                              |
 | ------------------------------------ | -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | 1. Nothing                           | —                                                                          | All read tools (search, details, genres/tags, recommendations, threads, activity, public/unlisted user profiles and lists, …). Personal/mutation tools return an actionable "log in first" error.            |
-| 2. Client ID + Client Secret         | `ANILIST_CLIENT_ID` + `ANILIST_CLIENT_SECRET`                              | Everything in tier 1, **plus**: `login_anilist` becomes usable. Login itself is still tier 3.                                                                                                                |
+| 2. Client ID + Client Secret         | `ANILIST_CLIENT_ID` + `ANILIST_CLIENT_SECRET`                              | Everything in tier 1, **plus**: `login_anilist` becomes usable; completing a login takes you to tier 3.                                                                                                      |
 | 3. Client ID + Secret + a user token | Tier 2 + running `login_anilist` (or pre-supplying `ANILIST_ACCESS_TOKEN`) | Everything above, **plus** the personal/mutation tools (list entries, favourites, follow, posting/deleting activity or threads, `update_user`, `get_notifications`) — these act on your own AniList account. |
 
 Unlike MyAnimeList, AniList's reads need **zero** credentials at any tier — there is
@@ -59,7 +59,7 @@ same server process that ran `login_anilist` (the URL's `state` is checked
 against that login attempt): if the server restarted in between, run
 `login_anilist` again.
 
-The token is stored at `~/.config/anilist-mcp-server/tokens.json`
+The token is stored at `$XDG_CONFIG_HOME/anilist-mcp-server/tokens.json` (default `~/.config/…`)
 (`%APPDATA%\anilist-mcp-server\tokens.json` on Windows; override with
 `ANILIST_TOKEN_STORE`), with `0600` permissions. There is no refresh step —
 the stored token is simply reused until it expires (~1 year from issuance,

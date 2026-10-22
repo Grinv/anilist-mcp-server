@@ -6,6 +6,18 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- Declare the Node requirement in the `.mcpb` manifest, so clients can check it before installing. [f3965f8](https://github.com/Grinv/anilist-mcp-server/commit/f3965f8)
+
+### Changed
+
+- **BREAKING:** Raise runtime floor to Node ≥ 22.18 (was ≥ 20.11). [f3965f8](https://github.com/Grinv/anilist-mcp-server/commit/f3965f8)
+
+### Fixed
+
+- Correct PRIVACY.md: a configured token is sent with read requests too, not only with writes. [14e6f26](https://github.com/Grinv/anilist-mcp-server/commit/14e6f26)
+
 ## [0.10.0] - 2026-10-20
 
 ### Added

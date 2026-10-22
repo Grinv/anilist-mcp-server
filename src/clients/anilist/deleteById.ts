@@ -1,6 +1,6 @@
 // The one shape all four Delete* mutations share: `Delete<X>(id){deleted}`.
-import type { AniListContext } from "./context.js";
-import { ApiError } from "../../lib/errors.js";
+import type { AniListContext } from "./context.ts";
+import { ApiError } from "../../lib/errors.ts";
 
 /** Run `Delete<mutation>(id)` and treat every "nothing was deleted" answer as
  *  not_found. Confirmed live, all four mutations answer an unknown id (also

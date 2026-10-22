@@ -1,4 +1,3 @@
-// @ts-check
 // Pre-deploy health check for AniList's GraphQL API.
 //
 // Distinguishes two failure classes:
@@ -12,27 +11,29 @@
 // is, as of 2026-07, in a documented degraded state (30 req/min instead of the
 // normal 90) — see docs/api-references.md.
 
-/** @typedef {{ data?: Record<string, unknown> | null, errors?: { message: string }[] }} GraphQLResponse */
-/** @typedef {{ name: string, run: () => Promise<void> }} Check */
+interface GraphQLResponse {
+  data?: Record<string, unknown> | null;
+  errors?: { message: string }[];
+}
+interface Check {
+  name: string;
+  run: () => Promise<void>;
+}
 
 const ENDPOINT = process.env.ANILIST_GRAPHQL_URL ?? "https://graphql.anilist.co";
 const SPACING_MS = 2200;
-/** @type {(ms: number) => Promise<void>} */
-const delay = (ms) => new Promise((r) => setTimeout(r, ms));
+const delay = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
 
 /**
  * Reads a nested path out of an unknown GraphQL response body. Confines the
  * one indexing cast this requires to a single small helper instead of
  * scattering `any` across every assertion below.
- * @param {unknown} value
- * @param {...(string | number)} path
- * @returns {unknown}
  */
-function dig(value, ...path) {
+function dig(value: unknown, ...path: (string | number)[]): unknown {
   let cur = value;
   for (const key of path) {
     if (typeof cur !== "object" || cur === null) return undefined;
-    cur = /** @type {Record<string | number, unknown>} */ (cur)[key];
+    cur = (cur as Record<string | number, unknown>)[key];
   }
   return cur;
 }
@@ -40,12 +41,10 @@ function dig(value, ...path) {
 class TransientError extends Error {}
 class ContractError extends Error {}
 
-/**
- * @param {string} gqlQuery
- * @param {Record<string, unknown>} [variables]
- * @returns {Promise<Response>}
- */
-async function graphql(gqlQuery, variables = {}) {
+async function graphql(
+  gqlQuery: string,
+  variables: Record<string, unknown> = {},
+): Promise<Response> {
   const res = await fetch(ENDPOINT, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -57,21 +56,19 @@ async function graphql(gqlQuery, variables = {}) {
   return res;
 }
 
-/** @type {Check[]} */
-const checks = [];
-/**
- * @param {string} name
- * @param {string} gql
- * @param {Record<string, unknown>} variables
- * @param {(data: Record<string, unknown> | null | undefined) => void} assertFn
- */
-const query = (name, gql, variables, assertFn) =>
+const checks: Check[] = [];
+const query = (
+  name: string,
+  gql: string,
+  variables: Record<string, unknown>,
+  assertFn: (data: Record<string, unknown> | null | undefined) => void,
+) =>
   checks.push({
     name,
     run: async () => {
       const res = await graphql(gql, variables);
       if (res.status !== 200) throw new ContractError(`expected 200, got ${res.status}`);
-      const body = /** @type {GraphQLResponse} */ (await res.json());
+      const body = (await res.json()) as GraphQLResponse;
       if (body.errors?.length) {
         throw new ContractError(`GraphQL errors: ${body.errors.map((e) => e.message).join("; ")}`);
       }
@@ -276,7 +273,7 @@ checks.push({
     // check fails loudly if that argument shape ever changes again.
     const userRes = await graphql("query($name:String){User(name:$name){id}}", { name: "matchai" });
     if (userRes.status !== 200) throw new ContractError(`expected 200, got ${userRes.status}`);
-    const userBody = /** @type {GraphQLResponse} */ (await userRes.json());
+    const userBody = (await userRes.json()) as GraphQLResponse;
     if (userBody.errors?.length) {
       throw new ContractError(
         `GraphQL errors: ${userBody.errors.map((e) => e.message).join("; ")}`,
@@ -290,7 +287,7 @@ checks.push({
       { userId, perPage: 1 },
     );
     if (actRes.status !== 200) throw new ContractError(`expected 200, got ${actRes.status}`);
-    const actBody = /** @type {GraphQLResponse} */ (await actRes.json());
+    const actBody = (await actRes.json()) as GraphQLResponse;
     if (actBody.errors?.length) {
       throw new ContractError(`GraphQL errors: ${actBody.errors.map((e) => e.message).join("; ")}`);
     }
@@ -343,7 +340,7 @@ checks.push({
     });
     if (res.status === 401 || res.status === 403) return;
     if (res.status === 429 || res.status >= 500) throw new TransientError(`upstream ${res.status}`);
-    const body = /** @type {GraphQLResponse} */ (await res.json());
+    const body = (await res.json()) as GraphQLResponse;
     if (body.errors?.length) {
       throw new ContractError(
         `unexpected GraphQL error (likely a renamed/removed field): ${body.errors.map((e) => e.message).join("; ")}`,
@@ -373,15 +370,15 @@ checks.push({
     // either at the transport level (401/403) or inside the GraphQL body.
     if (res.status === 401 || res.status === 403) return;
     if (res.status === 429 || res.status >= 500) throw new TransientError(`upstream ${res.status}`);
-    const body = /** @type {GraphQLResponse} */ (await res.json());
+    const body = (await res.json()) as GraphQLResponse;
     if (!body.errors?.length) {
       throw new ContractError("expected an auth-related error for an unauthenticated mutation");
     }
   },
 });
 
-const failures = [];
-const warnings = [];
+const failures: string[] = [];
+const warnings: string[] = [];
 for (const check of checks) {
   try {
     await check.run();

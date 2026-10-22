@@ -3,22 +3,22 @@
 // Wire your clients, tools and prompts here.
 import { McpServer } from "@modelcontextprotocol/server";
 import { serveStdio } from "@modelcontextprotocol/server/stdio";
-import { loadConfig, type Config } from "./config.js";
-import { createLogger, type Logger } from "./lib/logger.js";
-import { AniListClient } from "./clients/anilist.js";
-import { registerMiscTools } from "./tools/misc.js";
-import { registerActivityTools } from "./tools/activity.js";
-import { registerListTools } from "./tools/list.js";
-import { registerMediaTools } from "./tools/media.js";
-import { registerPeopleTools } from "./tools/people.js";
-import { registerRecommendationTools } from "./tools/recommendation.js";
-import { registerSearchTools } from "./tools/search.js";
-import { registerThreadTools } from "./tools/thread.js";
-import { registerUserTools } from "./tools/user.js";
-import { registerNotificationTools } from "./tools/notification.js";
-import { registerLoginTools } from "./tools/login.js";
-import { registerPrompts } from "./prompts.js";
-import { VERSION } from "./version.js";
+import { loadConfig, type Config } from "./config.ts";
+import { createLogger, type Logger } from "./lib/logger.ts";
+import { AniListClient } from "./clients/anilist.ts";
+import { registerMiscTools } from "./tools/misc.ts";
+import { registerActivityTools } from "./tools/activity.ts";
+import { registerListTools } from "./tools/list.ts";
+import { registerMediaTools } from "./tools/media.ts";
+import { registerPeopleTools } from "./tools/people.ts";
+import { registerRecommendationTools } from "./tools/recommendation.ts";
+import { registerSearchTools } from "./tools/search.ts";
+import { registerThreadTools } from "./tools/thread.ts";
+import { registerUserTools } from "./tools/user.ts";
+import { registerNotificationTools } from "./tools/notification.ts";
+import { registerLoginTools } from "./tools/login.ts";
+import { registerPrompts } from "./prompts.ts";
+import { VERSION } from "./version.ts";
 
 const INSTRUCTIONS =
   "AniList tools for anime, manga, characters, staff and studios. Reads (search/details/" +

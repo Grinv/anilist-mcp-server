@@ -3,12 +3,12 @@
 // silently returned the wrong (or truncated) data without erroring.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { jsonResponse, mockFetch, installFetch, connectServer } from "./helpers.js";
+import { jsonResponse, mockFetch, installFetch, connectServer } from "./helpers.ts";
 import {
   MEDIA_FIELDS,
   MEDIA_COMPACT_FIELDS,
   USER_DETAIL_FIELDS,
-} from "../clients/anilist/fields.js";
+} from "../clients/anilist/fields.ts";
 
 type Body = { query: string; variables: Record<string, unknown> };
 const bodyOf = (init: RequestInit | undefined): Body => JSON.parse(init?.body as string) as Body;

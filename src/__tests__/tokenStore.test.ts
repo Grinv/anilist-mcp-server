@@ -3,8 +3,8 @@ import assert from "node:assert/strict";
 import { chmodSync, mkdtempSync, readFileSync, rmSync, writeFileSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { TokenStore, defaultTokenStorePath } from "../lib/tokenStore.js";
-import { silentLogger } from "./helpers.js";
+import { TokenStore, defaultTokenStorePath } from "../lib/tokenStore.ts";
+import { silentLogger } from "./helpers.ts";
 
 function tempDir(): string {
   return mkdtempSync(join(tmpdir(), "anilist-mcp-server-tokenstore-test-"));

@@ -1,11 +1,11 @@
-import type { AniListContext } from "./context.js";
-import { ACTIVITY_FRAGMENT, existsFragment } from "./fields.js";
-import { assertFound } from "../../lib/errors.js";
-import { resolveUserId } from "./user.js";
-import { toUnixSeconds } from "./fuzzyDate.js";
-import { deleteById } from "./deleteById.js";
-import type { ActivityId, UserId } from "./ids.js";
-import type { ActivityType } from "./enums.js";
+import type { AniListContext } from "./context.ts";
+import { ACTIVITY_FRAGMENT, existsFragment } from "./fields.ts";
+import { assertFound } from "../../lib/errors.ts";
+import { resolveUserId } from "./user.ts";
+import { toUnixSeconds } from "./fuzzyDate.ts";
+import { deleteById } from "./deleteById.ts";
+import type { ActivityId, UserId } from "./ids.ts";
+import type { ActivityType } from "./enums.ts";
 
 export async function getActivity(ctx: AniListContext, id: ActivityId): Promise<unknown> {
   const query = `query($id:Int){Activity(id:$id){${ACTIVITY_FRAGMENT}}}`;

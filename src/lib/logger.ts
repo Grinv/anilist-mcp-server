@@ -1,7 +1,7 @@
 // Minimal leveled logger. Always writes to stderr (stdout is reserved for the
 // MCP stdio protocol). All messages are redacted of credentials before being
 // written.
-import { redact } from "./errors.js";
+import { redact } from "./errors.ts";
 
 export type LogLevel = "debug" | "info" | "warn" | "error" | "silent";
 

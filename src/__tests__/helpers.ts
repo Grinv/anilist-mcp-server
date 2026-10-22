@@ -3,9 +3,9 @@ import type { TestContext } from "node:test";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { Client, InMemoryTransport } from "@modelcontextprotocol/client";
-import { createLogger, type Logger } from "../lib/logger.js";
-import { buildServer } from "../server.js";
-import { loadConfig, type Config } from "../config.js";
+import { createLogger, type Logger } from "../lib/logger.ts";
+import { buildServer } from "../server.ts";
+import { loadConfig, type Config } from "../config.ts";
 
 // A path that's guaranteed not to exist on disk, so a test that doesn't care
 // about token persistence never silently reads (or races on) whatever real
@@ -60,7 +60,7 @@ export function mockFetch(
 }
 
 /** Install a fetch mock for the duration of the current test. Scoped to `t.mock`
- * (Node 20's stable node:test mocking), which auto-restores the original
+ * (node:test's stable mocking), which auto-restores the original
  * `globalThis.fetch` when the test finishes — callers don't call anything to
  * undo it themselves. */
 export function installFetch(t: TestContext, mock: FetchMock): void {

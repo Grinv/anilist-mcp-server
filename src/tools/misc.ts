@@ -1,9 +1,9 @@
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/server";
-import type { AniListClient } from "../clients/anilist.js";
-import * as misc from "../clients/anilist/misc.js";
-import { jsonResult } from "../lib/result.js";
-import { guard } from "./guard.js";
+import type { AniListClient } from "../clients/anilist.ts";
+import * as misc from "../clients/anilist/misc.ts";
+import { jsonResult } from "../lib/result.ts";
+import { guard } from "./guard.ts";
 import {
   pageInfoSchema,
   anilistId,
@@ -12,7 +12,7 @@ import {
   NESTED_MAX_PER_PAGE,
   favouriteOut,
   filmographyOnListField,
-} from "./outputSchemas.js";
+} from "./outputSchemas.ts";
 
 const mediaTagItem = z
   .object({

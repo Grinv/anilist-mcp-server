@@ -1,9 +1,9 @@
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/server";
-import type { AniListClient } from "../clients/anilist.js";
-import * as recommendation from "../clients/anilist/recommendation.js";
-import { jsonResult } from "../lib/result.js";
-import { guard } from "./guard.js";
+import type { AniListClient } from "../clients/anilist.ts";
+import * as recommendation from "../clients/anilist/recommendation.ts";
+import { jsonResult } from "../lib/result.ts";
+import { guard } from "./guard.ts";
 import {
   anilistId,
   mediaId,
@@ -12,7 +12,7 @@ import {
   NESTED_MAX_PER_PAGE,
   mediaTitleOut,
   communityScoreOut,
-} from "./outputSchemas.js";
+} from "./outputSchemas.ts";
 
 const mediaRefLite = z
   .object({

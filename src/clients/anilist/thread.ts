@@ -1,8 +1,8 @@
-import type { AniListContext } from "./context.js";
-import { assertFound } from "../../lib/errors.js";
-import type { ThreadId, CommentId, CategoryId, MediaId } from "./ids.js";
-import { existsFragment } from "./fields.js";
-import { deleteById } from "./deleteById.js";
+import type { AniListContext } from "./context.ts";
+import { assertFound } from "../../lib/errors.ts";
+import type { ThreadId, CommentId, CategoryId, MediaId } from "./ids.ts";
+import { existsFragment } from "./fields.ts";
+import { deleteById } from "./deleteById.ts";
 
 export async function getThread(ctx: AniListContext, id: ThreadId): Promise<unknown> {
   const query = `query($id:Int){Thread(id:$id){id title body(asHtml:false) siteUrl replyCommentId

@@ -283,7 +283,7 @@ export const toggleFavouriteResult = z
 // clients/anilist/enums.ts — clients/ can import that but can't be imported FROM
 // by tools/outputSchemas. Re-exported here so the tool schemas that already
 // pull them from this module keep working, without a second hand-kept copy.
-export { MEDIA_TYPES, MEDIA_LIST_STATUSES } from "../clients/anilist/enums.js";
+export { MEDIA_TYPES, MEDIA_LIST_STATUSES } from "../clients/anilist/enums.ts";
 
 /** A caller-supplied AniList user reference: either the numeric ID or an
  *  exact username. Shared across every user-scoped tool (activity/list/user

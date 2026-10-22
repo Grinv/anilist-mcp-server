@@ -54,9 +54,8 @@ src/
                   # per-domain branded variants — mediaId, listEntryId, etc.)
   prompts.ts      # MCP Prompts: multi-step plans that orchestrate the read tools
   __tests__/      # node:test (*.test.ts) + helpers.ts
-scripts/          # build-tests.mjs, run-tests.mjs, check-api.mjs, sync-version.mjs
-                  # (+ its sync-version.d.mts type-declaration companion),
-                  # preversion-check.mjs (npm `preversion` gate — see the `release` skill)
+scripts/          # run-tests.ts, check-api.ts, sync-version.ts,
+                  # preversion-check.ts (npm `preversion` gate — see the `release` skill)
 .agents/skills/   # reusable agent workflows for this repo (e.g. live-audit/) —
                   # plain Markdown with a YAML frontmatter name/description,
                   # not tied to any one tool's orchestration features, per
@@ -85,7 +84,7 @@ naturally omits absent optional arguments, no dummy placeholder values needed.
 
 ```sh
 npm run build          # tsc --noEmit + tsup → dist/index.js (single ESM bundle)
-npm test               # build tests with esbuild, run with node:test
+npm test               # node:test straight on src/**/*.test.ts (native type stripping)
 npm run test:coverage  # same, with coverage (gate: ~80%)
 npm run lint           # eslint
 npm run format         # prettier --write
@@ -96,9 +95,14 @@ npm run check:api      # live upstream health-check (network)
 
 - **Docs and in-code text are English** (README, docs, comments, tool
   descriptions, error messages).
-- Runtime floor is **Node ≥ 20.11.0** (`fetch`, `AbortSignal.any()`/
-  `.timeout()`, `import.meta.dirname`); tsup targets `node20.11`. Tests may
-  run on newer Node but must not raise the runtime floor.
+- Runtime floor is **Node ≥ 22.18.0** — the first 22.x with TypeScript type
+  stripping on by default (what runs the tests and `scripts/*.ts`), also required by tsup 9.
+  tsup targets `node22.18`; `tsconfig.json` uses `module: "node20"` with an
+  ES2024 target/lib (Node 22's V8 12.4 has all of ES2024, e.g.
+  `Promise.withResolvers()`, `Object.groupBy()`, but not ES2025's
+  `Promise.try()`/`RegExp.escape()`). Keep `engines`, `manifest.json`'s
+  `compatibility.runtimes.node` and the CI matrix's lowest entry in sync.
+  Tests may run on newer Node but must not raise the runtime floor.
 - Log to **stderr only** — stdout is the MCP protocol channel. Use the logger;
   it redacts credentials.
 - Tool failures return `{ isError: true }` results (via `guard()` / `result.ts`),
@@ -172,12 +176,19 @@ npm run check:api      # live upstream health-check (network)
   opportunistically when you're already touching it, don't do a
   drive-by rewrite.
 - Keep dependencies minimal. New deps need a clear justification (supply-chain).
-- **Plain-JS tooling files** (`scripts/*.mjs`, `eslint.config.mjs`) still get
-  type-checked — add `// @ts-check` + JSDoc annotations rather than leaving
-  them untyped. They run directly via `node`/`eslint` (not through tsup), so
-  they're checked via a separate `tsconfig.scripts.json` (`npm run
-typecheck:scripts`, folded into `npm run lint`) instead of the main
-  `tsconfig.json`, which only covers `src/`.
+- **Tests and tooling files run as TypeScript directly** through Node's native
+  type stripping (`node --test src/**/*.test.ts`, `node scripts/foo.ts` — no
+  compile step), so all of `src/` and `scripts/` follow its rules: only
+  erasable syntax (no `enum`/`namespace`/parameter properties;
+  `erasableSyntaxOnly` enforces it), `import type` for type-only imports
+  (`verbatimModuleSyntax`), and relative imports name the real `.ts` file
+  (`allowImportingTsExtensions`; tsup bundles them the same way). `eslint.config.mjs`
+  stays plain JS with `// @ts-check` + JSDoc: ESLint loads a `.ts` config
+  only through `jiti` (an extra dependency) or an unstable flag editors don't
+  pass. These, plus `tsup.config.ts`, are type-checked via a separate
+  `tsconfig.scripts.json` (`npm run typecheck:scripts`, folded into
+  `npm run lint`) instead of the main `tsconfig.json`, which only covers
+  `src/`.
 - **Never commit secrets.** Credentials come from env vars, the `login_anilist`
   OAuth flow, or the on-disk token store (`tokenStore.ts`, `0600`) — never
   hardcoded or committed. Unlike MAL, AniList issues a `client_secret` for
@@ -240,7 +251,7 @@ tool descriptions) and MCP Registry details.
 
 This server follows the same reusable shape as its siblings: a generic
 carcass (`src/lib/` + build tooling, tests infra, CI) and a thin domain layer
-(`config.ts`, `clients/`, domain `tools/`, `prompts.ts`, `check-api.mjs`),
+(`config.ts`, `clients/`, domain `tools/`, `prompts.ts`, `check-api.ts`),
 bootstrapped from the **`mcp-server-template`** repository. Extract `lib/`
 into a shared npm package only once cross-server duplication actually hurts
 (YAGNI) — not before.

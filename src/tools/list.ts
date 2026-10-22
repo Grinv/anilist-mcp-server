@@ -1,12 +1,12 @@
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/server";
-import type { AniListClient } from "../clients/anilist.js";
-import * as list from "../clients/anilist/list.js";
-import type { BulkListEntryValues } from "../clients/anilist/list.js";
-import type { MediaId, ListEntryId } from "../clients/anilist/ids.js";
-import { MEDIA_LIST_SORTS } from "../clients/anilist/enums.js";
-import { jsonResult, errorResult } from "../lib/result.js";
-import { guard } from "./guard.js";
+import type { AniListClient } from "../clients/anilist.ts";
+import * as list from "../clients/anilist/list.ts";
+import type { BulkListEntryValues } from "../clients/anilist/list.ts";
+import type { MediaId, ListEntryId } from "../clients/anilist/ids.ts";
+import { MEDIA_LIST_SORTS } from "../clients/anilist/enums.ts";
+import { jsonResult, errorResult } from "../lib/result.ts";
+import { guard } from "./guard.ts";
 import {
   deleteResult,
   MEDIA_TYPES,
@@ -19,7 +19,7 @@ import {
   mediaTitleOut,
   deleteToolAnnotations,
   personalScoreOut,
-} from "./outputSchemas.js";
+} from "./outputSchemas.ts";
 
 // `year` is required: confirmed live, sending `{}` (or a date with no year)
 // CLEARS the stored date rather than leaving it alone — on update_list_entries

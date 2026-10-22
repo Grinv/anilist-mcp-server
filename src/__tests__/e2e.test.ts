@@ -13,7 +13,8 @@ import { StdioClientTransport } from "@modelcontextprotocol/client/stdio";
 // It guards the integration boundary that earlier shipped bugs hid in — the bundle
 // must start, complete the initialize handshake, register every tool, and run
 // self-contained (a non-inlined dep would crash the child with ERR_MODULE_NOT_FOUND).
-const distPath = join(process.cwd(), "..", "dist", "index.js");
+const root = join(import.meta.dirname, "..", "..");
+const distPath = join(root, "dist", "index.js");
 
 // The server's registered tools. Keep in sync with src/tools/* — the count
 // assertion below fails loudly if a tool is added/removed without updating it.
@@ -80,7 +81,7 @@ const EXPECTED_TOOLS = [
 // (defaultTokenStorePath(), e.g. ~/.config/anilist-mcp-server/tokens.json)
 // whenever ANILIST_ACCESS_TOKEN isn't set, independent of the vars cleaned
 // here. This whole `npm test` process only stays unauthenticated because
-// scripts/run-tests.mjs separately points ANILIST_TOKEN_STORE at a tmp noop
+// scripts/run-tests.ts separately points ANILIST_TOKEN_STORE at a tmp noop
 // path before any test file runs — a detail invisible from this file alone.
 // A standalone script that copies just this cleanEnv() (e.g. a throwaway
 // live-audit protocol-diff script run outside `npm test`) must set
@@ -110,9 +111,9 @@ test("e2e: built bundle runs standalone, handshakes, and lists all tools", async
   mkdirSync(sandbox, { recursive: true });
   copyFileSync(distPath, join(sandbox, "index.js"));
   // The bundle is ESM; ship the package.json that flags it as such, exactly as
-  // the real npm/.mcpb artifact does. Without it a bare `.js` is parsed as CJS
-  // on Node < 20.19 (which lacks ESM syntax auto-detection) and the child dies
-  // with "Cannot use import statement outside a module".
+  // the real npm/.mcpb artifact does, so the child runs under the same module
+  // type the shipped artifact declares rather than relying on Node's ESM
+  // syntax auto-detection.
   writeFileSync(join(sandbox, "package.json"), JSON.stringify({ type: "module" }));
 
   const client = new Client({ name: "e2e", version: "0" });
@@ -133,9 +134,7 @@ test("e2e: built bundle runs standalone, handshakes, and lists all tools", async
     // manifest.json (the .mcpb bundle's own tool list, shown to users before
     // install) is hand-maintained and easy to let go stale on a rename — the
     // tool consolidation that introduced this check caught exactly that.
-    const manifest = JSON.parse(
-      readFileSync(join(process.cwd(), "..", "manifest.json"), "utf8"),
-    ) as {
+    const manifest = JSON.parse(readFileSync(join(root, "manifest.json"), "utf8")) as {
       tools: { name: string }[];
     };
     const manifestNames = manifest.tools.map((t) => t.name).sort();

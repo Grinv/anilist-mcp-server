@@ -1,14 +1,14 @@
-import type { AniListContext } from "./context.js";
+import type { AniListContext } from "./context.ts";
 import type {
   TitleLanguage,
   ScoreFormat,
   StaffNameLanguage,
   NotificationType,
   MediaListStatus,
-} from "./enums.js";
-import { ApiError, assertFound } from "../../lib/errors.js";
-import type { UserId } from "./ids.js";
-import { USER_FIELDS, USER_DESCRIPTION_FIELD, USER_DETAIL_FIELDS } from "./fields.js";
+} from "./enums.ts";
+import { ApiError, assertFound } from "../../lib/errors.ts";
+import type { UserId } from "./ids.ts";
+import { USER_FIELDS, USER_DESCRIPTION_FIELD, USER_DETAIL_FIELDS } from "./fields.ts";
 
 /** Resolves a username to its numeric AniList UserId — shared by
  *  activity.ts's getUserActivity and search.ts's searchActivity, which both

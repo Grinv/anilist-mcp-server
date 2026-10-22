@@ -1,4 +1,3 @@
-// @ts-check
 // Wired into the npm `preversion` lifecycle hook (see package.json) — runs
 // before `npm version <bump>` touches anything. This is a presence-only
 // safety net for "did we completely forget," NOT a substitute for actually
@@ -10,7 +9,7 @@
 import { readFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { join } from "node:path";
-import { unreleasedHasBullets } from "./sync-version.mjs";
+import { unreleasedHasBullets } from "./sync-version.ts";
 
 const root = join(import.meta.dirname, "..");
 
@@ -19,9 +18,8 @@ const root = join(import.meta.dirname, "..");
  * reached its own `finally` cleanup (e.g. killed mid-fetch) — the pid-keyed
  * ref name has no other listing/pruning mechanism, so without this an
  * orphaned ref from a crashed run persists in .git/refs forever.
- * @param {string} root
  */
-function pruneStaleTmpRefs(root) {
+function pruneStaleTmpRefs(root: string): void {
   const output = execFileSync(
     "git",
     ["for-each-ref", "--format=%(refname)", "refs/tmp-preversion-check/"],
@@ -43,11 +41,8 @@ function pruneStaleTmpRefs(root) {
  * against a locally-dereferenced commit sha, which never match even when the
  * tag is genuinely up to date. Fetching into a throwaway ref and dereferencing
  * locally sidesteps that parsing entirely.
- * @param {string} tag
- * @param {string} root
- * @returns {string | undefined}
  */
-function remoteTagCommitSha(tag, root) {
+function remoteTagCommitSha(tag: string, root: string): string | undefined {
   pruneStaleTmpRefs(root);
   const tmpRef = `refs/tmp-preversion-check/${process.pid}-${tag}`;
   try {
@@ -82,8 +77,10 @@ function remoteTagCommitSha(tag, root) {
 // was pushed (fine, this is a normal second release) or it wasn't (the first
 // run's tag/commit is about to be orphaned the moment this second run creates
 // a new one on top of it).
-function checkUnpushedTagRace() {
-  const { version } = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
+function checkUnpushedTagRace(): void {
+  const { version } = JSON.parse(readFileSync(join(root, "package.json"), "utf8")) as {
+    version: string;
+  };
   const tag = `v${version}`;
   const localTagExists =
     execFileSync("git", ["tag", "--list", tag], { cwd: root }).toString().trim() === tag;
@@ -132,7 +129,7 @@ function checkUnpushedTagRace() {
   console.log(`preversion-check: git tag ${tag} matches origin — OK.`);
 }
 
-function checkChangelog() {
+function checkChangelog(): void {
   const changelog = readFileSync(join(root, "CHANGELOG.md"), "utf8");
   let hasBullets;
   try {

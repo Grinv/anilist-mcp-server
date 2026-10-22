@@ -7,7 +7,7 @@ import { chmodSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir, platform } from "node:os";
 import { dirname, join } from "node:path";
 import { z } from "zod";
-import type { Logger } from "./logger.js";
+import type { Logger } from "./logger.ts";
 
 export const TokenStateSchema = z
   .object({

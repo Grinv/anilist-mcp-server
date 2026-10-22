@@ -39,7 +39,7 @@ jobs:
           echo "----- release notes for $VERSION -----"; cat RELEASE_NOTES.md
           # Fail loudly instead of shipping an empty GitHub Release body — the
           # release workflow's CHANGELOG extraction step matches `## [$VERSION]`
-          # verbatim; sync-version.mjs renames the heading itself, but this is
+          # verbatim; sync-version.ts renames the heading itself, but this is
           # the safety net for whatever slips past that (this exact failure
           # happened in 3 sibling repos on 2026-07-29 before that automation
           # existed everywhere).

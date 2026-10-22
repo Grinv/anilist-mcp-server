@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { jsonResponse, mockFetch, installFetch, connectServer } from "./helpers.js";
+import { jsonResponse, mockFetch, installFetch, connectServer } from "./helpers.ts";
 
 test("search_media tool returns structured results end-to-end", async (t) => {
   const mock = mockFetch(() =>

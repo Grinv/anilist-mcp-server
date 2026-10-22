@@ -1,11 +1,11 @@
-import type { AniListContext } from "./context.js";
-import { ApiError } from "../../lib/errors.js";
-import type { MediaId, ListEntryId, UserId } from "./ids.js";
-import type { MediaType, MediaListStatus, MediaListSort } from "./enums.js";
-import { encodeFuzzyDateInt } from "./fuzzyDate.js";
-import { advancedScoresToPoint10 } from "./fields.js";
-import { withNumericNameHint } from "./user.js";
-import { deleteById } from "./deleteById.js";
+import type { AniListContext } from "./context.ts";
+import { ApiError } from "../../lib/errors.ts";
+import type { MediaId, ListEntryId, UserId } from "./ids.ts";
+import type { MediaType, MediaListStatus, MediaListSort } from "./enums.ts";
+import { encodeFuzzyDateInt } from "./fuzzyDate.ts";
+import { advancedScoresToPoint10 } from "./fields.ts";
+import { withNumericNameHint } from "./user.ts";
+import { deleteById } from "./deleteById.ts";
 
 /** A list-entry date. `year` is required: a date without one (even `{}`)
  *  clears the stored date upstream (confirmed live). */

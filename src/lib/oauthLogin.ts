@@ -14,7 +14,7 @@ import { createServer, type Server } from "node:http";
 import { randomBytes } from "node:crypto";
 import { spawn } from "node:child_process";
 import { platform } from "node:os";
-import { ApiError } from "./errors.js";
+import { ApiError } from "./errors.ts";
 
 /** A random CSRF `state` value for one login attempt. */
 export function generateState(): string {
@@ -46,13 +46,8 @@ export function buildAuthorizeUrl(opts: {
  *  (which is what a plain `Error` thrown here would fall into instead). */
 export function extractCode(redirect: string): string {
   const text = redirect.trim();
-  let params: URLSearchParams | undefined;
-  try {
-    params = new URL(text).searchParams;
-  } catch {
-    // Not a full URL — maybe "?code=…&state=…" or just the code.
-    if (text.includes("=")) params = new URLSearchParams(text.replace(/^\?/, ""));
-  }
+  // Not a full URL — maybe "?code=…&state=…" or just the code.
+  const params = URL.parse(text)?.searchParams ?? queryParams(text);
   if (params) {
     const err = params.get("error");
     if (err) {
@@ -74,12 +69,14 @@ export function extractCode(redirect: string): string {
  *  caller decides whether a missing state is acceptable. */
 export function extractState(redirect: string): string | null {
   const text = redirect.trim();
-  try {
-    return new URL(text).searchParams.get("state");
-  } catch {
-    if (text.includes("=")) return new URLSearchParams(text.replace(/^\?/, "")).get("state");
-    return null;
-  }
+  const params = URL.parse(text)?.searchParams ?? queryParams(text);
+  return params ? params.get("state") : null;
+}
+
+/** A bare "?code=…&state=…" query (leading "?" optional); undefined for
+ *  anything without a key=value pair, i.e. a raw code string. */
+function queryParams(text: string): URLSearchParams | undefined {
+  return text.includes("=") ? new URLSearchParams(text.replace(/^\?/, "")) : undefined;
 }
 
 /** Open a URL in the OS default browser. Best-effort — never throws (headless/

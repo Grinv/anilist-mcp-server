@@ -3,9 +3,9 @@
 // the caller actually set them.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { jsonResponse, mockFetch, installFetch, connectServer } from "./helpers.js";
-import { encodeFuzzyDateInt } from "../clients/anilist/fuzzyDate.js";
-import { ApiError } from "../lib/errors.js";
+import { jsonResponse, mockFetch, installFetch, connectServer } from "./helpers.ts";
+import { encodeFuzzyDateInt } from "../clients/anilist/fuzzyDate.ts";
+import { ApiError } from "../lib/errors.ts";
 
 type Body = { query: string; variables: Record<string, unknown> };
 const bodyOf = (init: RequestInit | undefined): Body => JSON.parse(init?.body as string) as Body;

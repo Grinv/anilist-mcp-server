@@ -1,6 +1,6 @@
-import type { AniListContext } from "./context.js";
-import { assertFound } from "../../lib/errors.js";
-import type { MediaId, RecommendationId } from "./ids.js";
+import type { AniListContext } from "./context.ts";
+import { assertFound } from "../../lib/errors.ts";
+import type { MediaId, RecommendationId } from "./ids.ts";
 
 export async function getRecommendation(
   ctx: AniListContext,

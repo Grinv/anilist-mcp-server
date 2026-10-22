@@ -1,8 +1,8 @@
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/server";
-import type { AniListClient } from "../clients/anilist.js";
-import { jsonResult, errorResult } from "../lib/result.js";
-import { guard } from "./guard.js";
+import type { AniListClient } from "../clients/anilist.ts";
+import { jsonResult, errorResult } from "../lib/result.ts";
+import { guard } from "./guard.ts";
 
 export function registerLoginTools(server: McpServer, client: AniListClient): void {
   server.registerTool(

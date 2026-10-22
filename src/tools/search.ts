@@ -1,11 +1,11 @@
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/server";
-import type { AniListClient } from "../clients/anilist.js";
-import * as search from "../clients/anilist/search.js";
-import { ApiError } from "../lib/errors.js";
-import { jsonResult } from "../lib/result.js";
-import { guard } from "./guard.js";
-import { activityItem, activityTypeFilter } from "./activity.js";
+import type { AniListClient } from "../clients/anilist.ts";
+import * as search from "../clients/anilist/search.ts";
+import { ApiError } from "../lib/errors.ts";
+import { jsonResult } from "../lib/result.ts";
+import { guard } from "./guard.ts";
+import { activityItem, activityTypeFilter } from "./activity.ts";
 import {
   pageInfoSchema,
   MEDIA_TYPES,
@@ -15,7 +15,7 @@ import {
   userIdOrName,
   paginationFields,
   personDescriptionField,
-} from "./outputSchemas.js";
+} from "./outputSchemas.ts";
 
 const FORMATS = [
   "TV",

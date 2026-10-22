@@ -1,12 +1,13 @@
 // @ts-check
+import { defineConfig } from "eslint/config";
 import js from "@eslint/js";
 import tseslint from "typescript-eslint";
 import prettier from "eslint-config-prettier";
 
-export default tseslint.config(
-  { ignores: ["dist/", "dist-tests/", "coverage/"] },
+export default defineConfig(
+  { ignores: ["dist/", "coverage/"] },
   js.configs.recommended,
-  ...tseslint.configs.recommended,
+  tseslint.configs.recommended,
   {
     rules: {
       "@typescript-eslint/no-unused-vars": [
@@ -29,7 +30,7 @@ export default tseslint.config(
   {
     files: ["src/**/*.ts"],
     ignores: ["src/__tests__/**"],
-    extends: [...tseslint.configs.recommendedTypeChecked],
+    extends: [tseslint.configs.recommendedTypeChecked],
     languageOptions: {
       parserOptions: { projectService: true, tsconfigRootDir: import.meta.dirname },
     },
@@ -41,19 +42,6 @@ export default tseslint.config(
       // rejection that handler can catch. Confirmed live: without it the error
       // would escape before .catch() is attached. The rule cannot see that.
       "@typescript-eslint/require-await": "off",
-    },
-  },
-  // Node build/test scripts: expose Node globals (process, etc.).
-  {
-    files: ["scripts/**/*.mjs"],
-    languageOptions: {
-      globals: {
-        process: "readonly",
-        console: "readonly",
-        URL: "readonly",
-        fetch: "readonly",
-        setTimeout: "readonly",
-      },
     },
   },
   // Must be last: disables ESLint rules that conflict with Prettier.

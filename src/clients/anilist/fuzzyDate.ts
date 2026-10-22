@@ -1,4 +1,4 @@
-import { ApiError } from "../../lib/errors.js";
+import { ApiError } from "../../lib/errors.ts";
 
 /** AniList's `FuzzyDateInt` scalar is a single Int in `YyyyMmDd` form (e.g.
  *  `20140204`), distinct from `FuzzyDateInput` (the `{year,month,day}` object

@@ -5,10 +5,10 @@
 // forced into a placeholder shape. This is the fix for the exact bug class
 // that made the previous third-party AniList MCP unable to write list
 // entries — see docs/api-references.md.
-import { HttpClient } from "./http.js";
-import { ApiError, classifyStatus, type ApiErrorCode } from "./errors.js";
-import type { TtlCache } from "./cache.js";
-import type { Logger } from "./logger.js";
+import { HttpClient } from "./http.ts";
+import { ApiError, classifyStatus, type ApiErrorCode } from "./errors.ts";
+import type { TtlCache } from "./cache.ts";
+import type { Logger } from "./logger.ts";
 
 export interface GraphQLClientOptions {
   endpoint: string;

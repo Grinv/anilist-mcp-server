@@ -1,7 +1,7 @@
-import type { AniListContext } from "./context.js";
-import { assertFound } from "../../lib/errors.js";
-import type { MediaId, MalId } from "./ids.js";
-import type { MediaType, StaffLanguage, CharacterRole } from "./enums.js";
+import type { AniListContext } from "./context.ts";
+import { assertFound } from "../../lib/errors.ts";
+import type { MediaId, MalId } from "./ids.ts";
+import type { MediaType, StaffLanguage, CharacterRole } from "./enums.ts";
 export type MediaFormat = "compact" | "full";
 
 import {
@@ -12,7 +12,7 @@ import {
   advancedScoresToPoint10,
   MEDIA_STREAMING_EPISODES_FIELD,
   existsFragment,
-} from "./fields.js";
+} from "./fields.ts";
 
 /** Shared implementation behind getMedia (AniList ids) and getMediaByMalId
  *  (MyAnimeList ids). The two differ only in which id field AniList is asked

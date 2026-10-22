@@ -3,20 +3,20 @@ import assert from "node:assert/strict";
 import { readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { AniListClient } from "../clients/anilist.js";
-import * as media from "../clients/anilist/media.js";
-import * as user from "../clients/anilist/user.js";
-import * as search from "../clients/anilist/search.js";
-import * as list from "../clients/anilist/list.js";
-import * as favourites from "../clients/anilist/favourites.js";
-import * as activity from "../clients/anilist/activity.js";
-import * as thread from "../clients/anilist/thread.js";
-import * as misc from "../clients/anilist/misc.js";
-import * as notification from "../clients/anilist/notification.js";
-import * as recommendation from "../clients/anilist/recommendation.js";
-import * as people from "../clients/anilist/people.js";
-import { ApiError } from "../lib/errors.js";
-import type { TokenState } from "../lib/tokenStore.js";
+import { AniListClient } from "../clients/anilist.ts";
+import * as media from "../clients/anilist/media.ts";
+import * as user from "../clients/anilist/user.ts";
+import * as search from "../clients/anilist/search.ts";
+import * as list from "../clients/anilist/list.ts";
+import * as favourites from "../clients/anilist/favourites.ts";
+import * as activity from "../clients/anilist/activity.ts";
+import * as thread from "../clients/anilist/thread.ts";
+import * as misc from "../clients/anilist/misc.ts";
+import * as notification from "../clients/anilist/notification.ts";
+import * as recommendation from "../clients/anilist/recommendation.ts";
+import * as people from "../clients/anilist/people.ts";
+import { ApiError } from "../lib/errors.ts";
+import type { TokenState } from "../lib/tokenStore.ts";
 import type {
   MediaId,
   ListEntryId,
@@ -27,8 +27,8 @@ import type {
   UserId,
   CharacterId,
   StaffId,
-} from "../clients/anilist/ids.js";
-import { silentLogger, jsonResponse, mockFetch, installFetch, testConfig } from "./helpers.js";
+} from "../clients/anilist/ids.ts";
+import { silentLogger, jsonResponse, mockFetch, installFetch, testConfig } from "./helpers.ts";
 
 // This file calls clients/anilist/*.ts functions directly, bypassing the
 // zod-validated tool inputSchema that normally produces an already-branded

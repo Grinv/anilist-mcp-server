@@ -5,8 +5,8 @@ import {
   extractCode,
   decodeJwtExpiry,
   listenForCode,
-} from "../lib/oauthLogin.js";
-import { ApiError } from "../lib/errors.js";
+} from "../lib/oauthLogin.ts";
+import { ApiError } from "../lib/errors.ts";
 
 test("buildAuthorizeUrl has no PKCE params (AniList's Authorization Code grant doesn't use it)", () => {
   const url = new URL(

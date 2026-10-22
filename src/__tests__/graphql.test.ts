@@ -1,9 +1,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { GraphQLClient } from "../lib/graphql.js";
-import { ApiError } from "../lib/errors.js";
-import { TtlCache } from "../lib/cache.js";
-import { silentLogger, jsonResponse, mockFetch, installFetch } from "./helpers.js";
+import { GraphQLClient } from "../lib/graphql.ts";
+import { ApiError } from "../lib/errors.ts";
+import { TtlCache } from "../lib/cache.ts";
+import { silentLogger, jsonResponse, mockFetch, installFetch } from "./helpers.ts";
 
 function client(): GraphQLClient {
   return new GraphQLClient({ endpoint: "https://graphql.example.test", logger: silentLogger() });

@@ -96,6 +96,9 @@ Reusable multi-step plans your client can offer as one-click flows:
 
 ## Install
 
+The npx and from-source installs run on your own Node.js, which must be
+**≥ 22.18**.
+
 ### As an `.mcpb` bundle (one-click, e.g. Claude Desktop)
 
 Download [**`anilist-mcp-server.mcpb`**](https://github.com/Grinv/anilist-mcp-server/releases/latest/download/anilist-mcp-server.mcpb)
@@ -247,7 +250,7 @@ npm run check:api    # live health-check of the AniList GraphQL endpoint
 npm run inspector    # run under the MCP Inspector
 ```
 
-Runtime requires Node ≥ 20.11. See [AGENTS.md](AGENTS.md) for contributor/agent
+Runtime requires Node ≥ 22.18. See [AGENTS.md](AGENTS.md) for contributor/agent
 guidance, including why this server exists and how it avoids the upstream bug
 that motivated building it.
 

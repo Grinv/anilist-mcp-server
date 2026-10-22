@@ -1,12 +1,12 @@
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/server";
-import type { AniListClient } from "../clients/anilist.js";
-import * as user from "../clients/anilist/user.js";
-import type { UpdateUserFields } from "../clients/anilist/user.js";
-import { TITLE_LANGUAGES, SCORE_FORMATS, STAFF_NAME_LANGUAGES } from "../clients/anilist/enums.js";
-import * as activity from "../clients/anilist/activity.js";
-import { jsonResult, errorResult } from "../lib/result.js";
-import { guard } from "./guard.js";
+import type { AniListClient } from "../clients/anilist.ts";
+import * as user from "../clients/anilist/user.ts";
+import type { UpdateUserFields } from "../clients/anilist/user.ts";
+import { TITLE_LANGUAGES, SCORE_FORMATS, STAFF_NAME_LANGUAGES } from "../clients/anilist/enums.ts";
+import * as activity from "../clients/anilist/activity.ts";
+import { jsonResult, errorResult } from "../lib/result.ts";
+import { guard } from "./guard.ts";
 import {
   pageInfoSchema,
   anilistId,
@@ -14,9 +14,9 @@ import {
   userIdOrName,
   MEDIA_LIST_STATUSES,
   communityScoreOut,
-} from "./outputSchemas.js";
-import { NOTIFICATION_TYPES } from "./notification.js";
-import { activityItem } from "./activity.js";
+} from "./outputSchemas.ts";
+import { NOTIFICATION_TYPES } from "./notification.ts";
+import { activityItem } from "./activity.ts";
 
 const mediaListOptionsInput = z
   .object({

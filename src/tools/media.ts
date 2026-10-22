@@ -1,15 +1,15 @@
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/server";
-import type { AniListClient } from "../clients/anilist.js";
-import * as media from "../clients/anilist/media.js";
-import * as favourites from "../clients/anilist/favourites.js";
-import { FAVOURITE_KINDS, STAFF_LANGUAGES, CHARACTER_ROLES } from "../clients/anilist/enums.js";
-import { jsonResult } from "../lib/result.js";
-import { guard } from "./guard.js";
-import { ApiError } from "../lib/errors.js";
-import type { MediaId, MalId } from "../clients/anilist/ids.js";
-import { toUnixSeconds } from "../clients/anilist/fuzzyDate.js";
-import type { MediaFormat } from "../clients/anilist/media.js";
+import type { AniListClient } from "../clients/anilist.ts";
+import * as media from "../clients/anilist/media.ts";
+import * as favourites from "../clients/anilist/favourites.ts";
+import { FAVOURITE_KINDS, STAFF_LANGUAGES, CHARACTER_ROLES } from "../clients/anilist/enums.ts";
+import { jsonResult } from "../lib/result.ts";
+import { guard } from "./guard.ts";
+import { ApiError } from "../lib/errors.ts";
+import type { MediaId, MalId } from "../clients/anilist/ids.ts";
+import { toUnixSeconds } from "../clients/anilist/fuzzyDate.ts";
+import type { MediaFormat } from "../clients/anilist/media.ts";
 import {
   pageInfoSchema,
   toggleFavouriteResult,
@@ -24,7 +24,7 @@ import {
   favouriteOut,
   communityScoreOut,
   personalScoreOut,
-} from "./outputSchemas.js";
+} from "./outputSchemas.ts";
 
 const mediaType = z.enum(MEDIA_TYPES).describe("Whether `id` refers to anime or manga.");
 

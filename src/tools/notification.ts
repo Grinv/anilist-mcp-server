@@ -1,14 +1,14 @@
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/server";
-import type { AniListClient } from "../clients/anilist.js";
-import * as notification from "../clients/anilist/notification.js";
-import { jsonResult } from "../lib/result.js";
-import { guard } from "./guard.js";
-import { idOnly, paginationFields } from "./outputSchemas.js";
+import type { AniListClient } from "../clients/anilist.ts";
+import * as notification from "../clients/anilist/notification.ts";
+import { jsonResult } from "../lib/result.ts";
+import { guard } from "./guard.ts";
+import { idOnly, paginationFields } from "./outputSchemas.ts";
 // Re-exported so the tools that build notification schemas keep importing it
 // from here, while clients/anilist/enums.ts stays the single definition.
-export { NOTIFICATION_TYPES } from "../clients/anilist/enums.js";
-import { NOTIFICATION_TYPES } from "../clients/anilist/enums.js";
+export { NOTIFICATION_TYPES } from "../clients/anilist/enums.ts";
+import { NOTIFICATION_TYPES } from "../clients/anilist/enums.ts";
 
 // idOnly matches the NOTIFICATION_FIELDS union (20 possible notification
 // types); only `id` is common to every branch — the rest depends on `type`.

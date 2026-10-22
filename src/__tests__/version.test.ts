@@ -2,11 +2,11 @@ import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { VERSION } from "../version.js";
-import { renderChangelogRelease, unreleasedHasBullets } from "../../scripts/sync-version.mjs";
+import { VERSION } from "../version.ts";
+import { renderChangelogRelease, unreleasedHasBullets } from "../../scripts/sync-version.ts";
 
-// Tests run from the dist-tests/ working directory; the repo root is one level up.
-const root = join(process.cwd(), "..");
+// This file lives in src/__tests__/; the repo root is two levels up.
+const root = join(import.meta.dirname, "..", "..");
 const readJson = (rel: string) => JSON.parse(readFileSync(join(root, rel), "utf8"));
 
 const pkg = readJson("package.json") as { version: string; mcpName: string };
@@ -26,7 +26,7 @@ const server = readJson("server.json") as {
   }[];
 };
 
-// package.json is the single source of truth; scripts/sync-version.mjs (the npm
+// package.json is the single source of truth; scripts/sync-version.ts (the npm
 // `version` hook) propagates it everywhere below. These assertions fail loudly
 // if any file drifts — including a hand-edit that bypassed the hook.
 test("VERSION constant matches package.json", () => {

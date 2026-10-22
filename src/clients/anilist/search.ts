@@ -1,9 +1,9 @@
-import type { AniListContext } from "./context.js";
-import { fetchActivityFeed, type ActivityTypeFilter } from "./activity.js";
-import { encodeFuzzyDateInt } from "./fuzzyDate.js";
-import { ApiError, assertFound } from "../../lib/errors.js";
-import type { CategoryId, MediaId, UserId } from "./ids.js";
-import type { MediaType } from "./enums.js";
+import type { AniListContext } from "./context.ts";
+import { fetchActivityFeed, type ActivityTypeFilter } from "./activity.ts";
+import { encodeFuzzyDateInt } from "./fuzzyDate.ts";
+import { ApiError, assertFound } from "../../lib/errors.ts";
+import type { CategoryId, MediaId, UserId } from "./ids.ts";
+import type { MediaType } from "./enums.ts";
 import {
   existsFragment,
   MEDIA_FIELDS,
@@ -13,7 +13,7 @@ import {
   PERSON_DESCRIPTION_FIELD,
   USER_FIELDS,
   USER_DESCRIPTION_FIELD,
-} from "./fields.js";
+} from "./fields.ts";
 
 export async function searchMedia(
   ctx: AniListContext,

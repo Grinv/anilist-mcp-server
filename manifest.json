@@ -24,6 +24,11 @@
     "https://github.com/Grinv/anilist-mcp-server/blob/main/PRIVACY.md",
     "https://anilist.co/terms"
   ],
+  "compatibility": {
+    "runtimes": {
+      "node": ">=22.18.0"
+    }
+  },
   "server": {
     "type": "node",
     "entry_point": "dist/index.js",

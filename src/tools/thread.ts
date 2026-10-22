@@ -1,9 +1,9 @@
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/server";
-import type { AniListClient } from "../clients/anilist.js";
-import * as thread from "../clients/anilist/thread.js";
-import { jsonResult } from "../lib/result.js";
-import { guard } from "./guard.js";
+import type { AniListClient } from "../clients/anilist.ts";
+import * as thread from "../clients/anilist/thread.ts";
+import { jsonResult } from "../lib/result.ts";
+import { guard } from "./guard.ts";
 import {
   pageInfoSchema,
   deleteResult,
@@ -14,7 +14,7 @@ import {
   categoryId,
   paginationFields,
   deleteToolAnnotations,
-} from "./outputSchemas.js";
+} from "./outputSchemas.ts";
 
 const savedThread = z
   .object({

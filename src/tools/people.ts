@@ -1,9 +1,9 @@
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/server";
-import type { AniListClient } from "../clients/anilist.js";
-import * as people from "../clients/anilist/people.js";
-import { jsonResult } from "../lib/result.js";
-import { guard } from "./guard.js";
+import type { AniListClient } from "../clients/anilist.ts";
+import * as people from "../clients/anilist/people.ts";
+import { jsonResult } from "../lib/result.ts";
+import { guard } from "./guard.ts";
 import {
   anilistId,
   characterId,
@@ -15,8 +15,8 @@ import {
   NESTED_MAX_PER_PAGE,
   pageInfoSchema,
   filmographyOnListField,
-} from "./outputSchemas.js";
-import { BIRTHDAY_KINDS, MEDIA_TYPES } from "../clients/anilist/enums.js";
+} from "./outputSchemas.ts";
+import { BIRTHDAY_KINDS, MEDIA_TYPES } from "../clients/anilist/enums.ts";
 
 const mediaCredit = z
   .object({

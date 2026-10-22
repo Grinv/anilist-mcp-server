@@ -1,5 +1,5 @@
-import type { AniListContext } from "./context.js";
-import { NOTIFICATION_FIELDS } from "./fields.js";
+import type { AniListContext } from "./context.ts";
+import { NOTIFICATION_FIELDS } from "./fields.ts";
 
 export interface GetNotificationsOptions {
   typeIn?: string[];

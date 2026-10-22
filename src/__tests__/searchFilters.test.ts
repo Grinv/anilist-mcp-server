@@ -1,8 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { AniListClient } from "../clients/anilist.js";
-import * as activity from "../clients/anilist/activity.js";
-import * as search from "../clients/anilist/search.js";
+import { AniListClient } from "../clients/anilist.ts";
+import * as activity from "../clients/anilist/activity.ts";
+import * as search from "../clients/anilist/search.ts";
 import {
   jsonResponse,
   mockFetch,
@@ -10,8 +10,8 @@ import {
   connectServer,
   testConfig,
   silentLogger,
-} from "./helpers.js";
-import type { UserId } from "../clients/anilist/ids.js";
+} from "./helpers.ts";
+import type { UserId } from "../clients/anilist/ids.ts";
 
 // Tool-level tests for search_media's `isAdult` and the activity tools'
 // multi-value `type` / search_activity's `isFollowing`. Every fixture below is

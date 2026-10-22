@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { connectServer } from "./helpers.js";
-import { currentSeason } from "../prompts.js";
+import { connectServer } from "./helpers.ts";
+import { currentSeason } from "../prompts.ts";
 
 function textOf(result: { messages: { content: { type: string; text?: string } }[] }): string {
   return result.messages[0]!.content.text!;

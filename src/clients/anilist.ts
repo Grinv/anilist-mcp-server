@@ -5,16 +5,16 @@
 // those functions directly (e.g. `media.getMedia(client.ctx(), type, ids)`)
 // instead of this class re-exposing every domain method as a same-named
 // pass-through; that pass-through layer added a hop with no logic of its own.
-import { GraphQLClient } from "../lib/graphql.js";
-import { RateLimiter } from "../lib/rateLimit.js";
-import { TtlCache } from "../lib/cache.js";
-import { ApiError } from "../lib/errors.js";
+import { GraphQLClient } from "../lib/graphql.ts";
+import { RateLimiter } from "../lib/rateLimit.ts";
+import { TtlCache } from "../lib/cache.ts";
+import { ApiError } from "../lib/errors.ts";
 import {
   TokenStore,
   TokenStateSchema,
   defaultTokenStorePath,
   type TokenState,
-} from "../lib/tokenStore.js";
+} from "../lib/tokenStore.ts";
 import {
   buildAuthorizeUrl,
   extractCode,
@@ -23,11 +23,11 @@ import {
   listenForCode,
   openBrowser,
   decodeJwtExpiry,
-} from "../lib/oauthLogin.js";
-import { HttpClient } from "../lib/http.js";
-import type { Logger } from "../lib/logger.js";
-import type { Config } from "../config.js";
-import type { AniListContext } from "./anilist/context.js";
+} from "../lib/oauthLogin.ts";
+import { HttpClient } from "../lib/http.ts";
+import type { Logger } from "../lib/logger.ts";
+import type { Config } from "../config.ts";
+import type { AniListContext } from "./anilist/context.ts";
 
 // A generous default: AniList tokens carry no refresh mechanism, so if the
 // JWT's `exp` claim is ever unreadable, assume the conventional ~1-year

@@ -1,7 +1,7 @@
-import type { AniListContext } from "./context.js";
-import { ApiError, assertFound } from "../../lib/errors.js";
-import type { CharacterId, StaffId } from "./ids.js";
-import type { BirthdayKind, MediaType } from "./enums.js";
+import type { AniListContext } from "./context.ts";
+import { ApiError, assertFound } from "../../lib/errors.ts";
+import type { CharacterId, StaffId } from "./ids.ts";
+import type { BirthdayKind, MediaType } from "./enums.ts";
 import {
   CHARACTER_FIELDS,
   CHARACTER_DETAIL_FIELDS,
@@ -11,7 +11,7 @@ import {
   STAFF_VOICE_VARS,
   PERSON_DESCRIPTION_FIELD,
   PERSON_FILMOGRAPHY_VARS,
-} from "./fields.js";
+} from "./fields.ts";
 
 /** Pagination and server-side filters for get_character's `media` /
  *  get_staff's `staffMedia` filmography (see fields.ts's

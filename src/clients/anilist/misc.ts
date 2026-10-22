@@ -1,7 +1,7 @@
-import type { AniListContext } from "./context.js";
-import { assertFound } from "../../lib/errors.js";
-import type { StudioId } from "./ids.js";
-import { STUDIO_FIELDS, STUDIO_DETAIL_FIELDS, STUDIO_FILMOGRAPHY_VARS } from "./fields.js";
+import type { AniListContext } from "./context.ts";
+import { assertFound } from "../../lib/errors.ts";
+import type { StudioId } from "./ids.ts";
+import { STUDIO_FIELDS, STUDIO_DETAIL_FIELDS, STUDIO_FILMOGRAPHY_VARS } from "./fields.ts";
 
 /** Pagination and server-side filters for get_studio's `media` filmography
  *  (see fields.ts's STUDIO_FILMOGRAPHY_VARS). Unset filters are dropped from

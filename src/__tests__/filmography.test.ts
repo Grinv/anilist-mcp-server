@@ -4,7 +4,7 @@
 // `description` text truncated) — see the fixture-accuracy-check skill.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { jsonResponse, mockFetch, installFetch, connectServer } from "./helpers.js";
+import { jsonResponse, mockFetch, installFetch, connectServer } from "./helpers.ts";
 
 interface SentBody {
   query: string;

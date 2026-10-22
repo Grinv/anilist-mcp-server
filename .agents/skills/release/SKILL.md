@@ -6,13 +6,13 @@ description: Cut a release of anilist-mcp-server — draft CHANGELOG entries, ch
 # Releasing
 
 `package.json` is the **single source of truth** for the version. The npm
-`version` lifecycle hook runs `scripts/sync-version.mjs`, which propagates it to
+`version` lifecycle hook runs `scripts/sync-version.ts`, which propagates it to
 `src/version.ts`, `manifest.json` and `server.json` (incl. the `.mcpb` release-asset
 URL), and also renames `CHANGELOG.md`'s `## [Unreleased]` heading to
 `## [X.Y.Z] - <today>` (adding a fresh empty `## [Unreleased]` above it) —
 `version.test.ts` guards that version.ts/manifest.json/server.json never drift.
 
-A `preversion` hook (`scripts/preversion-check.mjs`) runs first, with two checks:
+A `preversion` hook (`scripts/preversion-check.ts`) runs first, with two checks:
 
 - **Unpushed-tag race**: if the current `package.json` version already has a
   local git tag, it blocks unless that tag is also on `origin` — this is the
@@ -36,7 +36,7 @@ confirmed, self-inflicted failure mode: the `preversion` gate checks whether
 `[Unreleased]` is populated, and by definition it's empty right after you've
 already moved its entries into a dated section — so a manual pre-rename
 guarantees the gate blocks, forcing an awkward `CONFIRM_EMPTY_CHANGELOG=1`
-override for a release that isn't actually empty. `sync-version.mjs` now does
+override for a release that isn't actually empty. `sync-version.ts` now does
 this rename itself, from inside the `version` lifecycle script, which runs
 strictly _after_ the `preversion` gate has already passed — so the entries
 are still under `[Unreleased]` (and thus visible to the gate) at exactly the
@@ -50,7 +50,7 @@ don't rely on the `preversion` hook alone to catch a skipped one:
    write/fix the `[Unreleased]` entries per its style rules and leave them
    under `[Unreleased]` — don't rename the heading (see above).
 2. Run the `docs-consistency-check` skill — none of this is version-bump
-   mechanics, so `sync-version.mjs`/`version.test.ts` don't catch drift here,
+   mechanics, so `sync-version.ts`/`version.test.ts` don't catch drift here,
    and it accumulates silently across several PRs (`manifest.json`'s and
    `server.json`'s `tools` arrays, `server.json`'s `environmentVariables`,
    README's tool table, AGENTS.md's `src/` tree).
@@ -62,7 +62,7 @@ don't rely on the `preversion` hook alone to catch a skipped one:
 The tag push (`v*`) runs the **Release** workflow: `check:api` gate → build → test
 → pack `.mcpb` → extract `CHANGELOG.md`'s section for this version (fails loudly,
 not silently, if that section is empty — the workflow's own safety net for
-whatever slipped past `sync-version.mjs`/`preversion-check.mjs`) → GitHub Release
+whatever slipped past `sync-version.ts`/`preversion-check.ts`) → GitHub Release
 → `npm publish` (OIDC trusted publishing, with provenance, pinned to an exact
 verified-good npm version — no token; skipped without failing the job if this
 version is already on npm, so a re-run after a partial failure doesn't abort) →

@@ -1,10 +1,10 @@
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/server";
-import type { AniListClient } from "../clients/anilist.js";
-import * as activity from "../clients/anilist/activity.js";
-import { ACTIVITY_TYPES } from "../clients/anilist/enums.js";
-import { jsonResult } from "../lib/result.js";
-import { guard } from "./guard.js";
+import type { AniListClient } from "../clients/anilist.ts";
+import * as activity from "../clients/anilist/activity.ts";
+import { ACTIVITY_TYPES } from "../clients/anilist/enums.ts";
+import { jsonResult } from "../lib/result.ts";
+import { guard } from "./guard.ts";
 import {
   pageInfoSchema,
   deleteResult,
@@ -15,7 +15,7 @@ import {
   paginationFields,
   mediaTitleOut,
   deleteToolAnnotations,
-} from "./outputSchemas.js";
+} from "./outputSchemas.ts";
 
 // Fields ACTIVITY_FRAGMENT selects identically on every branch of AniList's
 // ActivityUnion (TextActivity/ListActivity/MessageActivity). `type` itself

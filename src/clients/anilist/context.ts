@@ -2,7 +2,7 @@
 // operates on: the GraphQL transport, plus the two ways a domain function
 // can ask for an auth header. Constructed once per call by AniListClient
 // (../anilist.ts), which owns the actual token/login state.
-import type { GraphQLClient } from "../../lib/graphql.js";
+import type { GraphQLClient } from "../../lib/graphql.ts";
 
 export interface AniListContext {
   gql: GraphQLClient;

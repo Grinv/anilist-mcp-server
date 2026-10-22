@@ -6,7 +6,7 @@ export default defineConfig({
   entry: ["src/index.ts"],
   format: ["esm"],
   platform: "node",
-  target: "node20.11",
+  target: "node22.18",
   outDir: "dist",
   bundle: true,
   // tsup leaves anything in `dependencies` external by default — which would

@@ -6,6 +6,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-10-22
+
 ### Added
 
 - Declare the Node requirement in the `.mcpb` manifest, so clients can check it before installing. [f3965f8](https://github.com/Grinv/anilist-mcp-server/commit/f3965f8)

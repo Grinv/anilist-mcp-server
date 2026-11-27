@@ -25,6 +25,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Stop retrying a rate-limited request before AniList's `Retry-After`; say when to retry instead. [64d702c](https://github.com/Grinv/anilist-mcp-server/commit/64d702c)
 - Point a failed login at `ANILIST_CLIENT_ID`/`ANILIST_CLIENT_SECRET` when AniList rejects them. [f52bb09](https://github.com/Grinv/anilist-mcp-server/commit/f52bb09)
 - Report a malformed tool result as an internal error, saying when a write already applied, instead of a schema dump. [d442e1d](https://github.com/Grinv/anilist-mcp-server/commit/d442e1d) [f52bb09](https://github.com/Grinv/anilist-mcp-server/commit/f52bb09)
+- Warn that a write may have applied when AniList answers it with an unreadable response, so it isn't repeated. [d7369f3](https://github.com/Grinv/anilist-mcp-server/commit/d7369f3)
+- Stop blaming the account for a 403 on a request sent without a token. [d7369f3](https://github.com/Grinv/anilist-mcp-server/commit/d7369f3)
 - Log unexpected errors with their stack, and mask bare tokens in the log. [be76493](https://github.com/Grinv/anilist-mcp-server/commit/be76493)
 
 ## [0.11.1] - 2026-11-27

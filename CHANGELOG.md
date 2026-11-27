@@ -6,6 +6,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.11.1] - 2026-11-27
+
 ### Added
 
 - Mark the `.mcpb` manifest as `prompts_generated`, so clients ask the server for its prompts. [fbe7f13](https://github.com/Grinv/anilist-mcp-server/commit/fbe7f13)

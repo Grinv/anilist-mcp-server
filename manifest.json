@@ -45,6 +45,7 @@
     }
   },
   "tools_generated": false,
+  "prompts_generated": true,
   "tools": [
     {
       "name": "get_genres",

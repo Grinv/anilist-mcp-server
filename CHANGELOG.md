@@ -6,6 +6,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- Mark the `.mcpb` manifest as `prompts_generated`, so clients ask the server for its prompts.
+
+### Changed
+
+- `npx anilist-mcp-server` no longer installs any packages: the bundle already contains its runtime code.
+- Update `@modelcontextprotocol/server` to 2.4.0.
+
 ## [0.11.0] - 2026-10-22
 
 ### Added

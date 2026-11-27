@@ -23,7 +23,7 @@ glama.json
 # Tooling / config
 tsconfig.json
 tsconfig.scripts.json
-tsup.config.ts
+tsdown.config.ts
 eslint.config.js
 eslint.config.mjs
 .nvmrc

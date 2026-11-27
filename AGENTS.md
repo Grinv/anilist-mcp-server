@@ -55,6 +55,7 @@ src/
   prompts.ts      # MCP Prompts: multi-step plans that orchestrate the read tools
   __tests__/      # node:test (*.test.ts) + helpers.ts
 scripts/          # run-tests.ts, check-api.ts, sync-version.ts,
+                  # audit-bundle.ts (CI: npm audit over the inlined packages),
                   # preversion-check.ts (npm `preversion` gate — see the `release` skill)
 .agents/skills/   # reusable agent workflows for this repo (e.g. live-audit/) —
                   # plain Markdown with a YAML frontmatter name/description,
@@ -83,7 +84,7 @@ naturally omits absent optional arguments, no dummy placeholder values needed.
 ## Commands
 
 ```sh
-npm run build          # tsc --noEmit + tsup → dist/index.js (single ESM bundle)
+npm run build          # tsc --noEmit + tsdown → dist/index.js (single ESM bundle)
 npm test               # node:test straight on src/**/*.test.ts (native type stripping)
 npm run test:coverage  # same, with coverage (gate: ~80%)
 npm run lint           # eslint
@@ -96,8 +97,8 @@ npm run check:api      # live upstream health-check (network)
 - **Docs and in-code text are English** (README, docs, comments, tool
   descriptions, error messages).
 - Runtime floor is **Node ≥ 22.18.0** — the first 22.x with TypeScript type
-  stripping on by default (what runs the tests and `scripts/*.ts`), also required by tsup 9.
-  tsup targets `node22.18`; `tsconfig.json` uses `module: "node20"` with an
+  stripping on by default (what runs the tests and `scripts/*.ts`).
+  tsdown reads its target from `engines.node`; `tsconfig.json` uses `module: "node20"` with an
   ES2024 target/lib (Node 22's V8 12.4 has all of ES2024, e.g.
   `Promise.withResolvers()`, `Object.groupBy()`, but not ES2025's
   `Promise.try()`/`RegExp.escape()`). Keep `engines`, `manifest.json`'s
@@ -176,16 +177,26 @@ npm run check:api      # live upstream health-check (network)
   opportunistically when you're already touching it, don't do a
   drive-by rewrite.
 - Keep dependencies minimal. New deps need a clear justification (supply-chain).
+  Runtime packages (`@modelcontextprotocol/server`, `zod`) live in
+  `devDependencies`, not `dependencies`: tsdown inlines them into
+  `dist/index.js`, so `npx` installs nothing. A new runtime package must be
+  added to `tsdown.config.ts`'s `bundledDeps` or the build fails; CI audits
+  the bundled packages with `scripts/audit-bundle.ts`.
+- `manifest.json` lists no `prompts`, only `prompts_generated: true`: mcpb's
+  static prompt text can't express the argument handling in `src/prompts.ts`
+  (e.g. a numeric user ID vs a quoted username), so clients take the prompts
+  from the server's own `prompts/list`. Its `tools` list stays hand-written
+  (short descriptions) and is checked against the registered tools.
 - **Tests and tooling files run as TypeScript directly** through Node's native
   type stripping (`node --test src/**/*.test.ts`, `node scripts/foo.ts` — no
   compile step), so all of `src/` and `scripts/` follow its rules: only
   erasable syntax (no `enum`/`namespace`/parameter properties;
   `erasableSyntaxOnly` enforces it), `import type` for type-only imports
   (`verbatimModuleSyntax`), and relative imports name the real `.ts` file
-  (`allowImportingTsExtensions`; tsup bundles them the same way). `eslint.config.mjs`
+  (`allowImportingTsExtensions`; tsdown bundles them the same way). `eslint.config.mjs`
   stays plain JS with `// @ts-check` + JSDoc: ESLint loads a `.ts` config
   only through `jiti` (an extra dependency) or an unstable flag editors don't
-  pass. These, plus `tsup.config.ts`, are type-checked via a separate
+  pass. These, plus `tsdown.config.ts`, are type-checked via a separate
   `tsconfig.scripts.json` (`npm run typecheck:scripts`, folded into
   `npm run lint`) instead of the main `tsconfig.json`, which only covers
   `src/`.
@@ -196,8 +207,8 @@ npm run check:api      # live upstream health-check (network)
   support refresh tokens — access tokens are long-lived JWTs (~1 year);
   re-authentication via `login_anilist` is the only way to renew one.
 - **MCP SDK**: this project runs on stable **`@modelcontextprotocol/server` v2**
-  (`2.3.1`, pinned exact — not a `^range`) ahead of the sibling servers
-  (`mal-mcp`/`tmdb-mcp`/`steam-games-mcp`, all still on v1). Re-run the full
+  (`2.4.0`, pinned exact — not a `^range`), like the sibling servers
+  (`mal-mcp`/`tmdb-mcp`/`steam-games-mcp`). Re-run the full
   test suite, including `e2e.test.ts`, before merging any future SDK bump.
 - **No `logging` MCP capability.** `notifications/message`/`logging/setLevel`
   were deprecated in protocol version 2026-07-28 (SEP-2577) in favor of

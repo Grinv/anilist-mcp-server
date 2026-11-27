@@ -104,12 +104,13 @@ before changing `src/clients/anilist/*.ts` or `src/lib/graphql.ts`.
 severe stability issues. Please check the official AniList Discord..." ,
 "status":403}],"data":null}` — distinct from the 429 rate-limit case, and
   not something a client-side retry can fix. A 403 means one of three
-  things, and `lib/errors.ts`'s `classifyStatus()` tells them apart by body:
-  this outage notice ("temporarily disabled") → `unavailable`; Cloudflare's
-  WAF page (see [Errors and validation](#errors-and-validation)) →
-  `blocked`; anything else → `forbidden` (a real permission denial). All
-  three are non-retryable. `lib/graphql.ts` applies the same check to a 403
-  embedded in a 200's `errors[]`.
+  things: a non-JSON body (Cloudflare's WAF or challenge page, see
+  [Errors and validation](#errors-and-validation)) → `blocked`, decided in
+  `lib/http.ts` since the API itself always answers in JSON; then
+  `lib/errors.ts`'s `classifyStatus()` reads AniList's parsed message: this
+  outage notice ("temporarily disabled") → `unavailable`, anything else →
+  `forbidden`. All three are non-retryable. `lib/graphql.ts` applies
+  `classifyStatus()` to a 403 embedded in a 200's `errors[]` too.
 - AniList may also manually IP-block excessive traffic (rare); blocked
   requests never reach their origin servers.
 - Adult content ("Ecchi" is explicitly **not** considered adult by AniList,

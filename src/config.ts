@@ -56,10 +56,6 @@ const ConfigSchema = EnvSchema.transform((env) => ({
     clientId: env.ANILIST_CLIENT_ID,
     clientSecret: env.ANILIST_CLIENT_SECRET,
     tokenStorePath: env.ANILIST_TOKEN_STORE,
-    /** Has a client id + secret → login_anilist can start a login. AniList
-     *  issues both together for every app; there is no MAL-style "public vs
-     *  confidential app type" pitfall here. */
-    canLogin: Boolean(env.ANILIST_CLIENT_ID && env.ANILIST_CLIENT_SECRET),
   },
 }));
 

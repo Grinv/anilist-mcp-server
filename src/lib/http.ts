@@ -143,10 +143,11 @@ async function toHttpError(res: Response, authenticated: boolean): Promise<ApiEr
   // Prefer a structured `message`/`error` field; for an HTML page (e.g.
   // Cloudflare's WAF block on AniList) just its <title>, not the markup; a
   // short plain-text body as is. Anything else stays in the log message only.
-  const detail =
-    parseErrorMessage(raw) ??
-    htmlTitle(raw) ??
-    (raw && !/^\s*</.test(raw) && raw.length <= 200 ? raw.trim() : undefined);
+  // AniList's API always answers in JSON. Anything else (an HTML page, a
+  // proxy's plain text) came from in front of it: its text isn't AniList's
+  // reason, except a page's <title>, which names who blocked the request.
+  const fromApi = isJson(raw);
+  const detail = fromApi ? parseErrorMessage(raw) : htmlTitle(raw);
   const retryAfter = parseRetryAfter(res.headers.get("retry-after"));
   // `statusText` is only appended when it's actually there: it comes back
   // empty over HTTP/2 (and through some proxies), which would otherwise
@@ -156,15 +157,23 @@ async function toHttpError(res: Response, authenticated: boolean): Promise<ApiEr
     ? `HTTP ${res.status} ${res.statusText}`
     : `HTTP ${res.status}`;
   return new ApiError({
-    // AniList's API always answers in JSON; an HTML 403 is the edge's
-    // (Cloudflare's) block or challenge page, whatever its title.
-    code: res.status === 403 && /^\s*</.test(raw) ? "blocked" : classifyStatus(res.status, detail),
+    // A non-JSON 403 is the edge's (Cloudflare's) block or challenge page.
+    code: res.status === 403 && !fromApi ? "blocked" : classifyStatus(res.status, detail),
     status: res.status,
     authenticated,
     detail,
     retryAfterMs: retryAfter,
     message: raw ? `${statusLabel}: ${detail ?? raw.slice(0, 500)}` : statusLabel,
   });
+}
+
+function isJson(raw: string): boolean {
+  try {
+    JSON.parse(raw);
+    return raw.trim().length > 0;
+  } catch {
+    return false;
+  }
 }
 
 function htmlTitle(raw: string): string | undefined {

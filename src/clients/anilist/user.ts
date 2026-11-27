@@ -43,13 +43,7 @@ export async function withNumericNameHint<T>(
     const hint = `"${user}" was looked up as a username; to look up user ID ${user}, pass it as a number.`;
     // Keep the sentence saying which lookup failed (assertFound's note), if any.
     const note = [err.note, hint].filter(Boolean).join(" ");
-    throw new ApiError({
-      code: "not_found",
-      status: err.status,
-      detail: err.detail,
-      note,
-      cause: err,
-    });
+    throw err.withNote(note);
   }
 }
 

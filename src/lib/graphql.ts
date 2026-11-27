@@ -113,10 +113,11 @@ export class GraphQLClient {
         // whether it saved is unknown, so neither "applied" nor a schema bug.
         const fields = Object.values(data as Record<string, unknown>);
         if (fields.length > 0 && fields.every((v) => v === null)) {
+          // Marked outcome-unknown by the catch below, like any bad_response.
           throw new ApiError({
             code: "bad_response",
             message: "AniList answered the mutation with a null result",
-          }).withWriteOutcomeUnknown();
+          });
         }
         if (call) call.wrote = true;
       }
@@ -143,7 +144,8 @@ export class GraphQLClient {
       // still showed the pre-toggle `isFavourite` for the rest of the TTL
       // window. Cleared on failure too: a timed-out write may still have
       // landed, and the read that checks it must not be served from cache.
-      if (this.#cache) this.#cache.clear();
+      // Only for a mutation: a skipCache read changes nothing upstream.
+      if (isMutation && this.#cache) this.#cache.clear();
     }
   }
 

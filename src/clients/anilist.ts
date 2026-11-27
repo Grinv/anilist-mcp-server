@@ -101,8 +101,8 @@ export class AniListClient {
     if (!header) {
       throw new ToolError(
         "login_required",
-        "This tool acts on your AniList account and no token is configured: run login_anilist " +
-          "(or set ANILIST_ACCESS_TOKEN) first.",
+        "This tool acts on your AniList account and there is no valid token (none is set, or it " +
+          "has expired): run login_anilist (or set ANILIST_ACCESS_TOKEN) first.",
       );
     }
     return header;

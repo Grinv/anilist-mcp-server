@@ -336,3 +336,23 @@ test("a successful mutation marks the call as having written", async (t) => {
   await callContext.run(call, () => c.request("mutation{x}"));
   assert.equal(call.wrote, true);
 });
+
+test("a skipCache read doesn't clear the read cache; a mutation does", async (t) => {
+  installFetch(
+    t,
+    mockFetch(() => jsonResponse({ data: { ok: 1 } })),
+  );
+  const cache = new TtlCache<unknown>(60_000);
+  const c = new GraphQLClient({
+    endpoint: "https://graphql.example.test",
+    logger: silentLogger(),
+    cache,
+  });
+  await c.request("query{ok}");
+  const key = JSON.stringify({ query: "query{ok}", variables: {}, auth: null });
+  assert.notEqual(cache.get(key), undefined);
+  await c.request("query{fresh}", {}, undefined, { skipCache: true });
+  assert.notEqual(cache.get(key), undefined, "a skipCache read leaves the cache alone");
+  await c.request("mutation{x}");
+  assert.equal(cache.get(key), undefined, "a mutation clears it");
+});

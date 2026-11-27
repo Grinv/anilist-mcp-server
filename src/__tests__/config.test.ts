@@ -2,28 +2,29 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { loadConfig } from "../config.ts";
 
-test("no credentials → cannot log in, defaults apply", () => {
+test("no credentials → none set, defaults apply", () => {
   const c = loadConfig({});
-  assert.equal(c.auth.canLogin, false);
+  assert.equal(c.auth.clientId, undefined);
   assert.equal(c.auth.accessToken, undefined);
   assert.equal(c.graphqlUrl, "https://graphql.anilist.co");
 });
 
-test("access token only → token is read, but cannot start a login", () => {
+test("access token only → token is read, no client credentials", () => {
   const c = loadConfig({ ANILIST_ACCESS_TOKEN: "tok" });
   assert.equal(c.auth.accessToken, "tok");
-  assert.equal(c.auth.canLogin, false);
+  assert.equal(c.auth.clientSecret, undefined);
 });
 
-test("client id + secret → can log in", () => {
+test("client id + secret are read", () => {
   const c = loadConfig({ ANILIST_CLIENT_ID: "id", ANILIST_CLIENT_SECRET: "secret" });
-  assert.equal(c.auth.canLogin, true);
+  assert.equal(c.auth.clientId, "id");
+  assert.equal(c.auth.clientSecret, "secret");
   assert.equal(c.auth.accessToken, undefined);
 });
 
-test("client id alone (no secret) → cannot log in", () => {
+test("client id alone (no secret) → no secret", () => {
   const c = loadConfig({ ANILIST_CLIENT_ID: "id" });
-  assert.equal(c.auth.canLogin, false);
+  assert.equal(c.auth.clientSecret, undefined);
 });
 
 test("empty-string values are treated as unset (mcpb passes unset config as '')", () => {

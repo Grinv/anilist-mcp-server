@@ -313,3 +313,20 @@ test("beforeRequest gets the caller's signal, so a throttled wait is abortable t
   await http.requestJson("x", { signal: call.signal });
   assert.equal(seen, call.signal);
 });
+
+test("a plain-text 403 from in front of AniList is blocked, and its text isn't quoted as AniList's", async (t) => {
+  // e.g. Cloudflare's "error code: 1020", or a corporate proxy's page.
+  t.mock.method(
+    globalThis,
+    "fetch",
+    mockFetch(() => new Response("error code: 1020", { status: 403 })).fn,
+  );
+  await assert.rejects(
+    () => client({ retries: 0 }).requestJson("x"),
+    (err: unknown) =>
+      err instanceof ApiError &&
+      err.code === "blocked" &&
+      err.detail === undefined &&
+      /error code: 1020/.test(err.message), // still in the log message
+  );
+});

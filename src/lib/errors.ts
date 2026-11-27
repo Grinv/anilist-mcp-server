@@ -72,6 +72,11 @@ export class ApiError extends Error {
     this.authenticated = opts.authenticated;
     this.writeMayHaveApplied = opts.writeMayHaveApplied ?? false;
   }
+  /** This error as `code` (default: its own), with this server's `note`. */
+  withNote(note: string, code: ApiErrorCode = this.code): ApiError {
+    return new ApiError({ ...this.#opts, code, note, message: note, cause: this });
+  }
+
   /** This error, marked as a write that AniList may still have applied. */
   withWriteOutcomeUnknown(): ApiError {
     return new ApiError({ ...this.#opts, writeMayHaveApplied: true, cause: this });
@@ -119,8 +124,9 @@ export class ToolError extends Error {
   }
 }
 
-/** Map an HTTP status (and, for a 403, its body: AniList's outage notice and
- *  Cloudflare's block page both use 403) to an ApiErrorCode. */
+/** Map an HTTP status and AniList's parsed reason to an ApiErrorCode. A
+ *  non-JSON body (the edge's block page) is `blocked`, decided by lib/http.ts
+ *  before this runs, since only it sees the raw body. */
 export function classifyStatus(status: number, reason = ""): ApiErrorCode {
   // `reason` is AniList's parsed reason (errors[].message, or an HTML page's
   // <title>), never the raw body, so a value echoed back in it can't reclassify.

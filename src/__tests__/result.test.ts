@@ -239,3 +239,13 @@ test("an anonymous 403 isn't blamed on the account", () => {
   );
   assert.doesNotMatch(withToken.detail, /isn't an account permission problem/);
 });
+
+test("Retry-After: 0 adds no retry_after_seconds and no 'retry in 0 s'", () => {
+  const p = toProblem(
+    new ApiError({ code: "rate_limited", status: 429, retryAfterMs: 0 }),
+    silentLogger(),
+  );
+  assert.equal(p.retryable, true);
+  assert.equal(p.retry_after_seconds, undefined);
+  assert.match(p.detail, /Please retry later\./);
+});

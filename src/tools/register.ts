@@ -7,6 +7,7 @@ import type { z } from "zod";
 import type { McpServer, ServerContext, ToolAnnotations } from "@modelcontextprotocol/server";
 import type { Logger } from "../lib/logger.ts";
 import { callContext, type CallContext } from "../lib/cancel.ts";
+import { ApiError, ToolError } from "../lib/errors.ts";
 import { problemResult, toProblem, type ToolResult } from "../lib/result.ts";
 
 interface ToolConfig<In extends z.ZodType, Out extends z.ZodType> {
@@ -43,7 +44,8 @@ export function toolRegistrar(server: McpServer, logger: Logger): RegisterTool {
       // on the write itself (e.g. "not deleted"), so it gets no such note.
       const fail = (err: unknown) => {
         const problem = toProblem(err, logger);
-        if (call.wrote && problem.type.endsWith("#internal")) problem.detail += ` ${WRITE_APPLIED}`;
+        const internal = !(err instanceof ApiError || err instanceof ToolError);
+        if (call.wrote && internal) problem.detail += ` ${WRITE_APPLIED}`;
         return problemResult(problem);
       };
       try {

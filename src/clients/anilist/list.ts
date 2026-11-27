@@ -480,7 +480,7 @@ export async function updateListEntries(
     repeat:$repeat,priority:$priority,private:$private,notes:$notes,
     hiddenFromStatusLists:$hiddenFromStatusLists,startedAt:$startedAt,completedAt:$completedAt
   ){id}}`;
-  const data = await ctx.gql.request<{ UpdateMediaListEntries: { id: number }[] | null }>(
+  const data = await ctx.gql.request<{ UpdateMediaListEntries: { id: number }[] }>(
     query,
     {
       ids: listEntryIds,
@@ -498,7 +498,8 @@ export async function updateListEntries(
     },
     header,
   );
-  const updated = data.UpdateMediaListEntries ?? [];
+  // A null result never gets here: lib/graphql.ts treats it as outcome-unknown.
+  const updated = data.UpdateMediaListEntries;
   return { updated: updated.length, listEntryIds: updated.map((entry) => entry.id) };
 }
 

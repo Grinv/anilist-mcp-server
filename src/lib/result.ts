@@ -142,8 +142,9 @@ export function toProblem(err: unknown, logger: Logger): Problem {
     const { title, advice } = PROBLEMS[err.code];
     // Retrying an outcome-unknown write is exactly what must not happen blindly.
     const retryable = err.retryable && !err.writeMayHaveApplied;
+    // 0 ("retry now") adds nothing over plain retryable, in the text or in _meta.
     const retryAfter =
-      err.retryAfterMs === undefined ? undefined : Math.ceil(err.retryAfterMs / 1000);
+      err.retryAfterMs === undefined ? undefined : Math.ceil(err.retryAfterMs / 1000) || undefined;
     const status = err.status ? ` (${err.status})` : "";
     return {
       type: TYPE_BASE + err.code,

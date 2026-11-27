@@ -174,7 +174,7 @@ test("hidden_gems pins an explicit sort and score/popularity filters", async (t)
     assert.match(text, /sort: \["SCORE_DESC"\]/, `missing sort for ${JSON.stringify(args)}`);
     assert.match(
       text,
-      /averageScore_greater: \d+/,
+      /weightedScore_greater: \d+/,
       `missing score floor for ${JSON.stringify(args)}`,
     );
     assert.match(

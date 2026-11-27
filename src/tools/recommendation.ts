@@ -54,7 +54,7 @@ const recommendationNode = z
         id: anilistId,
         title: mediaTitleOut.nullish(),
         siteUrl: z.httpUrl().nullish(),
-        averageScore: communityScoreOut(
+        weightedScore: communityScoreOut(
           "The weighted community rating across all AniList users, on",
         ),
         genres: z.array(z.string()).nullish(),

@@ -203,6 +203,16 @@ client can work around.
 
 ## GraphQL schema facts (verified via live introspection; see git history/CHANGELOG.md for what's most recent)
 
+- **`Media.averageScore` is deprecated: "Use weightedScore"** (live introspection,
+  2026-11-27; not in AniList's own reference docs, which they say are updated by
+  hand). Same description ("A weighted average score of all the users' scores"),
+  and the two matched on 400/400 titles; `averageScore_*` and `weightedScore_*`
+  filters returned identical pages. `meanScore` is the separate plain mean (it
+  differed from the weighted score on 182/400, all low-popularity titles).
+  AniList publishes no deprecation policy; old deprecated fields
+  (`Staff.language`, `Character.updatedAt`, `User.stats`) still resolve, so
+  removal isn't imminent. This server reads and filters on `weightedScore`.
+
 These are the exact names `src/clients/anilist/*.ts`'s query/mutation strings
 rely on — re-verify with an introspection query
 (`{ __type(name: "TypeName") { fields { name args { name type { name } } } } }`
@@ -563,7 +573,7 @@ The categories field is required when id is not present.)`.
 - **`Media` query/filter args** (also valid on `Page.media(...)`, same
   arg set): `search, type, sort: [MediaSort], isAdult, genre_in: [String],
 format_in: [MediaFormat], status_in: [MediaStatus], season: MediaSeason,
-seasonYear`, plus many more (`averageScore_greater`, `tag_in`, …) — see the
+seasonYear`, plus many more (`weightedScore_greater`, `tag_in`, …) — see the
   full arg list via introspection if extending `searchMedia()`.
 - **`isAdult: true` returns adult titles without any login or account
   opt-in** (confirmed live 2026-10-20: 5000+ results, all flagged). The flag
@@ -750,7 +760,7 @@ recommendations, likes`.
 - **Two score scales, three unrelated fields, no marker on any of them.**
   AniList reports every _community_ score on a fixed **0-100** scale and every
   _personal_ list-entry score on whatever the account displays. Confirmed live
-  on one account in one sitting: `Media.averageScore` 86 for Cowboy Bebop,
+  on one account in one sitting: `Media.weightedScore` 86 for Cowboy Bebop,
   that account's own `mediaListEntry.score` for it 8, and its
   `User.statistics.anime.meanScore` 74.18 while every score on its list was
   5-9. `Media.stats.scoreDistribution`'s `score` is the bucket's upper edge on
@@ -761,7 +771,7 @@ recommendations, likes`.
   distinguishable from a personal score by type or by name, so every one of
   them names its scale in its tool `outputSchema` via
   `outputSchemas.ts`'s `communityScoreOut`/`personalScoreOut`; the search
-  filter `averageScore_greater`/`_lesser` (0-100, bounded in its input schema)
+  filter `weightedScore_greater`/`_lesser` (0-100, bounded in its input schema)
   is on the community scale despite reading like a score the user could type
   from their own list.
 - **`Delete*` mutations** (`DeleteMediaListEntry(id)`, `DeleteActivity(id)`,

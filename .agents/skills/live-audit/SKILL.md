@@ -125,9 +125,9 @@ supports concurrent subagents/background tasks.
   promises, not silently mis-apply.
 - **The same fact from two tools must agree — and be the same quantity on the
   same scale.** This server surfaces scores on two scales: **0-100** community
-  numbers (`get_media`'s `averageScore`, the user tools' `meanScore`,
+  numbers (`get_media`'s `weightedScore`, the user tools' `meanScore`,
   `get_media_statistics`' histogram buckets, a review's own score,
-  `search_media`'s `averageScore_greater`/`_lesser` filter) and a **0-10**
+  `search_media`'s `weightedScore_greater`/`_lesser` filter) and a **0-10**
   personal list-entry `score` (`get_user_list`, `get_media`'s
   `mediaListEntry`, and what `add_list_entry`/`update_list_entry` take on
   write). Since 0.8.0+ every one of those output fields names its scale via
@@ -265,7 +265,7 @@ Sweep every file under `src/tools/`, `src/clients/anilist/`, and `src/lib/`
 - A filter measured against one field while the response reports another, or a
   numeric field whose scale only ONE of its two ends documents. Grep every
   `*_greater`/`*_lesser`/`_in`/`_not` filter parameter back to the field the same
-  tool returns and confirm they are the same quantity: `averageScore` (0-100 per
+  tool returns and confirm they are the same quantity: `weightedScore` (0-100 per
   the filter's own `.describe()`) and `meanScore` are different aggregates, and a
   list entry's `score` is the viewer's own on a 0-10 input bound — none of the
   output schemas repeat the scale, so a caller comparing across them gets no

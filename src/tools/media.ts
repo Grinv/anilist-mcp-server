@@ -110,7 +110,7 @@ const mediaObject = z
     volumes: z.int().positive().nullish(),
     duration: z.int().positive().nullish(),
     genres: z.array(z.string()).nullish(),
-    averageScore: communityScoreOut("The weighted community rating across all AniList users, on"),
+    weightedScore: communityScoreOut("The weighted community rating across all AniList users, on"),
     popularity: z.number().nonnegative().nullish(),
     isAdult: z.boolean().nullish(),
     isFavourite: favouriteOut("title"),

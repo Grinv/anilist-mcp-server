@@ -30,7 +30,7 @@ export async function getRecommendationsForMedia(
   // whole page off as titles new to the user, so that requires login.
   const query = `query($id:Int,$page:Int,$perPage:Int){Media(id:$id){recommendations(page:$page,perPage:$perPage,sort:RATING_DESC){
     pageInfo{hasNextPage}
-    nodes{id rating userRating mediaRecommendation{id title{romaji english} siteUrl averageScore genres mediaListEntry{id status}}}
+    nodes{id rating userRating mediaRecommendation{id title{romaji english} siteUrl weightedScore genres mediaListEntry{id status}}}
   }}}`;
   const data = await ctx.gql.request<{ Media: { recommendations: RecommendationsPage } | null }>(
     query,

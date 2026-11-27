@@ -186,13 +186,13 @@ export const deleteResult = z.object({ deleted: z.boolean().nullish() }).loose()
 
 /** Every number this server calls a "score" is on one of exactly two scales,
  *  and neither the field name nor its type says which one. COMMUNITY scores
- *  (a title's `averageScore`, a user's `meanScore`, a score-distribution
+ *  (a title's `weightedScore`, a user's `meanScore`, a score-distribution
  *  bucket, a review's own rating) are 0-100. A PERSONAL list-entry score
  *  crosses this server's boundary as 0-10 on both the read and the write
  *  side (see personalScoreOut). Both read back as bare numbers, so an 8 from
  *  one tool and an 8 in another tool's filter are different claims with
  *  nothing marking the difference. Confirmed live on one account in a single
- *  sitting: Cowboy Bebop's `averageScore` 86, that account's own entry for it
+ *  sitting: Cowboy Bebop's `weightedScore` 86, that account's own entry for it
  *  8, and the account's `meanScore` 74.18 while every score on its list was
  *  5-9. Hence every score field names its scale. Deliberately no
  *  `.max(100)`/`.max(10)` bound: per AGENTS.md an output bound only goes in
@@ -223,7 +223,7 @@ export const personalScoreOut = (lead: string) =>
       `${lead} a 0-10 scale (decimals allowed). It stays 0-10 on every account whatever ` +
         "the configured scoreFormat is, and matches the scale add_list_entry/" +
         "update_list_entry take on write. This is NOT the 0-100 scale " +
-        "`averageScore`/`meanScore`/search_media's `averageScore_greater` filter use.",
+        "`weightedScore`/`meanScore`/search_media's `weightedScore_greater` filter use.",
     );
 
 /** A minimal placeholder for a GraphQL union/type where only `id` is common

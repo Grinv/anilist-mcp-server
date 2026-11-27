@@ -337,7 +337,7 @@ test("getRecommendationsForMedia requests mediaListEntry and, when excludeInList
                 id: 1,
                 mediaRecommendation: {
                   id: 10,
-                  averageScore: 85,
+                  weightedScore: 85,
                   genres: ["Action", "Drama"],
                   mediaListEntry: { id: 99, status: "COMPLETED" },
                 },
@@ -346,7 +346,7 @@ test("getRecommendationsForMedia requests mediaListEntry and, when excludeInList
                 id: 2,
                 mediaRecommendation: {
                   id: 20,
-                  averageScore: null,
+                  weightedScore: null,
                   genres: [],
                   mediaListEntry: null,
                 },
@@ -374,7 +374,7 @@ test("getRecommendationsForMedia requests mediaListEntry and, when excludeInList
   // recommend_similar presents score and genres; they must come from this call.
   assert.match(
     JSON.parse(mock.calls[0]!.init?.body as string).query as string,
-    /siteUrl averageScore genres mediaListEntry/,
+    /siteUrl weightedScore genres mediaListEntry/,
   );
 
   const filtered = (await recommendation.getRecommendationsForMedia(
@@ -510,7 +510,7 @@ test("every read path that returns a personal list-entry score pins POINT_10_DEC
     assert.doesNotMatch(
       query,
       // Case-sensitive on purpose: only the bare `score` GraphQL field is a
-      // personal score — `averageScore`/`advancedScores` capitalize theirs.
+      // personal score — `weightedScore`/`advancedScores` capitalize theirs.
       /(?<![A-Za-z$])score(?!Raw|Format|Distribution|\(format:POINT_10_DECIMAL\))/,
       `a personal score must never be selected unformatted:\n${query}`,
     );

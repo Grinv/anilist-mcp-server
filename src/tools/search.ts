@@ -168,18 +168,22 @@ const mediaSearchInput = z.strictObject({
         "logged in (confirmed live: AniList would otherwise silently ignore it and return " +
         "unfiltered results).",
     ),
-  averageScore_greater: z
+  weightedScore_greater: z
     .int()
     .nonnegative()
     .max(100)
     .optional()
-    .describe("Restrict to entries with an average score strictly greater than this (0-100)."),
-  averageScore_lesser: z
+    .describe(
+      "Restrict to entries whose weighted community score (`weightedScore`) is strictly greater than this (0-100).",
+    ),
+  weightedScore_lesser: z
     .int()
     .nonnegative()
     .max(100)
     .optional()
-    .describe("Restrict to entries with an average score strictly less than this (0-100)."),
+    .describe(
+      "Restrict to entries whose weighted community score (`weightedScore`) is strictly less than this (0-100).",
+    ),
   popularity_greater: z
     .int()
     .nonnegative()
@@ -388,8 +392,8 @@ export function registerSearchTools(server: McpServer, client: AniListClient): v
               seasonYear: args.seasonYear,
               tag_in: args.tag_in,
               onList: args.onList,
-              averageScore_greater: args.averageScore_greater,
-              averageScore_lesser: args.averageScore_lesser,
+              weightedScore_greater: args.weightedScore_greater,
+              weightedScore_lesser: args.weightedScore_lesser,
               popularity_greater: args.popularity_greater,
               popularity_lesser: args.popularity_lesser,
               episodes_greater: args.episodes_greater,

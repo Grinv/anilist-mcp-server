@@ -154,13 +154,13 @@ export function registerPrompts(server: McpServer): void {
                 `Find hidden-gem ${which}: high AniList average score but not widely known.\n` +
                 `Call search_media with type: "${mediaType}"` +
                 (genre ? `, genres: [${JSON.stringify(genre)}]` : "") +
-                `, sort: ["SCORE_DESC"], averageScore_greater: 75, popularity_lesser: 50000 ` +
+                `, sort: ["SCORE_DESC"], weightedScore_greater: 75, popularity_lesser: 50000 ` +
                 `and perPage: 25 — the sort and both filters matter, since a search_media call ` +
                 `with neither browses AniList's default (id) order rather than anything ` +
-                `score-related. Then pick the entries whose averageScore is highest relative to ` +
+                `score-related. Then pick the entries whose weightedScore is highest relative to ` +
                 `how few people have them listed — those are the underseen ones. Widen ` +
-                `popularity_lesser (or lower averageScore_greater) and call again if that comes ` +
-                `back with too few results. Present 5-8 picks with title, averageScore, ` +
+                `popularity_lesser (or lower weightedScore_greater) and call again if that comes ` +
+                `back with too few results. Present 5-8 picks with title, weightedScore, ` +
                 `popularity, and a one-line reason each noting why it's underrated.`,
             },
           },

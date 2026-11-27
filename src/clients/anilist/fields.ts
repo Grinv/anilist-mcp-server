@@ -47,7 +47,7 @@ export const MEDIA_FIELDS = `
   volumes
   duration
   genres
-  averageScore
+  weightedScore
   popularity
   isAdult
   isFavourite

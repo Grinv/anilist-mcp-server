@@ -162,7 +162,7 @@ Purpose — double-check those two first on any new or edited tool.
   shared helper if one exists rather than re-describing it per call site
   (`outputSchemas.ts`'s `communityScoreOut`/`personalScoreOut` for the two
   score scales). A number with no unit is not self-documenting just because
-  its name reads familiar: `averageScore` 86 and a list entry's `score` 8 sat
+  its name reads familiar: `weightedScore` 86 and a list entry's `score` 8 sat
   next to each other in one `get_media` response for eight releases, both as
   bare `z.number().nonnegative()`, and nothing in either field said they were
   on different scales. Check the same way for anything else measured:

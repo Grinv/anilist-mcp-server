@@ -73,7 +73,7 @@ const PROBLEMS: Record<ProblemCode, { title: string; advice?: string }> = {
     title: "AniList has temporarily disabled its API",
     advice:
       "This is an outage on AniList's side, not a problem with the request or the account. It " +
-      "usually lasts hours, so try again much later; AniList posts updates on its Discord.",
+      "usually lasts hours; AniList posts updates on its Discord.",
   },
   blocked: {
     title: "AniList's firewall (Cloudflare) blocked the request",
@@ -109,7 +109,7 @@ const LOG_IN =
 // block or a temporary problem on AniList's side.
 const FORBIDDEN_ANONYMOUS =
   "No token was sent, so this isn't an account permission problem: it is more likely a " +
-  "block or a temporary problem on AniList's side. Simplify the request or retry later.";
+  "block or a problem on AniList's side. Simplify the request.";
 
 // A timed-out or 5xx'd write may still have landed, and repeating it
 // re-flips a Toggle* or posts a duplicate: no "please retry".
@@ -132,6 +132,9 @@ export const PROBLEM_CODES = Object.keys(PROBLEMS) as ProblemCode[];
  */
 export function toProblem(err: unknown, logger: Logger): Problem {
   if (err instanceof ToolError) {
+    // The text has only this server's sentence; the AniList answer behind it
+    // (e.g. the token endpoint's 401 invalid_client) goes to the log.
+    if (err.cause instanceof ApiError) logger.warn(`${err.code}: ${err.cause.message}`);
     return ownProblem(err.code, [err.message, anilistSaid(err.detail)].filter(Boolean).join(" "));
   }
   if (err instanceof ApiError) {

@@ -53,12 +53,16 @@ export class ApiError extends Error {
   readonly authenticated: boolean | undefined;
   readonly writeMayHaveApplied: boolean;
 
+  // Kept whole, so a copy can't silently drop a field added later.
+  readonly #opts: ApiErrorOptions;
+
   constructor(opts: ApiErrorOptions) {
     super(
       opts.message ?? opts.note ?? opts.code,
       opts.cause === undefined ? undefined : { cause: opts.cause },
     );
     this.name = "ApiError";
+    this.#opts = opts;
     this.code = opts.code;
     this.status = opts.status;
     this.retryable = opts.retryable ?? KIND[opts.code].transient;
@@ -70,18 +74,7 @@ export class ApiError extends Error {
   }
   /** This error, marked as a write that AniList may still have applied. */
   withWriteOutcomeUnknown(): ApiError {
-    return new ApiError({
-      code: this.code,
-      message: this.message,
-      detail: this.detail,
-      note: this.note,
-      status: this.status,
-      retryable: this.retryable,
-      retryAfterMs: this.retryAfterMs,
-      authenticated: this.authenticated,
-      writeMayHaveApplied: true,
-      cause: this,
-    });
+    return new ApiError({ ...this.#opts, writeMayHaveApplied: true, cause: this });
   }
 }
 

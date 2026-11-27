@@ -44,7 +44,8 @@ cancellation, as the spec requires).
 
 ## unauthorized
 
-AniList answered 401. With no token sent, the tool needs a login: run
+AniList answered 401, or 400 "Invalid token" (its answer to a bad or expired
+token, so `upstream_status` can be 400). With no token sent, the tool needs a login: run
 `login_anilist` or set `ANILIST_ACCESS_TOKEN`. With a token sent, the token
 may be invalid or expired, but AniList also answers 401 when the account
 isn't allowed to change the resource (e.g. it doesn't own it).

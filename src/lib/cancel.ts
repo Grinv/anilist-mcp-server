@@ -16,14 +16,15 @@ export interface CallContext {
 
 export const callContext = new AsyncLocalStorage<CallContext>();
 
-/** `inFlight`: the request had already been sent, so a write may have landed. */
-export function cancelledError(cause?: unknown, inFlight = false): ApiError {
+/** `inFlight`: the request had already been sent; for a write (`write`), it
+ *  may then have landed. */
+export function cancelledError(cause?: unknown, inFlight = false, write = false): ApiError {
   return new ApiError({
     code: "cancelled",
     message: inFlight
       ? "Request cancelled by the caller while in flight"
       : "Request cancelled by the caller before it was sent",
-    writeMayHaveApplied: inFlight,
+    writeMayHaveApplied: inFlight && write,
     cause,
   });
 }

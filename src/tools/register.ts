@@ -37,11 +37,13 @@ export function toolRegistrar(server: McpServer, logger: Logger): RegisterTool {
     const sdkConfig: ToolConfig<z.ZodType, z.ZodType> = config;
     server.registerTool(name, sdkConfig, async (args: unknown, ctx: ServerContext) => {
       const call: CallContext = { signal: ctx.mcpReq.signal, wrote: false };
-      // Any failure after a mutation succeeded in this call (lib/graphql.ts):
-      // the write reached AniList, so say so, or the model may repeat it.
+      // This server's own bug after AniList applied a write in this call
+      // (lib/graphql.ts sets `wrote`): say the write landed, or the model may
+      // repeat it. An ApiError/ToolError is AniList's or the domain's verdict
+      // on the write itself (e.g. "not deleted"), so it gets no such note.
       const fail = (err: unknown) => {
         const problem = toProblem(err, logger);
-        if (call.wrote) problem.detail += ` ${WRITE_APPLIED}`;
+        if (call.wrote && problem.type.endsWith("#internal")) problem.detail += ` ${WRITE_APPLIED}`;
         return problemResult(problem);
       };
       try {

@@ -90,7 +90,7 @@ export class HttpClient {
     // so a stalled body aborts later, through the res.text() await.
     const abortError = (err: unknown): ApiError => {
       // fetch had started, so for a write the request may have reached AniList.
-      if (options.signal?.aborted) return cancelledError(err, options.nonIdempotent === true);
+      if (options.signal?.aborted) return cancelledError(err, true, options.nonIdempotent === true);
       if (timeoutSignal.aborted) {
         return new ApiError({
           code: "timeout",

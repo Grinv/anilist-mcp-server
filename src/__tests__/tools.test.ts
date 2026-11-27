@@ -621,11 +621,10 @@ test("get_studio: when both id and name are given, id takes precedence", async (
   assert.equal(mock.calls.length, 1);
 });
 
-test("add_list_entry reports a null mutation field as internal, not the SDK's raw zod dump", async (t) => {
-  // SaveMediaListEntry is nullable per AniList's schema; savedListEntry's
-  // outputSchema requires a non-null object. The registration wrapper checks
-  // the result against the outputSchema itself, so the mismatch is an
-  // internal problem with stable text, not "Output validation error: …".
+test("add_list_entry reports a null mutation result as AniList's answer with an unknown outcome", async (t) => {
+  // SaveMediaListEntry is nullable per AniList's schema. A null result is
+  // AniList's answer, not this server's bug: bad_response, whether it saved is
+  // unknown, and never "AniList did apply this write".
   const mock = mockFetch(() => jsonResponse({ data: { SaveMediaListEntry: null } }));
   installFetch(t, mock);
   const { client, close } = await connectServer({
@@ -634,10 +633,28 @@ test("add_list_entry reports a null mutation field as internal, not the SDK's ra
   });
   t.after(close);
   const res = await client.callTool({ name: "add_list_entry", arguments: { mediaId: 1 } });
-  assert.equal(res.isError, true, "a null mutation field must still degrade to a tool error");
-  assert.equal(problemCode(res), "internal");
+  assert.equal(res.isError, true);
+  assert.equal(problemCode(res), "bad_response");
+  assert.equal(problemOf(res)?.retryable, false);
   const text = (res.content as { type: "text"; text: string }[])[0]!.text;
-  assert.doesNotMatch(text, /Output validation error|invalid_type/);
+  assert.match(text, /may still have applied|outcome/i);
+  assert.doesNotMatch(text, /Output validation error|invalid_type|did apply this write/);
+});
+
+test("a delete AniList answers {deleted:false} is not_found and never 'did apply this write'", async (t) => {
+  installFetch(
+    t,
+    mockFetch(() => jsonResponse({ data: { DeleteActivity: { deleted: false } } })),
+  );
+  const { client, close } = await connectServer({
+    ANILIST_ACCESS_TOKEN: "tok",
+    ANILIST_MIN_INTERVAL_MS: "0",
+  });
+  t.after(close);
+  const res = await client.callTool({ name: "delete_activity", arguments: { id: 1 } });
+  assert.equal(problemCode(res), "not_found");
+  const text = (res.content as { type: "text"; text: string }[])[0]!.text;
+  assert.doesNotMatch(text, /did apply this write/);
 });
 
 test("login_anilist reports a clear error when no client id/secret is configured", async (t) => {

@@ -130,7 +130,13 @@ test("caller-supplied signal aborts the request and maps to cancelled, not retri
   controller.abort();
   await assert.rejects(
     () => result,
-    (err: unknown) => err instanceof ApiError && err.code === "cancelled" && !err.retryable,
+    (err: unknown) =>
+      err instanceof ApiError &&
+      err.code === "cancelled" &&
+      !err.retryable &&
+      // Aborted mid-fetch, so in flight; a read, so no write outcome to doubt.
+      /while in flight/.test(err.message) &&
+      !err.writeMayHaveApplied,
   );
   assert.equal(mock.calls.length, 1, "a cancelled request is never retried");
 });

@@ -107,7 +107,19 @@ export class GraphQLClient {
     // (undoing the favourite/follow) or posts a duplicate activity/thread.
     try {
       const data = await this.#send<T>(query, variables, authHeader, isMutation, signal);
-      if (isMutation && call) call.wrote = true;
+      if (isMutation) {
+        // A mutation whose every root field came back null (e.g.
+        // `{SaveMediaListEntry: null}`) is AniList's answer, not a result:
+        // whether it saved is unknown, so neither "applied" nor a schema bug.
+        const fields = Object.values(data as Record<string, unknown>);
+        if (fields.length > 0 && fields.every((v) => v === null)) {
+          throw new ApiError({
+            code: "bad_response",
+            message: "AniList answered the mutation with a null result",
+          }).withWriteOutcomeUnknown();
+        }
+        if (call) call.wrote = true;
+      }
       return data;
     } catch (err) {
       if (isMutation && err instanceof ApiError && err.code === "cancelled") {

@@ -1,5 +1,5 @@
 import type { AniListContext } from "./context.ts";
-import { assertFound } from "../../lib/errors.ts";
+import { assertFound, assertWritten } from "../../lib/errors.ts";
 import type { ThreadId, CommentId, CategoryId, MediaId } from "./ids.ts";
 import { existsFragment } from "./fields.ts";
 import { deleteById } from "./deleteById.ts";
@@ -75,7 +75,7 @@ export async function postThread(
     },
     header,
   );
-  return data.SaveThread;
+  return assertWritten(data.SaveThread, "SaveThread");
 }
 
 export async function postThreadComment(
@@ -95,7 +95,7 @@ export async function postThreadComment(
     { id: opts.id, threadId, parentCommentId: opts.parentCommentId, comment },
     header,
   );
-  return data.SaveThreadComment;
+  return assertWritten(data.SaveThreadComment, "SaveThreadComment");
 }
 
 export function deleteThread(ctx: AniListContext, id: ThreadId): Promise<unknown> {

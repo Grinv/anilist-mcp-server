@@ -74,7 +74,8 @@ export class ApiError extends Error {
   }
   /** This error as `code` (default: its own), with this server's `note`. */
   withNote(note: string, code: ApiErrorCode = this.code): ApiError {
-    return new ApiError({ ...this.#opts, code, note, message: note, cause: this });
+    // `message` (the log's diagnostics: status label, raw body) is kept.
+    return new ApiError({ ...this.#opts, code, note, cause: this });
   }
 
   /** This error, marked as a write that AniList may still have applied. */
@@ -145,6 +146,22 @@ export function classifyStatus(status: number, reason = ""): ApiErrorCode {
   if (status === 400 || status === 405 || status === 422) return "bad_request";
   if (status >= 500) return "server_error";
   return "unknown";
+}
+
+/** For a create/update mutation whose result should be the saved object:
+ *  AniList answering null instead is its answer, not a result, so whether it
+ *  saved is unknown (bad_response, outcome unknown) — never "applied", never
+ *  this server's bug. Mutations where null means something (an empty batch, a
+ *  toggle's "can't tell") handle it themselves. */
+export function assertWritten<T>(value: T | null | undefined, what: string): T {
+  if (value === null || value === undefined) {
+    throw new ApiError({
+      code: "bad_response",
+      message: `AniList answered ${what} with a null result`,
+      writeMayHaveApplied: true,
+    });
+  }
+  return value;
 }
 
 /** Throw a standard not-found ApiError if an upstream single-resource lookup

@@ -27,7 +27,8 @@ the result's `_meta["io.github.Grinv.anilist-mcp-server/problem"]`, never in
 - `retryable`: whether the failure is transient, so the same call may succeed
   later. The server first retries a transient upstream failure itself, up to
   `HTTP_RETRIES` times, except a mutation (only a 429 is retried
-  there) and a 429 whose `Retry-After` is longer than 8 seconds.
+  there) and any failure whose `Retry-After` is longer than 8 seconds (retrying
+  sooner can't help).
 - `upstream_status`: AniList's HTTP status (or the status embedded in a
   GraphQL error), when there was one. RFC 9457's own `status` member (the
   status of _this_ HTTP response) is not used, because MCP results have none.

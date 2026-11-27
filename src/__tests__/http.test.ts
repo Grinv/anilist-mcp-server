@@ -330,3 +330,14 @@ test("a plain-text 403 from in front of AniList is blocked, and its text isn't q
       /error code: 1020/.test(err.message), // still in the log message
   );
 });
+
+test("an empty or plain-text 403 that isn't the edge's page is not claimed as a firewall block", async (t) => {
+  for (const body of ["", "Forbidden"]) {
+    t.mock.method(globalThis, "fetch", mockFetch(() => new Response(body, { status: 403 })).fn);
+    await assert.rejects(
+      () => client({ retries: 0 }).requestJson("x"),
+      (err: unknown) => err instanceof ApiError && err.code === "forbidden" && !err.detail,
+      JSON.stringify(body),
+    );
+  }
+});

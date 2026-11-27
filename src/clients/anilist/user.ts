@@ -6,7 +6,7 @@ import type {
   NotificationType,
   MediaListStatus,
 } from "./enums.ts";
-import { ApiError, assertFound } from "../../lib/errors.ts";
+import { ApiError, assertFound, assertWritten } from "../../lib/errors.ts";
 import type { UserId } from "./ids.ts";
 import { USER_FIELDS, USER_DESCRIPTION_FIELD, USER_DETAIL_FIELDS } from "./fields.ts";
 
@@ -88,7 +88,7 @@ export async function followUser(ctx: AniListContext, id: UserId): Promise<unkno
   const header = ctx.requireAuth();
   const query = `mutation($id:Int){ToggleFollow(userId:$id){id name isFollowing}}`;
   const data = await ctx.gql.request<{ ToggleFollow: unknown }>(query, { id }, header);
-  return data.ToggleFollow;
+  return assertWritten(data.ToggleFollow, "ToggleFollow");
 }
 
 export interface MediaListOptionsFieldsInput {
@@ -175,5 +175,5 @@ export async function updateUser(ctx: AniListContext, fields: UpdateUserFields):
     }
   }`;
   const data = await ctx.gql.request<{ UpdateUser: unknown }>(query, { ...fields }, header);
-  return data.UpdateUser;
+  return assertWritten(data.UpdateUser, "UpdateUser");
 }

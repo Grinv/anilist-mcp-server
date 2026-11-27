@@ -112,7 +112,8 @@ export class TtlCache<T> {
           return value;
         })
         .finally(() => {
-          if (generation === this.#generation && this.#pending.get(key) === flight) {
+          // clear() empties #pending, so identity alone covers a clear() too.
+          if (this.#pending.get(key) === flight) {
             this.#pending.delete(key);
           }
         }),

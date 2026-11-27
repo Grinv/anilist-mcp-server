@@ -104,6 +104,8 @@ export class HttpClient {
     let res: Response;
     let text: string;
     try {
+      // Aborted before sending (e.g. right after the limiter): nothing left the process.
+      if (options.signal?.aborted) throw cancelledError();
       res = await fetch(url, {
         method: options.method ?? "GET",
         headers,
@@ -140,14 +142,16 @@ async function toHttpError(res: Response, authenticated: boolean): Promise<ApiEr
   } catch {
     /* ignore body read errors */
   }
-  // Prefer a structured `message`/`error` field; for an HTML page (e.g.
-  // Cloudflare's WAF block on AniList) just its <title>, not the markup; a
-  // short plain-text body as is. Anything else stays in the log message only.
   // AniList's API always answers in JSON. Anything else (an HTML page, a
   // proxy's plain text) came from in front of it: its text isn't AniList's
   // reason, except a page's <title>, which names who blocked the request.
-  const fromApi = isJson(raw);
-  const detail = fromApi ? parseErrorMessage(raw) : htmlTitle(raw);
+  // Either way the raw body stays in the log message only.
+  const json = parseJson(raw);
+  const detail = json ? parseErrorMessage(json.value) : htmlTitle(raw);
+  // The edge's (Cloudflare's) block or challenge page: HTML, or its plain
+  // "error code: 1020". Any other non-JSON 403 (empty, a proxy's text) is
+  // classified like a JSON one, whose advice doesn't claim a firewall.
+  const edgeBlock = !json && (/^\s*</.test(raw) || /^error code: \d+/i.test(raw.trim()));
   const retryAfter = parseRetryAfter(res.headers.get("retry-after"));
   // `statusText` is only appended when it's actually there: it comes back
   // empty over HTTP/2 (and through some proxies), which would otherwise
@@ -157,8 +161,7 @@ async function toHttpError(res: Response, authenticated: boolean): Promise<ApiEr
     ? `HTTP ${res.status} ${res.statusText}`
     : `HTTP ${res.status}`;
   return new ApiError({
-    // A non-JSON 403 is the edge's (Cloudflare's) block or challenge page.
-    code: res.status === 403 && !fromApi ? "blocked" : classifyStatus(res.status, detail),
+    code: res.status === 403 && edgeBlock ? "blocked" : classifyStatus(res.status, detail),
     status: res.status,
     authenticated,
     detail,
@@ -167,12 +170,11 @@ async function toHttpError(res: Response, authenticated: boolean): Promise<ApiEr
   });
 }
 
-function isJson(raw: string): boolean {
+function parseJson(raw: string): { value: unknown } | undefined {
   try {
-    JSON.parse(raw);
-    return raw.trim().length > 0;
+    return { value: JSON.parse(raw) };
   } catch {
-    return false;
+    return undefined; // not JSON, empty included
   }
 }
 
@@ -187,33 +189,27 @@ function htmlTitle(raw: string): string | undefined {
 // the actual per-field reasons nested under `validation` (e.g. AniList's
 // `{message:"validation", validation:{score:["must be <= 100"]}}`), so surface
 // both when present rather than just the unhelpful top-level label.
-function parseErrorMessage(raw: string): string | undefined {
-  if (!raw) return undefined;
-  try {
-    const obj: unknown = JSON.parse(raw);
-    if (obj === null || typeof obj !== "object") return undefined;
-    const rec = obj as Record<string, unknown>;
-    if (typeof rec.message === "string") return rec.message;
-    if (typeof rec.error === "string") return rec.error;
-    if (Array.isArray(rec.errors) && rec.errors.length > 0) {
-      const first = rec.errors[0] as Record<string, unknown>;
-      const message = typeof first.message === "string" ? first.message : undefined;
-      const validation =
-        first.validation !== null && typeof first.validation === "object"
-          ? Object.entries(first.validation as Record<string, unknown>)
-              .map(
-                ([field, msgs]) =>
-                  `${field}: ${Array.isArray(msgs) ? msgs.join(", ") : String(msgs)}`,
-              )
-              .join("; ")
-          : undefined;
-      if (message && validation) return `${message} (${validation})`;
-      return message ?? validation;
-    }
-    return undefined;
-  } catch {
-    return undefined; // not JSON — caller falls back to the raw body
+function parseErrorMessage(obj: unknown): string | undefined {
+  if (obj === null || typeof obj !== "object") return undefined;
+  const rec = obj as Record<string, unknown>;
+  if (typeof rec.message === "string") return rec.message;
+  if (typeof rec.error === "string") return rec.error;
+  if (Array.isArray(rec.errors) && rec.errors.length > 0) {
+    const first = rec.errors[0] as Record<string, unknown>;
+    const message = typeof first.message === "string" ? first.message : undefined;
+    const validation =
+      first.validation !== null && typeof first.validation === "object"
+        ? Object.entries(first.validation as Record<string, unknown>)
+            .map(
+              ([field, msgs]) =>
+                `${field}: ${Array.isArray(msgs) ? msgs.join(", ") : String(msgs)}`,
+            )
+            .join("; ")
+        : undefined;
+    if (message && validation) return `${message} (${validation})`;
+    return message ?? validation;
   }
+  return undefined;
 }
 
 function toNetworkError(err: unknown): ApiError {

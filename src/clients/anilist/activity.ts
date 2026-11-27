@@ -1,6 +1,6 @@
 import type { AniListContext } from "./context.ts";
 import { ACTIVITY_FRAGMENT, existsFragment } from "./fields.ts";
-import { assertFound } from "../../lib/errors.ts";
+import { assertFound, assertWritten } from "../../lib/errors.ts";
 import { resolveUserId } from "./user.ts";
 import { toUnixSeconds } from "./fuzzyDate.ts";
 import { deleteById } from "./deleteById.ts";
@@ -130,7 +130,7 @@ export async function postTextActivity(
     ... on TextActivity { id text(asHtml:false) siteUrl }
   }}`;
   const data = await ctx.gql.request<{ SaveTextActivity: unknown }>(query, { id, text }, header);
-  return data.SaveTextActivity;
+  return assertWritten(data.SaveTextActivity, "SaveTextActivity");
 }
 
 export async function postMessageActivity(
@@ -148,7 +148,7 @@ export async function postMessageActivity(
     { id, recipientId, message },
     header,
   );
-  return data.SaveMessageActivity;
+  return assertWritten(data.SaveMessageActivity, "SaveMessageActivity");
 }
 
 export function deleteActivity(ctx: AniListContext, id: ActivityId): Promise<unknown> {

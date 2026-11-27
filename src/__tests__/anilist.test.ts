@@ -1305,7 +1305,9 @@ test("every delete tool reports an unknown or already-deleted id as not_found, n
   for (const [label, call] of calls) {
     await assert.rejects(call, (err: unknown) => {
       assert.ok(err instanceof ApiError && err.code === "not_found", label);
-      assert.match(err.message, new RegExp(`this ${label} as not deleted`), label);
+      assert.match(err.note ?? "", new RegExp(`this ${label} as not deleted`), label);
+      // The 400 was the validation envelope, not this not_found's status.
+      assert.equal(err.status, undefined, label);
       // AniList's own reason survives the mapping to not_found.
       assert.match(err.detail ?? "", /The selected id is invalid/, label);
       return true;
@@ -1989,4 +1991,33 @@ test("a token exchange rejected as invalid_client points at the app credentials,
   } finally {
     rmSync(storePath, { force: true });
   }
+});
+
+test("null batch and toggle results keep their domain meaning; a null save is outcome-unknown", async (t) => {
+  const answers: Record<string, unknown> = {
+    UpdateMediaListEntries: null,
+    SaveTextActivity: null,
+  };
+  installFetch(
+    t,
+    mockFetch((_url, init) => {
+      const q = (JSON.parse(init?.body as string) as { query: string }).query;
+      const field = Object.keys(answers).find((k) => q.includes(k))!;
+      return jsonResponse({ data: { [field]: answers[field] } });
+    }),
+  );
+  const client = new AniListClient(
+    testConfig({ ANILIST_ACCESS_TOKEN: "tok", CACHE_TTL_MS: "0" }),
+    silentLogger(),
+  );
+  const ctx = client.ctx();
+  assert.deepEqual(await list.updateListEntries(ctx, [id<ListEntryId>(1)], { progress: 1 }), {
+    updated: 0,
+    listEntryIds: [],
+  });
+  await assert.rejects(
+    () => activity.postTextActivity(ctx, "hi"),
+    (err: unknown) =>
+      err instanceof ApiError && err.code === "bad_response" && err.writeMayHaveApplied,
+  );
 });

@@ -1,5 +1,5 @@
 import type { AniListContext } from "./context.ts";
-import { ToolError } from "../../lib/errors.ts";
+import { ToolError, assertWritten } from "../../lib/errors.ts";
 import type { MediaId, ListEntryId, UserId } from "./ids.ts";
 import type { MediaType, MediaListStatus, MediaListSort } from "./enums.ts";
 import { encodeFuzzyDateInt } from "./fuzzyDate.ts";
@@ -412,7 +412,7 @@ export async function saveListEntry(
     },
     header,
   );
-  return advancedScoresToPoint10(data.SaveMediaListEntry);
+  return advancedScoresToPoint10(assertWritten(data.SaveMediaListEntry, "SaveMediaListEntry"));
 }
 
 /** Every value `UpdateMediaListEntries` can set on a whole batch at once.
@@ -480,7 +480,7 @@ export async function updateListEntries(
     repeat:$repeat,priority:$priority,private:$private,notes:$notes,
     hiddenFromStatusLists:$hiddenFromStatusLists,startedAt:$startedAt,completedAt:$completedAt
   ){id}}`;
-  const data = await ctx.gql.request<{ UpdateMediaListEntries: { id: number }[] }>(
+  const data = await ctx.gql.request<{ UpdateMediaListEntries: { id: number }[] | null }>(
     query,
     {
       ids: listEntryIds,
@@ -498,8 +498,8 @@ export async function updateListEntries(
     },
     header,
   );
-  // A null result never gets here: lib/graphql.ts treats it as outcome-unknown.
-  const updated = data.UpdateMediaListEntries;
+  // A null batch result means nothing was updated (e.g. ids the account doesn't own).
+  const updated = data.UpdateMediaListEntries ?? [];
   return { updated: updated.length, listEntryIds: updated.map((entry) => entry.id) };
 }
 

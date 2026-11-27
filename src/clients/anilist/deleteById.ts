@@ -16,12 +16,16 @@ export async function deleteById(
 ): Promise<{ deleted?: boolean }> {
   const header = ctx.requireAuth();
   const sentence = `AniList reported this ${label} as not deleted — it may not exist (or was already deleted), or you may not own it.`;
+  // A fresh not_found, not cause.withNote(): the cause's 400 is the validation
+  // envelope, not a status this not_found should carry.
   const notDeleted = (cause?: ApiError) =>
-    cause
-      ? cause.withNote(sentence, "not_found")
-      : new ApiError({ code: "not_found", note: sentence });
-  // Never null here: lib/graphql.ts turns a null result into outcome-unknown.
-  let data: Record<string, { deleted?: boolean }>;
+    new ApiError({
+      code: "not_found",
+      note: sentence,
+      detail: cause?.detail,
+      ...(cause ? { message: cause.message, cause } : {}),
+    });
+  let data: Record<string, { deleted?: boolean } | null>;
   try {
     data = await ctx.gql.request(`mutation($id:Int){${mutation}(id:$id){deleted}}`, { id }, header);
   } catch (err) {
@@ -30,7 +34,7 @@ export async function deleteById(
     }
     throw err;
   }
-  const result = data[mutation]!;
-  if (!result.deleted) throw notDeleted();
+  const result = data[mutation];
+  if (!result?.deleted) throw notDeleted();
   return result;
 }

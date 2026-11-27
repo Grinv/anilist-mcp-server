@@ -68,11 +68,6 @@ jobs:
             echo "::error::No CHANGELOG.md section found for '## [$VERSION]' — RELEASE_NOTES.md is empty. Check that CHANGELOG.md's heading was renamed from '## [Unreleased]'."
             exit 1
           fi
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@8a0cd651e5b2365bd640854a3fa5dfc70e4875f3 # v3.0.4
-        with:
-          files: anilist-mcp-server.mcpb
-          body_path: RELEASE_NOTES.md
       # Idempotency guard: npm rejects re-publishing an existing version outright,
       # which would otherwise abort this job before the MCP Registry steps below
       # ever run (e.g. a tag re-run, or a version published manually as a
@@ -81,10 +76,19 @@ jobs:
         id: npm_check
         run: |
           PKG_VERSION="$(node -p "require('./package.json').version")"
-          if npm view "anilist-mcp-server@${PKG_VERSION}" version >/dev/null 2>&1; then
+          # Only a 404 means "not published yet"; any other failure (network, auth,
+          # registry outage) must fail the job rather than be misread as unpublished.
+          set +e
+          out=$(npm view "anilist-mcp-server@${PKG_VERSION}" version 2>&1)
+          rc=$?
+          set -e
+          if [ "$rc" -eq 0 ]; then
             echo "already_published=true" >> "$GITHUB_OUTPUT"
-          else
+          elif echo "$out" | grep -q E404; then
             echo "already_published=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "$out"
+            exit 1
           fi
       # Trusted Publishing (OIDC): no token. Requires npm >= 11.5.1 and a
       # trusted publisher configured for this package on npmjs.com. Pin an
@@ -101,6 +105,13 @@ jobs:
       - name: Publish to npm (trusted publishing + provenance)
         if: steps.npm_check.outputs.already_published != 'true'
         run: npm publish --provenance --access public
+      # After npm, as in mal-mcp: a failed npm publish must not leave a public
+      # GitHub Release behind (it can't be quietly withdrawn).
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@8a0cd651e5b2365bd640854a3fa5dfc70e4875f3 # v3.0.4
+        with:
+          files: anilist-mcp-server.mcpb
+          body_path: RELEASE_NOTES.md
       # The MCP Registry fetches this exact npm version, and a just-published one
       # can 404 for a while: npm says it "may take a few minutes", and v0.11.1
       # was still not served after 2 min. Wait up to 10 min for npm to serve it.

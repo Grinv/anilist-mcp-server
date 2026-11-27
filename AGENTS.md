@@ -1,8 +1,10 @@
 # AGENTS.md
 
 Single source of truth for working on this repository — for **any** model or
-agent. `CLAUDE.md` only links here (`@AGENTS.md`); keep all shared guidance in
-this file, not in CLAUDE.md. (For end-user/runtime docs, see [README.md](README.md).)
+agent; Claude Code reads it directly too, so there is no `CLAUDE.md`. If one is
+ever added, it must import this file (`@AGENTS.md`): Claude Code reads
+AGENTS.md on its own only when no CLAUDE.md exists. (For
+end-user/runtime docs, see [README.md](README.md).)
 
 ## Project shape
 

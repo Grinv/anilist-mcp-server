@@ -1316,6 +1316,43 @@ test("every delete tool reports an unknown or already-deleted id as not_found, n
   assert.equal(mock.calls.length, 4, "a mutation is never retried");
 });
 
+test("update_list_entry/update_list_entries report an unknown entry id as not_found", async (t) => {
+  // Confirmed live: SaveMediaListEntry answers an unknown id like the deletes
+  // do, UpdateMediaListEntries with the plural "ids" wording.
+  const cases: [string, string, (ctx: ReturnType<AniListClient["ctx"]>) => Promise<unknown>][] = [
+    [
+      "id",
+      "The selected id is invalid.",
+      (ctx) => list.saveListEntry(ctx, { listEntryId: id<ListEntryId>(2000000000), progress: 1 }),
+    ],
+    [
+      "ids",
+      "The selected ids is invalid.",
+      (ctx) => list.updateListEntries(ctx, [id<ListEntryId>(2000000000)], { progress: 1 }),
+    ],
+  ];
+  for (const [key, reason, call] of cases) {
+    const mock = mockFetch(() =>
+      jsonResponse(
+        {
+          errors: [{ message: "validation", status: 400, validation: { [key]: [reason] } }],
+          data: null,
+        },
+        { status: 400 },
+      ),
+    );
+    installFetch(t, mock);
+    const client = new AniListClient(testConfig({ ANILIST_ACCESS_TOKEN: "tok" }), silentLogger());
+    await assert.rejects(call(client.ctx()), (err: unknown) => {
+      assert.ok(err instanceof ApiError && err.code === "not_found", key);
+      assert.equal(err.status, undefined, key);
+      assert.match(err.detail ?? "", new RegExp(reason.replace(".", "\\.")), key);
+      return true;
+    });
+    assert.equal(mock.calls.length, 1, "a mutation is never retried");
+  }
+});
+
 test("isConfigured reflects the configured token", () => {
   assert.equal(new AniListClient(testConfig({}), silentLogger()).isConfigured(), false);
   assert.equal(

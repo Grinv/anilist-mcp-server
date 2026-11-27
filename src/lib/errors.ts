@@ -202,6 +202,22 @@ export function assertFound<T>(value: T | null | undefined, sentence: string): T
   return value;
 }
 
+/** AniList answers a write naming an unknown id with a 400 validation error
+ *  ("The selected id is invalid.", "The selected ids is invalid." for a
+ *  batch), not a 404. Map that to not_found, keeping AniList's reason but not
+ *  the 400 status (that was the validation envelope); return anything else
+ *  unchanged, for the caller to rethrow. */
+export function unknownIdAsNotFound(err: unknown, note: string): unknown {
+  if (!(err instanceof ApiError) || !/selected ids? is invalid/i.test(err.detail ?? "")) return err;
+  return new ApiError({
+    code: "not_found",
+    note,
+    detail: err.detail,
+    message: err.message,
+    cause: err,
+  });
+}
+
 /** Strip anything that looks like a credential before logging. */
 export function redact(input: string): string {
   return (

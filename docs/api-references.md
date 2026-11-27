@@ -861,8 +861,9 @@ recommendations, likes`.
   confirmed either way — check for this exact shape (or `mediaList`'s
   "actually just 404s" shape) before assuming either applies.
 
-- **`Media.isFavourite`/`isFollowing`-shaped viewer fields have a brief
-  read-after-write lag on AniList's own backend** — confirmed live: right
+- **`Media.isFavourite`/`isFollowing`-shaped viewer fields have a
+  read-after-write lag on AniList's own backend, seen lasting over 15
+  seconds** — confirmed live: right
   after `ToggleFavourite` succeeded, a `get_media` call for that same id
   (cache already cleared, so genuinely uncached) still returned the
   pre-toggle `isFavourite`, reproducible again on the next call before

@@ -667,7 +667,7 @@ export function registerMediaTools(tool: RegisterTool, client: AniListClient): v
         "silently instead of erroring, favouriting a nonexistent character. Always resolve " +
         "`id` from the tool matching `kind` rather than reusing an ID you already have on hand. " +
         "Note: immediately re-checking with get_media/get_character/get_staff/get_studio's own " +
-        "`isFavourite` can briefly still show the pre-toggle value — a confirmed AniList-side " +
+        "`isFavourite` can still show the pre-toggle value for 15+ seconds — a confirmed AniList-side " +
         "read-after-write lag, not a bug in this call; this tool's own `isFavourite` already " +
         "reflects the new state.",
       inputSchema: z.strictObject({

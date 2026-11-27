@@ -1,5 +1,5 @@
 import type { AniListContext } from "./context.ts";
-import { ToolError, assertWritten } from "../../lib/errors.ts";
+import { ToolError, assertWritten, unknownIdAsNotFound } from "../../lib/errors.ts";
 import type { MediaId, ListEntryId, UserId } from "./ids.ts";
 import type { MediaType, MediaListStatus, MediaListSort } from "./enums.ts";
 import { encodeFuzzyDateInt } from "./fuzzyDate.ts";
@@ -389,29 +389,36 @@ export async function saveListEntry(
   ){
     ${selection}
   }}`;
-  const data = await ctx.gql.request<{ SaveMediaListEntry: unknown }>(
-    query,
-    {
-      id: input.listEntryId,
-      mediaId: input.mediaId,
-      status: input.status,
-      // 0-10 -> AniList's raw 0-100 scale, which — unlike `score` — always
-      // means the same thing regardless of the account's scoreFormat.
-      scoreRaw: input.score === undefined ? undefined : Math.round(input.score * 10),
-      progress: input.progress,
-      progressVolumes: input.progressVolumes,
-      repeat: input.repeat,
-      priority: input.priority,
-      private: input.private,
-      notes: input.notes,
-      hiddenFromStatusLists: input.hiddenFromStatusLists,
-      startedAt: input.startedAt,
-      completedAt: input.completedAt,
-      customLists: input.customLists,
-      advancedScores,
-    },
-    header,
-  );
+  const data = await ctx.gql
+    .request<{ SaveMediaListEntry: unknown }>(
+      query,
+      {
+        id: input.listEntryId,
+        mediaId: input.mediaId,
+        status: input.status,
+        // 0-10 -> AniList's raw 0-100 scale, which — unlike `score` — always
+        // means the same thing regardless of the account's scoreFormat.
+        scoreRaw: input.score === undefined ? undefined : Math.round(input.score * 10),
+        progress: input.progress,
+        progressVolumes: input.progressVolumes,
+        repeat: input.repeat,
+        priority: input.priority,
+        private: input.private,
+        notes: input.notes,
+        hiddenFromStatusLists: input.hiddenFromStatusLists,
+        startedAt: input.startedAt,
+        completedAt: input.completedAt,
+        customLists: input.customLists,
+        advancedScores,
+      },
+      header,
+    )
+    .catch((err: unknown) => {
+      throw unknownIdAsNotFound(
+        err,
+        `No list entry ${input.listEntryId} was found on your list — it may have been deleted.`,
+      );
+    });
   return advancedScoresToPoint10(assertWritten(data.SaveMediaListEntry, "SaveMediaListEntry"));
 }
 
@@ -480,24 +487,31 @@ export async function updateListEntries(
     repeat:$repeat,priority:$priority,private:$private,notes:$notes,
     hiddenFromStatusLists:$hiddenFromStatusLists,startedAt:$startedAt,completedAt:$completedAt
   ){id}}`;
-  const data = await ctx.gql.request<{ UpdateMediaListEntries: { id: number }[] | null }>(
-    query,
-    {
-      ids: listEntryIds,
-      status: values.status,
-      scoreRaw: values.score === undefined ? undefined : Math.round(values.score * 10),
-      progress: values.progress,
-      progressVolumes: values.progressVolumes,
-      repeat: values.repeat,
-      priority: values.priority,
-      private: values.private,
-      notes: values.notes,
-      hiddenFromStatusLists: values.hiddenFromStatusLists,
-      startedAt: values.startedAt,
-      completedAt: values.completedAt,
-    },
-    header,
-  );
+  const data = await ctx.gql
+    .request<{ UpdateMediaListEntries: { id: number }[] | null }>(
+      query,
+      {
+        ids: listEntryIds,
+        status: values.status,
+        scoreRaw: values.score === undefined ? undefined : Math.round(values.score * 10),
+        progress: values.progress,
+        progressVolumes: values.progressVolumes,
+        repeat: values.repeat,
+        priority: values.priority,
+        private: values.private,
+        notes: values.notes,
+        hiddenFromStatusLists: values.hiddenFromStatusLists,
+        startedAt: values.startedAt,
+        completedAt: values.completedAt,
+      },
+      header,
+    )
+    .catch((err: unknown) => {
+      throw unknownIdAsNotFound(
+        err,
+        "At least one of listEntryIds is not an entry on your list (AniList doesn't say which); nothing was updated.",
+      );
+    });
   // A null batch result means nothing was updated (e.g. ids the account doesn't own).
   const updated = data.UpdateMediaListEntries ?? [];
   return { updated: updated.length, listEntryIds: updated.map((entry) => entry.id) };

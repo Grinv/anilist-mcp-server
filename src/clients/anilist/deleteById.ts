@@ -1,6 +1,6 @@
 // The one shape all four Delete* mutations share: `Delete<X>(id){deleted}`.
 import type { AniListContext } from "./context.ts";
-import { ApiError } from "../../lib/errors.ts";
+import { ApiError, unknownIdAsNotFound } from "../../lib/errors.ts";
 
 /** Run `Delete<mutation>(id)` and treat every "nothing was deleted" answer as
  *  not_found. Confirmed live, all four mutations answer an unknown id (also
@@ -16,25 +16,13 @@ export async function deleteById(
 ): Promise<{ deleted?: boolean }> {
   const header = ctx.requireAuth();
   const sentence = `AniList reported this ${label} as not deleted — it may not exist (or was already deleted), or you may not own it.`;
-  // A fresh not_found, not cause.withNote(): the cause's 400 is the validation
-  // envelope, not a status this not_found should carry.
-  const notDeleted = (cause?: ApiError) =>
-    new ApiError({
-      code: "not_found",
-      note: sentence,
-      detail: cause?.detail,
-      ...(cause ? { message: cause.message, cause } : {}),
-    });
   let data: Record<string, { deleted?: boolean } | null>;
   try {
     data = await ctx.gql.request(`mutation($id:Int){${mutation}(id:$id){deleted}}`, { id }, header);
   } catch (err) {
-    if (err instanceof ApiError && /selected id is invalid/i.test(err.detail ?? "")) {
-      throw notDeleted(err);
-    }
-    throw err;
+    throw unknownIdAsNotFound(err, sentence);
   }
   const result = data[mutation];
-  if (!result?.deleted) throw notDeleted();
+  if (!result?.deleted) throw new ApiError({ code: "not_found", note: sentence });
   return result;
 }

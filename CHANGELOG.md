@@ -6,6 +6,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- Return a user's account privacy (`PUBLIC`, `SEMI_PUBLIC` or `PRIVATE`) from the user tools. [2c9359c](https://github.com/Grinv/anilist-mcp-server/commit/2c9359c)
+- Let `update_user` set whether adult-only media shows in search, in quick search and in others' activity. [2c9359c](https://github.com/Grinv/anilist-mcp-server/commit/2c9359c)
+
 ### Changed
 
 - **BREAKING:** Rename `averageScore` to `weightedScore` in tool results and `search_media`'s score filters, as AniList deprecated it. [db870d7](https://github.com/Grinv/anilist-mcp-server/commit/db870d7)

@@ -69,10 +69,12 @@ permissions and runs no dependency code — no `npm ci`, no build (so
 `package.json` → `check:api` gate → extracts `CHANGELOG.md`'s section for this
 version (fails loudly, not silently, if that section is empty — the workflow's
 own safety net for whatever slipped past `sync-version.ts`/`preversion-check.ts`)
-→ GitHub Release → `npm publish` (OIDC trusted publishing, with provenance,
-pinned to an exact verified-good npm version — no token, and npmjs.com is set
-to disallow tokens; skipped without failing the job if this version is already
-on npm, so a re-run after a partial failure doesn't abort) → waits until npm
+→ `npm publish` (OIDC trusted publishing, with provenance, pinned to an exact
+verified-good npm version — no token, and npmjs.com is set to disallow tokens;
+skipped without failing the job if this version is already on npm, so a re-run
+after a partial failure doesn't abort; only npm's `E404` counts as "not
+published", any other `npm view` failure fails the job) → GitHub Release (after
+npm, so a failed publish leaves no public release behind) → waits until npm
 serves the new version → injects the `.mcpb`'s SHA-256 into `server.json`
 (fails loudly if the injection didn't actually match a package, instead of
 silently leaving a stale hash) → **publishes to the official MCP Registry**

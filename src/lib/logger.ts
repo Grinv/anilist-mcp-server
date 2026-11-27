@@ -1,6 +1,7 @@
 // Minimal leveled logger. Always writes to stderr (stdout is reserved for the
 // MCP stdio protocol). All messages are redacted of credentials before being
 // written.
+import { inspect } from "node:util";
 import { redact } from "./errors.ts";
 
 export type LogLevel = "debug" | "info" | "warn" | "error" | "silent";
@@ -38,12 +39,21 @@ export function createLogger(level: LogLevel): Logger {
   };
 }
 
+// util.inspect prints an error with its stack, own fields (an ApiError's code
+// and status), cause chain and AggregateError errors, and survives cycles.
+// Internal errors are shown only here, never to the agent (lib/result.ts).
+// emit() redacts the joined text.
 function safeString(value: unknown): string {
   if (typeof value === "string") return value;
-  if (value instanceof Error) return value.message;
+  // A value's own [inspect.custom] may throw; the logger must not (it runs
+  // inside the process's last-resort error handlers).
   try {
-    return JSON.stringify(value);
+    return inspect(value, { depth: 6, breakLength: Infinity });
   } catch {
-    return String(value);
+    try {
+      return String(value);
+    } catch {
+      return "[unprintable value]";
+    }
   }
 }

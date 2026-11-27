@@ -125,11 +125,17 @@ export function assertFound<T>(value: T | null | undefined, sentence: string): T
 
 /** Strip anything that looks like a credential before logging. */
 export function redact(input: string): string {
-  return input
-    .replace(/Bearer\s+[A-Za-z0-9._~+/-]+=*/gi, "Bearer ***")
-    .replace(/\b(access_token|refresh_token|client_secret|client_id)=([^&\s"]+)/gi, "$1=***")
-    .replace(
-      /"(access_token|refresh_token|client_secret|client_id)"\s*:\s*"[^"]*"/gi,
-      '"$1":"***"',
-    );
+  return (
+    input
+      .replace(/Bearer\s+[A-Za-z0-9._~+/-]+=*/gi, "Bearer ***")
+      .replace(/\b(access_token|refresh_token|client_secret|client_id)=([^&\s"]+)/gi, "$1=***")
+      .replace(
+        /"(access_token|refresh_token|client_secret|client_id)"\s*:\s*"[^"]*"/gi,
+        '"$1":"***"',
+      )
+      // The same field as util.inspect prints it (the logger's object form).
+      .replace(/\b(access_token|refresh_token|client_secret|client_id): '[^']*'/gi, "$1: '***'")
+      // A bare JWT (AniList access tokens are JWTs): three base64url segments.
+      .replace(/\beyJ[A-Za-z0-9_-]*\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]*/g, "***")
+  );
 }

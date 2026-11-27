@@ -60,3 +60,13 @@ test("redact removes JSON-style credentials (the OAuth token exchange body's sha
   assert.match(result, /"client_secret":"\*\*\*"/);
   assert.match(result, /"client_id":"\*\*\*"/);
 });
+
+test("redact masks a bare JWT (AniList's token format) and inspect-style credential fields", () => {
+  // Header {"alg":"RS256","typ":"JWT"}, a payload and a signature, base64url.
+  const jwt =
+    "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiIxMjM0NSIsImV4cCI6MTc5MDAwMDAwMH0." +
+    "c2lnbmF0dXJlX2J5dGVzLV9oZXJl";
+  assert.equal(redact(`token ${jwt} stored`), "token *** stored");
+  assert.equal(redact("{ access_token: 'TOK' }"), "{ access_token: '***' }");
+  assert.equal(redact("eyJ alone is fine"), "eyJ alone is fine");
+});

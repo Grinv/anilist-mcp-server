@@ -69,3 +69,15 @@ test("extra args are stringified and redacted", () => {
   assert.match(lines[0]!, /Bearer \*\*\*/);
   assert.doesNotMatch(lines[0]!, /supersecret/);
 });
+
+test("an Error arg is printed with its stack and cause chain, still redacted", () => {
+  const cause = new Error("upstream said Bearer supersecret");
+  const { lines } = captureStderr(() => {
+    createLogger("error").error("internal error:", new TypeError("boom", { cause }));
+  });
+  assert.equal(lines.length, 1);
+  assert.match(lines[0]!, /TypeError: boom/);
+  assert.match(lines[0]!, /at .*logger\.test\.ts/, "the stack must be printed");
+  assert.match(lines[0]!, /\[cause\]: Error: upstream said Bearer \*\*\*/);
+  assert.doesNotMatch(lines[0]!, /supersecret/);
+});

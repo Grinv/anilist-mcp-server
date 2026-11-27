@@ -59,18 +59,26 @@ don't rely on the `preversion` hook alone to catch a skipped one:
    every file (including the CHANGELOG rename) + commits + tags `vX.Y.Z`.
 5. `git push --follow-tags` — pushing the tag triggers `.github/workflows/release.yml`.
 
-The tag push (`v*`) runs the **Release** workflow: `check:api` gate → build → test
-→ pack `.mcpb` → extract `CHANGELOG.md`'s section for this version (fails loudly,
-not silently, if that section is empty — the workflow's own safety net for
-whatever slipped past `sync-version.ts`/`preversion-check.ts`) → GitHub Release
-→ `npm publish` (OIDC trusted publishing, with provenance, pinned to an exact
-verified-good npm version — no token; skipped without failing the job if this
-version is already on npm, so a re-run after a partial failure doesn't abort) →
-inject the just-packed `.mcpb`'s SHA-256 into `server.json` (fails loudly if the
-injection didn't actually match a package, instead of silently leaving a stale
-hash) → **publish to the official MCP Registry** (`mcp-publisher`, GitHub OIDC;
-pinned to an exact version + verified SHA-256 rather than `latest`, since this
-step runs with live OIDC publishing credentials).
+The tag push (`v*`) runs the **Release** workflow in two jobs. **`ci`** runs the
+whole of `ci.yml` on the tagged commit (`workflow_call`): the test matrix, lint,
+coverage, audit, `.mcpb` pack; its quality job uploads `dist/` and the `.mcpb`
+as the `package` artifact. **`publish`** (needs `ci`) holds the write/OIDC
+permissions and runs no dependency code — no `npm ci`, no build (so
+`package.json` has no `prepublishOnly`: it would rebuild with no
+`node_modules` and fail). It downloads that artifact → checks the tag matches
+`package.json` → `check:api` gate → extracts `CHANGELOG.md`'s section for this
+version (fails loudly, not silently, if that section is empty — the workflow's
+own safety net for whatever slipped past `sync-version.ts`/`preversion-check.ts`)
+→ GitHub Release → `npm publish` (OIDC trusted publishing, with provenance,
+pinned to an exact verified-good npm version — no token, and npmjs.com is set
+to disallow tokens; skipped without failing the job if this version is already
+on npm, so a re-run after a partial failure doesn't abort) → waits until npm
+serves the new version → injects the `.mcpb`'s SHA-256 into `server.json`
+(fails loudly if the injection didn't actually match a package, instead of
+silently leaving a stale hash) → **publishes to the official MCP Registry**
+(`mcp-publisher`, GitHub OIDC; pinned to an exact version + verified SHA-256
+rather than `latest`, since this step runs with live OIDC publishing
+credentials).
 Never hand-edit the version in the derived files; bump `package.json` via
 `npm version` and let the hook sync the rest.
 
@@ -99,7 +107,7 @@ Ownership is verified per package type:
   set once and every release just works.
 - **mcpb** → `server.json` needs the artifact's `fileSha256`. Because `.mcpb`
   (a zip) isn't byte-reproducible, the release workflow recomputes it from the
-  just-packed bundle and injects it before `mcp-publisher publish` — no committed
+  CI-packed bundle and injects it before `mcp-publisher publish` — no committed
   value is kept. The asset URL must contain "mcp" (it does).
 
 The namespace `io.github.Grinv/*` is authorized by GitHub OIDC from this repo, so

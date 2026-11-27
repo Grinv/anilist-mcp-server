@@ -4,28 +4,49 @@ on:
   push:
     tags: ["v*"]
 
-# contents: write → create the GitHub Release + upload the .mcpb asset.
-# id-token: write → npm provenance attestation via Trusted Publishing (OIDC).
 permissions:
-  contents: write
-  id-token: write
+  contents: read
 
 jobs:
-  release:
+  # The full CI (tests, lint, coverage, audit) on the tagged commit; its quality
+  # job builds dist/ and the .mcpb that the publish job ships.
+  ci:
+    uses: ./.github/workflows/ci.yml
+
+  # Holds the publishing credentials but runs no dependency code: no `npm ci`,
+  # no build (package.json has no prepublishOnly), only the CI's artifact.
+  # contents: write → create the GitHub Release + upload the .mcpb asset.
+  # id-token: write → npm Trusted Publishing (OIDC) + MCP Registry login.
+  publish:
+    needs: ci
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # Node 24: npm 12 (installed below) needs ^24.15.0. No cache: nothing is installed.
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
-          cache: npm
-      - run: npm ci
+          package-manager-cache: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: package
+      # A hand-pushed tag that doesn't match package.json would publish the
+      # package.json version under the wrong tag. `npm version` always agrees.
+      - name: Check tag matches package.json
+        run: |
+          PKG_VERSION="$(node -p "require('./package.json').version")"
+          if [ "$GITHUB_REF_NAME" != "v${PKG_VERSION}" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match package.json version $PKG_VERSION"
+            exit 1
+          fi
+      # Needs no packages: plain fetch against AniList.
       - name: Health-check upstream APIs (gate)
         run: npm run check:api
-      - run: npm run build
-      - run: npm test
-      - name: Pack .mcpb bundle
-        run: npx mcpb pack . anilist-mcp-server.mcpb
       # Use CHANGELOG.md as the single source of truth for release notes: extract
       # this version's section and feed it as the GitHub Release body.
       - name: Extract release notes from CHANGELOG
@@ -48,7 +69,7 @@ jobs:
             exit 1
           fi
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@718ea10b132b3b2eba29c1007bb80653f286566b # v3.0.1
+        uses: softprops/action-gh-release@8a0cd651e5b2365bd640854a3fa5dfc70e4875f3 # v3.0.4
         with:
           files: anilist-mcp-server.mcpb
           body_path: RELEASE_NOTES.md
@@ -72,14 +93,29 @@ jobs:
       # workflow being pinned to an exact commit/tag (checkout/setup-node/
       # gh-release above). npm 12.0.0 shipped a broken provenance path
       # ("Cannot find module 'sigstore'", npm/cli#9722); fixed in 12.0.1
-      # (npm/cli#9740, released 2026-07-10) — verified live via
-      # `npm view npm version` that 12.0.1 is the current `latest` dist-tag.
+      # (npm/cli#9740, released 2026-07-10). 12.2.3 was npm's `latest` dist-tag
+      # on 2026-11-27 (`npm view npm version`).
       - name: Install npm for trusted publishing
         if: steps.npm_check.outputs.already_published != 'true'
-        run: npm install -g npm@12.0.1
+        run: npm install -g npm@12.2.3
       - name: Publish to npm (trusted publishing + provenance)
         if: steps.npm_check.outputs.already_published != 'true'
         run: npm publish --provenance --access public
+      # The MCP Registry fetches this exact npm version, and a just-published one
+      # can 404 for a few seconds (steam-games-mcp v0.15.0 was rejected one
+      # second after publishing). Wait up to 2 min for npm to serve it.
+      - name: Wait for the npm version to be visible
+        run: |
+          PKG_VERSION="$(node -p "require('./package.json').version")"
+          for i in $(seq 1 24); do
+            if npm view "anilist-mcp-server@${PKG_VERSION}" version >/dev/null 2>&1; then
+              exit 0
+            fi
+            echo "waiting for anilist-mcp-server@${PKG_VERSION} on npm (${i}/24)…"
+            sleep 5
+          done
+          echo "::error::anilist-mcp-server@${PKG_VERSION} is not visible on npm after 2 min"
+          exit 1
 
       # Publish to the official MCP Registry (registry.modelcontextprotocol.io).
       # Runs after npm publish so the npm package (with its mcpName marker) is
@@ -112,8 +148,8 @@ jobs:
           # new version's mcp-publisher_linux_amd64.tar.gz from
           # https://github.com/modelcontextprotocol/registry/releases, `sha256sum`
           # it, and update both constants below.
-          MCP_PUBLISHER_VERSION="v1.8.0"
-          MCP_PUBLISHER_SHA256="1370446bbe74d562608e8005a6ccce02d146a661fbd78674e11cc70b9618d6cf"
+          MCP_PUBLISHER_VERSION="v1.8.16"
+          MCP_PUBLISHER_SHA256="6e2f799550cf843c6fd3350498d56cc49be3dc0af1e6237eb0e6435c7a9d5c05"
           curl -sL -o mcp-publisher.tar.gz "https://github.com/modelcontextprotocol/registry/releases/download/${MCP_PUBLISHER_VERSION}/mcp-publisher_linux_amd64.tar.gz"
           echo "${MCP_PUBLISHER_SHA256}  mcp-publisher.tar.gz" | sha256sum -c -
           tar xzf mcp-publisher.tar.gz mcp-publisher

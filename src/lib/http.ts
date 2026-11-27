@@ -105,7 +105,7 @@ export class HttpClient {
     let text: string;
     try {
       // Aborted before sending (e.g. right after the limiter): nothing left the process.
-      if (options.signal?.aborted) throw cancelledError();
+      if (options.signal?.aborted) throw cancelledError(undefined, false);
       res = await fetch(url, {
         method: options.method ?? "GET",
         headers,

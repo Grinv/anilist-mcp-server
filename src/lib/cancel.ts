@@ -16,15 +16,19 @@ export interface CallContext {
 
 export const callContext = new AsyncLocalStorage<CallContext>();
 
-/** `inFlight`: the request had already been sent; for a write (`write`), it
- *  may then have landed. */
-export function cancelledError(cause?: unknown, inFlight = false, write = false): ApiError {
+/** `inFlight`: whether the request had already been sent, when the caller
+ *  knows (undefined: a waiter on a shared read, which doesn't); for a write
+ *  (`write`) that was in flight, it may then have landed. */
+export function cancelledError(cause?: unknown, inFlight?: boolean, write = false): ApiError {
   return new ApiError({
     code: "cancelled",
-    message: inFlight
-      ? "Request cancelled by the caller while in flight"
-      : "Request cancelled by the caller before it was sent",
-    writeMayHaveApplied: inFlight && write,
+    message:
+      inFlight === undefined
+        ? "Request cancelled by the caller"
+        : inFlight
+          ? "Request cancelled by the caller while in flight"
+          : "Request cancelled by the caller before it was sent",
+    writeMayHaveApplied: inFlight === true && write,
     cause,
   });
 }
@@ -35,7 +39,7 @@ export async function sleep(ms: number, signal?: AbortSignal): Promise<void> {
   try {
     await sleepFor(ms, undefined, { signal });
   } catch (err) {
-    if (signal?.aborted) throw cancelledError(err);
+    if (signal?.aborted) throw cancelledError(err, false);
     throw err;
   }
 }

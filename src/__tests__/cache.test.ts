@@ -190,7 +190,12 @@ test("wrap: an already-cancelled caller never starts a compute", async () => {
   c.abort();
   await assert.rejects(
     cache.wrap("k", async () => (calls++, "v"), c.signal),
-    (err: unknown) => err instanceof ApiError && err.code === "cancelled",
+    // A waiter doesn't know whether the shared fetch had been sent, so it
+    // doesn't claim either way (confirmed live: it used to log "before it was sent").
+    (err: unknown) =>
+      err instanceof ApiError &&
+      err.code === "cancelled" &&
+      err.message === "Request cancelled by the caller",
   );
   assert.equal(calls, 0);
 });

@@ -206,3 +206,36 @@ test("a ToolError resting on AniList's answer quotes it like an ApiError does, r
   assert.match(p.detail, /^AniList rejected this app's credentials\. AniList said: "Client/);
   assert.doesNotMatch(p.detail, /abc123/);
 });
+
+test("retry_after_seconds appears only beside retryable: true", () => {
+  const write = toProblem(
+    new ApiError({
+      code: "server_error",
+      status: 503,
+      retryAfterMs: 30_000,
+      writeMayHaveApplied: true,
+    }),
+    silentLogger(),
+  );
+  assert.equal(write.retryable, false);
+  assert.equal(write.retry_after_seconds, undefined);
+  assert.doesNotMatch(write.detail, /retry in/i);
+  const read = toProblem(
+    new ApiError({ code: "rate_limited", status: 429, retryAfterMs: 30_000 }),
+    silentLogger(),
+  );
+  assert.equal(read.retry_after_seconds, 30);
+});
+
+test("an anonymous 403 isn't blamed on the account", () => {
+  const anon = toProblem(
+    new ApiError({ code: "forbidden", status: 403, authenticated: false }),
+    silentLogger(),
+  );
+  assert.match(anon.detail, /isn't an account permission problem/);
+  const withToken = toProblem(
+    new ApiError({ code: "forbidden", status: 403, authenticated: true }),
+    silentLogger(),
+  );
+  assert.doesNotMatch(withToken.detail, /isn't an account permission problem/);
+});

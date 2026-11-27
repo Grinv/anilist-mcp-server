@@ -4,7 +4,7 @@ import { z } from "zod";
 import { McpServer } from "@modelcontextprotocol/server";
 import { Client, InMemoryTransport } from "@modelcontextprotocol/client";
 import { toolRegistrar, type RegisterTool } from "../tools/register.ts";
-import { callSignal } from "../lib/cancel.ts";
+import { callContext } from "../lib/cancel.ts";
 import { ApiError } from "../lib/errors.ts";
 import { jsonResult } from "../lib/result.ts";
 import type { Logger } from "../lib/logger.ts";
@@ -62,26 +62,31 @@ test("a result off the tool's own outputSchema is internal, logged with its caus
 
 test("a write tool whose result fails its outputSchema says the write already applied", async (t) => {
   const client = await connect((tool) =>
-    tool("w", { ...config, annotations: { readOnlyHint: false } }, async () =>
-      jsonResult({ n: "not a number" }),
-    ),
+    tool("w", { ...config, annotations: { readOnlyHint: false } }, async () => {
+      callContext.getStore()!.wrote = true; // as lib/graphql.ts does after a mutation succeeds
+      return jsonResult({ n: "not a number" });
+    }),
   );
   t.after(() => client.close());
   const res = await client.callTool({ name: "w", arguments: {} });
   assert.equal(problemCode(res), "internal");
   assert.match((res.content as { text: string }[])[0]!.text, /AniList did apply this write/);
-  // A read-only tool says nothing about a write.
-  const read = await connect((tool) => tool("r", config, async () => jsonResult({ n: "x" })));
+  // A call that made no write (even on a tool that can write) says nothing about one.
+  const read = await connect((tool) =>
+    tool("r", { ...config, annotations: { readOnlyHint: false } }, async () =>
+      jsonResult({ n: "x" }),
+    ),
+  );
   t.after(() => read.close());
   const r = await read.callTool({ name: "r", arguments: {} });
   assert.doesNotMatch((r.content as { text: string }[])[0]!.text, /write/);
 });
 
-test("the handler runs with the call's cancellation signal in callSignal", async (t) => {
+test("the handler runs with the call's cancellation signal in callContext", async (t) => {
   let seen: AbortSignal | undefined;
   const client = await connect((tool) =>
     tool("t", config, async () => {
-      seen = callSignal.getStore();
+      seen = callContext.getStore()?.signal;
       return jsonResult({ n: 1 });
     }),
   );

@@ -105,6 +105,12 @@ const LOG_IN =
   "It requires an authenticated AniList account: run login_anilist (or set " +
   "ANILIST_ACCESS_TOKEN) first.";
 
+// No token was sent, so no account permission was checked: a 403 here is a
+// block or a temporary problem on AniList's side.
+const FORBIDDEN_ANONYMOUS =
+  "No token was sent, so this isn't an account permission problem: it is more likely a " +
+  "block or a temporary problem on AniList's side. Simplify the request or retry later.";
+
 // A timed-out or 5xx'd write may still have landed, and repeating it
 // re-flips a Toggle* or posts a duplicate: no "please retry".
 const OUTCOME_UNKNOWN =
@@ -141,7 +147,7 @@ export function toProblem(err: unknown, logger: Logger): Problem {
       title,
       detail: [
         `${title}${status}.`,
-        err.code === "unauthorized" && !err.authenticated ? LOG_IN : advice,
+        adviceFor(err, advice),
         err.note,
         err.writeMayHaveApplied ? OUTCOME_UNKNOWN : undefined,
         retryable ? (retryAfter ? `Please retry in ${retryAfter} s.` : RETRY) : undefined,
@@ -152,7 +158,8 @@ export function toProblem(err: unknown, logger: Logger): Problem {
         .join(" "),
       retryable,
       ...(err.status ? { upstream_status: err.status } : {}),
-      ...(retryAfter !== undefined ? { retry_after_seconds: retryAfter } : {}),
+      // Only beside retryable: true, so the object never says both "don't" and "in N s".
+      ...(retryable && retryAfter !== undefined ? { retry_after_seconds: retryAfter } : {}),
     };
   }
   // A tool error, not a JSON-RPC one: it arises while the tool runs, so the
@@ -173,13 +180,21 @@ function logApiError(err: ApiError, logger: Logger): void {
   }
 }
 
-/** A problem this server raises itself: its own sentence as `detail`, or the
- *  type's title and advice. */
 /** AniList's own reason, quoted, redacted and bounded — the one place it's formatted. */
 function anilistSaid(detail: string | undefined): string | undefined {
   return detail ? `AniList said: "${redact(detail).slice(0, 500)}"` : undefined;
 }
 
+/** The type's advice, or the variant for a request that carried no token. */
+function adviceFor(err: ApiError, advice: string | undefined): string | undefined {
+  if (err.authenticated) return advice;
+  if (err.code === "unauthorized") return LOG_IN;
+  if (err.code === "forbidden") return FORBIDDEN_ANONYMOUS;
+  return advice;
+}
+
+/** A problem this server raises itself: its own sentence as `detail`, or the
+ *  type's title and advice. */
 function ownProblem(code: ToolErrorCode | "internal", detail?: string): Problem {
   const { title, advice } = PROBLEMS[code];
   return {

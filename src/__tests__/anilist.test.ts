@@ -1306,6 +1306,8 @@ test("every delete tool reports an unknown or already-deleted id as not_found, n
     await assert.rejects(call, (err: unknown) => {
       assert.ok(err instanceof ApiError && err.code === "not_found", label);
       assert.match(err.message, new RegExp(`this ${label} as not deleted`), label);
+      // AniList's own reason survives the mapping to not_found.
+      assert.match(err.detail ?? "", /The selected id is invalid/, label);
       return true;
     });
   }

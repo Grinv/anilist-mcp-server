@@ -9,7 +9,7 @@ import { HttpClient } from "./http.ts";
 import { ApiError, classifyStatus, type ApiErrorCode } from "./errors.ts";
 import type { TtlCache } from "./cache.ts";
 import type { Logger } from "./logger.ts";
-import { callSignal } from "./cancel.ts";
+import { callContext } from "./cancel.ts";
 
 export interface GraphQLClientOptions {
   endpoint: string;
@@ -34,7 +34,13 @@ export interface GraphQLRequestOptions {
 }
 
 /** Failures after which a mutation may or may not have been applied. */
-const OUTCOME_UNKNOWN: ReadonlySet<ApiErrorCode> = new Set(["timeout", "network", "server_error"]);
+// bad_response: a 2xx whose body didn't parse, so AniList most likely applied it.
+const OUTCOME_UNKNOWN: ReadonlySet<ApiErrorCode> = new Set([
+  "timeout",
+  "network",
+  "server_error",
+  "bad_response",
+]);
 
 interface GraphQLErrorEntry {
   message: string;
@@ -79,7 +85,8 @@ export class GraphQLClient {
   ): Promise<T> {
     const isMutation = /^\s*mutation\b/i.test(query);
     // The current tool call's cancellation (lib/cancel.ts).
-    const signal = callSignal.getStore();
+    const call = callContext.getStore();
+    const signal = call?.signal;
     if (this.#cache && !options?.skipCache && !isMutation) {
       // Keyed by the actual auth header value (not just its presence) — two
       // different accounts' bearer tokens must never collide on one entry,
@@ -99,25 +106,20 @@ export class GraphQLClient {
     // AniList didn't apply the write, and replaying it re-flips a Toggle*
     // (undoing the favourite/follow) or posts a duplicate activity/thread.
     try {
-      return await this.#send<T>(query, variables, authHeader, isMutation, signal);
+      const data = await this.#send<T>(query, variables, authHeader, isMutation, signal);
+      if (isMutation && call) call.wrote = true;
+      return data;
     } catch (err) {
       if (isMutation && err instanceof ApiError && err.code === "cancelled") {
         // The SDK sends no result for a cancelled call, so only the log knows.
-        this.#logger.info("mutation cancelled, outcome unknown");
+        this.#logger.info(
+          err.writeMayHaveApplied
+            ? "mutation cancelled in flight, outcome unknown"
+            : "mutation cancelled before it was sent",
+        );
       }
       if (isMutation && err instanceof ApiError && OUTCOME_UNKNOWN.has(err.code)) {
-        throw new ApiError({
-          code: err.code,
-          message: err.message,
-          status: err.status,
-          detail: err.detail,
-          note: err.note,
-          retryable: err.retryable,
-          retryAfterMs: err.retryAfterMs,
-          authenticated: err.authenticated,
-          writeMayHaveApplied: true,
-          cause: err,
-        });
+        throw err.withWriteOutcomeUnknown();
       }
       throw err;
     } finally {

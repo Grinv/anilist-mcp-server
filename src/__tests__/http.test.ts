@@ -221,6 +221,26 @@ test("a 403 is classified by its body: outage notice, Cloudflare page, or a real
   }
 });
 
+test("any HTML 403 is the edge's block page, whatever its title", async (t) => {
+  // Cloudflare's challenge page has a different title from its block page.
+  for (const html of [
+    "<!DOCTYPE html><html><head><title>Just a moment...</title></head><body></body></html>",
+    "<html><body>Access denied</body></html>",
+  ]) {
+    t.mock.method(
+      globalThis,
+      "fetch",
+      mockFetch(() => new Response(html, { status: 403, headers: { "content-type": "text/html" } }))
+        .fn,
+    );
+    await assert.rejects(
+      () => client({ retries: 0 }).requestJson("x"),
+      (err: unknown) => err instanceof ApiError && err.code === "blocked",
+      html,
+    );
+  }
+});
+
 test("a 429 whose Retry-After exceeds the backoff cap is not waited out but surfaced with it", async (t) => {
   // AniList's 429 shape (docs/api-references.md): Retry-After in seconds, up
   // to the reset of its 1-minute window, plus a GraphQL error body.

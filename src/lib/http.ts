@@ -89,7 +89,8 @@ export class HttpClient {
     // Which abort won, as an ApiError. fetch settles once the headers arrive,
     // so a stalled body aborts later, through the res.text() await.
     const abortError = (err: unknown): ApiError => {
-      if (options.signal?.aborted) return cancelledError(err);
+      // fetch had started, so for a write the request may have reached AniList.
+      if (options.signal?.aborted) return cancelledError(err, options.nonIdempotent === true);
       if (timeoutSignal.aborted) {
         return new ApiError({
           code: "timeout",
@@ -155,7 +156,9 @@ async function toHttpError(res: Response, authenticated: boolean): Promise<ApiEr
     ? `HTTP ${res.status} ${res.statusText}`
     : `HTTP ${res.status}`;
   return new ApiError({
-    code: classifyStatus(res.status, detail),
+    // AniList's API always answers in JSON; an HTML 403 is the edge's
+    // (Cloudflare's) block or challenge page, whatever its title.
+    code: res.status === 403 && /^\s*</.test(raw) ? "blocked" : classifyStatus(res.status, detail),
     status: res.status,
     authenticated,
     detail,

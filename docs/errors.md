@@ -51,8 +51,9 @@ isn't allowed to change the resource (e.g. it doesn't own it).
 
 ## forbidden
 
-AniList answered 403 that is neither its outage notice nor a firewall page: a
-real permission denial.
+AniList answered a JSON 403 that isn't its outage notice. With a token, the
+account isn't allowed this action; without one, no permission was checked, so
+`detail` says it is more likely a block or a temporary problem on AniList's side.
 
 ## unavailable
 
@@ -63,9 +64,10 @@ with the request or the account; the outage usually lasts hours, so
 
 ## blocked
 
-AniList's Cloudflare firewall answered 403 with its "Attention Required!"
-page, typically for unusual characters in a search term (quotes, SQL-like
-text). The same request is blocked again; simplify it.
+AniList's edge (Cloudflare) answered 403 with an HTML page instead of the
+API's JSON: its "Attention Required!" block page, typically for unusual
+characters in a search term (quotes, SQL-like text), or a challenge page. The
+same request is blocked again; simplify it.
 
 ## not_found
 

@@ -41,7 +41,9 @@ test("classifyStatus tells AniList's three kinds of 403 apart by body", () => {
   const waf =
     '<!DOCTYPE html>\n<!--[if lt IE 7]> <html class="no-js ie6 oldie" lang="en-US"> <![endif]-->\n' +
     "<head>\n<title>Attention Required! | Cloudflare</title>\n</head><body>…</body></html>";
-  assert.equal(classifyStatus(403, /<title>([^<]*)</.exec(waf)![1]), "blocked");
+  // The WAF page is HTML, so http.ts classifies it as blocked before this runs
+  // (see http.test.ts); by reason alone it is just a 403.
+  assert.equal(classifyStatus(403, /<title>([^<]*)</.exec(waf)![1]), "forbidden");
   const denied = JSON.stringify({ errors: [{ message: "Forbidden.", status: 403 }], data: null });
   assert.equal(classifyStatus(403, JSON.parse(denied).errors[0].message), "forbidden");
 });

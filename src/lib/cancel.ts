@@ -7,10 +7,25 @@ import { AsyncLocalStorage } from "node:async_hooks";
 import { setTimeout as sleepFor } from "node:timers/promises";
 import { ApiError } from "./errors.ts";
 
-export const callSignal = new AsyncLocalStorage<AbortSignal | undefined>();
+/** The current tool call: its cancellation signal, and whether a mutation
+ *  succeeded during it (so a failure after that can say the write applied). */
+export interface CallContext {
+  signal: AbortSignal;
+  wrote: boolean;
+}
 
-export function cancelledError(cause?: unknown): ApiError {
-  return new ApiError({ code: "cancelled", message: "Request cancelled by the caller", cause });
+export const callContext = new AsyncLocalStorage<CallContext>();
+
+/** `inFlight`: the request had already been sent, so a write may have landed. */
+export function cancelledError(cause?: unknown, inFlight = false): ApiError {
+  return new ApiError({
+    code: "cancelled",
+    message: inFlight
+      ? "Request cancelled by the caller while in flight"
+      : "Request cancelled by the caller before it was sent",
+    writeMayHaveApplied: inFlight,
+    cause,
+  });
 }
 
 /** Waits `ms`; rejects as cancelled as soon as `signal` aborts (the timer is

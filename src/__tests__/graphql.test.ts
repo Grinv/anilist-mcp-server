@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { GraphQLClient } from "../lib/graphql.ts";
 import { ApiError } from "../lib/errors.ts";
 import { TtlCache } from "../lib/cache.ts";
-import { callSignal } from "../lib/cancel.ts";
+import { callContext, sleep } from "../lib/cancel.ts";
 import { silentLogger, jsonResponse, mockFetch, installFetch } from "./helpers.ts";
 
 function client(): GraphQLClient {
@@ -253,8 +253,10 @@ test("one caller cancelling a shared read doesn't abort it for another caller", 
   installFetch(t, mock);
   const c = cachedClient();
   const one = new AbortController();
-  const a = callSignal.run(one.signal, () => c.request("query{ok}"));
-  const b = callSignal.run(new AbortController().signal, () => c.request("query{ok}"));
+  const a = callContext.run({ signal: one.signal, wrote: false }, () => c.request("query{ok}"));
+  const b = callContext.run({ signal: new AbortController().signal, wrote: false }, () =>
+    c.request("query{ok}"),
+  );
   one.abort();
   await assert.rejects(a, { name: "ApiError", code: "cancelled" });
   open();
@@ -280,9 +282,57 @@ test("a cancelled mutation aborts its fetch, isn't retried, and logs that its ou
     retries: 2,
   });
   const call = new AbortController();
-  const pending = callSignal.run(call.signal, () => c.request("mutation{x}"));
+  const pending = callContext.run({ signal: call.signal, wrote: false }, () =>
+    c.request("mutation{x}"),
+  );
   call.abort();
   await assert.rejects(pending, { name: "ApiError", code: "cancelled" });
   assert.equal(mock.calls.length, 1);
-  assert.deepEqual(infos, ["mutation cancelled, outcome unknown"]);
+  assert.deepEqual(infos, ["mutation cancelled in flight, outcome unknown"]);
+});
+
+test("a mutation cancelled while queued is logged as never sent", async (t) => {
+  const mock = mockFetch(() => jsonResponse({ data: { x: 1 } }));
+  installFetch(t, mock);
+  const infos: string[] = [];
+  const c = new GraphQLClient({
+    endpoint: "https://graphql.example.test",
+    logger: { ...silentLogger(), info: (m: string) => infos.push(m) },
+    // Stands in for the RateLimiter queue.
+    beforeRequest: (signal) => sleep(60_000, signal),
+  });
+  const call = new AbortController();
+  const pending = callContext.run({ signal: call.signal, wrote: false }, () =>
+    c.request("mutation{x}"),
+  );
+  call.abort();
+  await assert.rejects(pending, { name: "ApiError", code: "cancelled" });
+  assert.equal(mock.calls.length, 0);
+  assert.deepEqual(infos, ["mutation cancelled before it was sent"]);
+});
+
+test("a mutation answered 2xx with an unreadable body may have applied", async (t) => {
+  installFetch(
+    t,
+    mockFetch(() => new Response("", { status: 200 })),
+  );
+  const c = new GraphQLClient({ endpoint: "https://graphql.example.test", logger: silentLogger() });
+  await assert.rejects(
+    c.request("mutation{x}"),
+    (err: unknown) =>
+      err instanceof ApiError && err.code === "bad_response" && err.writeMayHaveApplied,
+  );
+});
+
+test("a successful mutation marks the call as having written", async (t) => {
+  installFetch(
+    t,
+    mockFetch(() => jsonResponse({ data: { x: 1 } })),
+  );
+  const c = new GraphQLClient({ endpoint: "https://graphql.example.test", logger: silentLogger() });
+  const call = { signal: new AbortController().signal, wrote: false };
+  await callContext.run(call, () => c.request("query{x}"));
+  assert.equal(call.wrote, false);
+  await callContext.run(call, () => c.request("mutation{x}"));
+  assert.equal(call.wrote, true);
 });

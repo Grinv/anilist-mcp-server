@@ -48,7 +48,6 @@ export async function withNumericNameHint<T>(
       status: err.status,
       detail: err.detail,
       note,
-      message: note,
       cause: err,
     });
   }

@@ -21,8 +21,8 @@ export type ApiErrorCode =
 
 export interface ApiErrorOptions {
   code: ApiErrorCode;
-  /** For logs only; may hold a raw response body. */
-  message: string;
+  /** For logs only; may hold a raw response body. Defaults to `note`. */
+  message?: string;
   /** AniList's own (short) reason, e.g. a GraphQL errors[].message with its
    *  validation details or an HTML page's <title>, for the tool-facing text. */
   detail?: string;
@@ -54,7 +54,10 @@ export class ApiError extends Error {
   readonly writeMayHaveApplied: boolean;
 
   constructor(opts: ApiErrorOptions) {
-    super(opts.message, opts.cause === undefined ? undefined : { cause: opts.cause });
+    super(
+      opts.message ?? opts.note ?? opts.code,
+      opts.cause === undefined ? undefined : { cause: opts.cause },
+    );
     this.name = "ApiError";
     this.code = opts.code;
     this.status = opts.status;
@@ -64,6 +67,21 @@ export class ApiError extends Error {
     this.retryAfterMs = opts.retryAfterMs;
     this.authenticated = opts.authenticated;
     this.writeMayHaveApplied = opts.writeMayHaveApplied ?? false;
+  }
+  /** This error, marked as a write that AniList may still have applied. */
+  withWriteOutcomeUnknown(): ApiError {
+    return new ApiError({
+      code: this.code,
+      message: this.message,
+      detail: this.detail,
+      note: this.note,
+      status: this.status,
+      retryable: this.retryable,
+      retryAfterMs: this.retryAfterMs,
+      authenticated: this.authenticated,
+      writeMayHaveApplied: true,
+      cause: this,
+    });
   }
 }
 
@@ -118,7 +136,6 @@ export function classifyStatus(status: number, reason = ""): ApiErrorCode {
     // Anchored to AniList's exact wording, so a value echoed in validation
     // details further along the reason can't match.
     if (/^The AniList API has been temporarily disabled/i.test(reason)) return "unavailable";
-    if (/\| Cloudflare$/i.test(reason)) return "blocked"; // the WAF page's <title>
     return "forbidden";
   }
   if (status === 404) return "not_found";
@@ -138,7 +155,7 @@ export function classifyStatus(status: number, reason = ""): ApiErrorCode {
  *  errors with a real HTTP 404 instead. */
 export function assertFound<T>(value: T | null | undefined, sentence: string): T {
   if (value === null || value === undefined) {
-    throw new ApiError({ code: "not_found", message: sentence, note: sentence });
+    throw new ApiError({ code: "not_found", note: sentence });
   }
   return value;
 }

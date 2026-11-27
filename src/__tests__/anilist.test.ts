@@ -2021,3 +2021,16 @@ test("null batch and toggle results keep their domain meaning; a null save is ou
       err instanceof ApiError && err.code === "bad_response" && err.writeMayHaveApplied,
   );
 });
+
+test("a null ToggleFavourite result is outcome-unknown, not an internal error", async (t) => {
+  installFetch(
+    t,
+    mockFetch(() => jsonResponse({ data: { ToggleFavourite: null } })),
+  );
+  const client = new AniListClient(testConfig({ ANILIST_ACCESS_TOKEN: "tok" }), silentLogger());
+  await assert.rejects(
+    () => favourites.toggleFavourite(client.ctx(), "ANIME", 1),
+    (err: unknown) =>
+      err instanceof ApiError && err.code === "bad_response" && err.writeMayHaveApplied,
+  );
+});

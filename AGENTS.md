@@ -116,7 +116,8 @@ npm run check:api      # live upstream health-check (network)
   handler with the call's cancellation signal, checks a success against the
   tool's own `outputSchema` (a mismatch is `internal`) and turns any throw
   into an `isError` result via `lib/result.ts`. Throw `ApiError` for an
-  upstream failure (facts only: code, status, AniList's own `detail`) and
+  upstream failure (facts: code, status, AniList's own `detail`, and this
+  server's one-sentence `note` naming the occurrence) and
   `ToolError` for this server's own decisions (`invalid_arguments`,
   `login_required`, `not_configured`) with the sentence the model should
   read; anything else is `internal`. `toProblem()` is the only place

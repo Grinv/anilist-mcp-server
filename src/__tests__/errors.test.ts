@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { ApiError, classifyStatus, redact } from "../lib/errors.ts";
+import { ApiError, classifyStatus, describeAniListErrors, redact } from "../lib/errors.ts";
 
 test("classifyStatus maps HTTP codes to error codes, and ApiError defaults retryable per code", () => {
   assert.equal(classifyStatus(401), "unauthorized");
@@ -16,10 +16,6 @@ test("classifyStatus maps HTTP codes to error codes, and ApiError defaults retry
   assert.equal(new ApiError({ code: "server_error", message: "" }).retryable, true);
   assert.equal(new ApiError({ code: "unavailable", message: "" }).retryable, false);
   assert.equal(new ApiError({ code: "cancelled", message: "" }).retryable, false);
-  assert.equal(
-    new ApiError({ code: "server_error", message: "", retryable: false }).retryable,
-    false,
-  );
 });
 
 test("classifyStatus tells AniList's three kinds of 403 apart by body", () => {
@@ -81,4 +77,19 @@ test("AniList's 400 'Invalid token' is a credentials problem, not a bad request"
   assert.equal(classifyStatus(400, "validation (name: Invalid token in name)"), "bad_request");
   // A value echoed back in the raw body can't reclassify: only the parsed reason counts.
   assert.equal(classifyStatus(403, "Forbidden. (about: temporarily disabled)"), "forbidden");
+});
+
+test("describeAniListErrors joins every entry and tolerates a non-array validation value", () => {
+  assert.equal(
+    describeAniListErrors([
+      {
+        message: "validation",
+        validation: { score: ["must be <= 100"], id: "The selected id is invalid." },
+      },
+      { message: "Not Found." },
+    ]),
+    "validation (score: must be <= 100; id: The selected id is invalid.); Not Found.",
+  );
+  assert.equal(describeAniListErrors([]), undefined);
+  assert.equal(describeAniListErrors("nope"), undefined);
 });

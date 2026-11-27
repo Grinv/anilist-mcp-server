@@ -2,7 +2,7 @@
 // with exponential backoff, a default User-Agent, and uniform mapping of
 // failures to ApiError. A Retry-After longer than MAX_BACKOFF_MS is not waited
 // out: the error surfaces with retryAfterMs, so the caller learns when to retry.
-import { ApiError, classifyStatus } from "./errors.ts";
+import { ApiError, classifyStatus, describeAniListErrors } from "./errors.ts";
 import { cancelledError, sleep } from "./cancel.ts";
 import type { Logger } from "./logger.ts";
 import { USER_AGENT } from "../version.ts";
@@ -194,22 +194,7 @@ function parseErrorMessage(obj: unknown): string | undefined {
   const rec = obj as Record<string, unknown>;
   if (typeof rec.message === "string") return rec.message;
   if (typeof rec.error === "string") return rec.error;
-  if (Array.isArray(rec.errors) && rec.errors.length > 0) {
-    const first = rec.errors[0] as Record<string, unknown>;
-    const message = typeof first.message === "string" ? first.message : undefined;
-    const validation =
-      first.validation !== null && typeof first.validation === "object"
-        ? Object.entries(first.validation as Record<string, unknown>)
-            .map(
-              ([field, msgs]) =>
-                `${field}: ${Array.isArray(msgs) ? msgs.join(", ") : String(msgs)}`,
-            )
-            .join("; ")
-        : undefined;
-    if (message && validation) return `${message} (${validation})`;
-    return message ?? validation;
-  }
-  return undefined;
+  return describeAniListErrors(rec.errors);
 }
 
 function toNetworkError(err: unknown): ApiError {

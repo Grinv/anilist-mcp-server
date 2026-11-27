@@ -1,6 +1,8 @@
-// Typed errors. Clients throw `ApiError` for an upstream failure (facts only:
-// code, status, AniList's own reason) and `ToolError` for a decision this
-// server makes itself (an argument check, a missing login). Tool-facing text
+// Typed errors. Clients throw `ApiError` for an upstream failure (facts: code,
+// status, AniList's own reason as `detail`, plus this server's one-sentence
+// `note` naming the occurrence, e.g. which id wasn't found) and `ToolError`
+// for a decision this server makes itself (an argument check, a missing
+// login). The surrounding tool-facing prose (titles, advice, retry wording)
 // is written in one place, lib/result.ts; `message` is for logs only and may
 // hold a raw response body.
 
@@ -30,8 +32,6 @@ export interface ApiErrorOptions {
    *  found), shown as is — never attributed to AniList like `detail`. */
   note?: string;
   status?: number;
-  /** Override KIND[code].transient for one occurrence. */
-  retryable?: boolean;
   /** Retry-After hint, in ms. */
   retryAfterMs?: number;
   cause?: unknown;
@@ -65,17 +65,17 @@ export class ApiError extends Error {
     this.#opts = opts;
     this.code = opts.code;
     this.status = opts.status;
-    this.retryable = opts.retryable ?? KIND[opts.code].transient;
+    this.retryable = KIND[opts.code].transient;
     this.detail = opts.detail;
     this.note = opts.note;
     this.retryAfterMs = opts.retryAfterMs;
     this.authenticated = opts.authenticated;
     this.writeMayHaveApplied = opts.writeMayHaveApplied ?? false;
   }
-  /** This error as `code` (default: its own), with this server's `note`. */
-  withNote(note: string, code: ApiErrorCode = this.code): ApiError {
+  /** This error with this server's `note` about the occurrence. */
+  withNote(note: string): ApiError {
     // `message` (the log's diagnostics: status label, raw body) is kept.
-    return new ApiError({ ...this.#opts, code, note, cause: this });
+    return new ApiError({ ...this.#opts, note, cause: this });
   }
 
   /** This error, marked as a write that AniList may still have applied. */
@@ -146,6 +146,32 @@ export function classifyStatus(status: number, reason = ""): ApiErrorCode {
   if (status === 400 || status === 405 || status === 422) return "bad_request";
   if (status >= 500) return "server_error";
   return "unknown";
+}
+
+/** AniList's reason from a GraphQL `errors[]` envelope, every entry joined.
+ *  An entry's `message` alone can be the bare label "validation", with the
+ *  per-field reasons nested under `validation` (`{score: ["must be <= 100"]}`),
+ *  so both are kept. The one formatter for the HTTP-status path (lib/http.ts)
+ *  and the 200-with-errors path (lib/graphql.ts). */
+export function describeAniListErrors(errors: unknown): string | undefined {
+  if (!Array.isArray(errors) || errors.length === 0) return undefined;
+  const parts = errors.map((e) => {
+    const entry = (e ?? {}) as { message?: unknown; validation?: unknown };
+    const message = typeof entry.message === "string" ? entry.message : undefined;
+    const validation =
+      entry.validation !== null && typeof entry.validation === "object"
+        ? Object.entries(entry.validation as Record<string, unknown>)
+            .map(
+              ([field, msgs]) =>
+                `${field}: ${Array.isArray(msgs) ? msgs.join(", ") : String(msgs)}`,
+            )
+            .join("; ")
+        : "";
+    if (message && validation) return `${message} (${validation})`;
+    return message ?? (validation || undefined);
+  });
+  const text = parts.filter(Boolean).join("; ");
+  return text || undefined;
 }
 
 /** For a create/update mutation whose result should be the saved object:

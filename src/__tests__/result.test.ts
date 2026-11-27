@@ -249,3 +249,15 @@ test("Retry-After: 0 adds no retry_after_seconds and no 'retry in 0 s'", () => {
   assert.equal(p.retry_after_seconds, undefined);
   assert.match(p.detail, /Please retry later\./);
 });
+
+test("a ToolError sentence embedding a pasted value is redacted and bounded", () => {
+  const p = toProblem(
+    new ToolError(
+      "invalid_arguments",
+      `AniList authorization was denied: access_token=secret ${"x".repeat(2000)}.`,
+    ),
+    silentLogger(),
+  );
+  assert.doesNotMatch(p.detail, /secret/);
+  assert.ok(p.detail.length <= 500);
+});

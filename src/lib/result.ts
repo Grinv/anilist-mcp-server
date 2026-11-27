@@ -135,7 +135,10 @@ export function toProblem(err: unknown, logger: Logger): Problem {
     // The text has only this server's sentence; the AniList answer behind it
     // (e.g. the token endpoint's 401 invalid_client) goes to the log.
     if (err.cause instanceof ApiError) logger.warn(`${err.code}: ${err.cause.message}`);
-    return ownProblem(err.code, [err.message, anilistSaid(err.detail)].filter(Boolean).join(" "));
+    // Redacted and bounded like AniList's reason: a sentence can embed a value
+    // the caller pasted (e.g. an OAuth redirect's `error`).
+    const sentence = redact(err.message).slice(0, 500);
+    return ownProblem(err.code, [sentence, anilistSaid(err.detail)].filter(Boolean).join(" "));
   }
   if (err instanceof ApiError) {
     logApiError(err, logger);

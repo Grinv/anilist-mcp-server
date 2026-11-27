@@ -27,8 +27,9 @@ the result's `_meta["io.github.Grinv.anilist-mcp-server/problem"]`, never in
 - `retryable`: whether the failure is transient, so the same call may succeed
   later. The server first retries a transient upstream failure itself, up to
   `HTTP_RETRIES` times, except a mutation (only a 429 is retried
-  there) and any failure whose `Retry-After` is longer than 8 seconds (retrying
-  sooner can't help).
+  there), any failure whose `Retry-After` is longer than 8 seconds (retrying
+  sooner can't help), and an error embedded in a 200 response's `errors[]`
+  (AniList sends real HTTP statuses for 429/5xx, so this is not expected).
 - `upstream_status`: AniList's HTTP status (or the status embedded in a
   GraphQL error), when there was one. RFC 9457's own `status` member (the
   status of _this_ HTTP response) is not used, because MCP results have none.
@@ -66,10 +67,11 @@ with the request or the account; the outage usually lasts hours, so
 
 ## blocked
 
-AniList's edge (Cloudflare) answered 403 with an HTML page instead of the
-API's JSON: its "Attention Required!" block page, typically for unusual
-characters in a search term (quotes, SQL-like text), or a challenge page. The
-same request is blocked again; simplify it.
+AniList's edge (Cloudflare) answered 403 instead of the API's JSON: with an
+HTML page (its "Attention Required!" block page, typically for unusual
+characters in a search term such as quotes or SQL-like text, or a challenge
+page) or its plain-text `error code: NNNN`. The same request is blocked again;
+simplify it.
 
 ## not_found
 

@@ -6,7 +6,7 @@
 // that made the previous third-party AniList MCP unable to write list
 // entries — see docs/api-references.md.
 import { HttpClient } from "./http.ts";
-import { ApiError, classifyStatus, type ApiErrorCode } from "./errors.ts";
+import { ApiError, classifyStatus, type ApiErrorCode, describeAniListErrors } from "./errors.ts";
 import type { TtlCache } from "./cache.ts";
 import type { Logger } from "./logger.ts";
 import { callContext } from "./cancel.ts";
@@ -176,7 +176,7 @@ export class GraphQLClient {
         res.errors.map((e) => e.status).filter((s): s is number => typeof s === "number"),
       );
       const status = statuses.size === 1 ? [...statuses][0] : undefined;
-      const detail = res.errors.map(describeGraphQLError).join("; ");
+      const detail = describeAniListErrors(res.errors) ?? "";
       throw new ApiError({
         code: status !== undefined ? classifyStatus(status, detail) : "bad_request",
         status,
@@ -193,16 +193,6 @@ export class GraphQLClient {
     }
     return res.data;
   }
-}
-
-/** A validation error's `message` is just the generic label "validation" —
- *  append the actual per-field reasons from `validation` when present. */
-function describeGraphQLError(err: GraphQLErrorEntry): string {
-  if (!err.validation || Object.keys(err.validation).length === 0) return err.message;
-  const detail = Object.entries(err.validation)
-    .map(([field, msgs]) => `${field}: ${msgs.join(", ")}`)
-    .join("; ");
-  return `${err.message} (${detail})`;
 }
 
 /** Recursively drop `undefined` entries (one level of nesting is enough for

@@ -1,3 +1,4 @@
+import { assertWritten } from "../../lib/errors.ts";
 import type { AniListContext } from "./context.ts";
 import type { FavouriteKind } from "./enums.ts";
 
@@ -40,7 +41,8 @@ export async function toggleFavourite(
   const data = await ctx.gql.request<{
     ToggleFavourite: Partial<Record<string, FavouritesPage | null>> | null;
   }>(query, { id }, ctx.requireAuth());
-  const page = data.ToggleFavourite?.[connection];
+  const toggled = assertWritten(data.ToggleFavourite, "ToggleFavourite");
+  const page = toggled[connection];
   // In the returned page → now a favourite. Absent from a complete list → not
   // one. Absent but the list continues past this page → can't tell.
   const isFavourite = page?.nodes?.some((n) => n.id === id)
@@ -48,5 +50,5 @@ export async function toggleFavourite(
     : page?.pageInfo?.hasNextPage === false
       ? false
       : null;
-  return { favourites: data.ToggleFavourite, isFavourite };
+  return { favourites: toggled, isFavourite };
 }

@@ -8,12 +8,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
-- Mark the `.mcpb` manifest as `prompts_generated`, so clients ask the server for its prompts.
+- Mark the `.mcpb` manifest as `prompts_generated`, so clients ask the server for its prompts. [fbe7f13](https://github.com/Grinv/anilist-mcp-server/commit/fbe7f13)
 
 ### Changed
 
-- `npx anilist-mcp-server` no longer installs any packages: the bundle already contains its runtime code.
-- Update `@modelcontextprotocol/server` to 2.4.0.
+- `npx anilist-mcp-server` no longer installs any packages: the bundle already contains its runtime code. [fbe7f13](https://github.com/Grinv/anilist-mcp-server/commit/fbe7f13)
+- Update `@modelcontextprotocol/server` to 2.4.0. [fbe7f13](https://github.com/Grinv/anilist-mcp-server/commit/fbe7f13)
 
 ## [0.11.0] - 2026-10-22
 

@@ -8,12 +8,24 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Attach an RFC 9457 problem (`type`, `title`, `detail`, `retryable`, …) to every tool error in `_meta`, documented in `docs/errors.md`. [a29f426](https://github.com/Grinv/anilist-mcp-server/commit/a29f426)
 - Return a user's account privacy (`PUBLIC`, `SEMI_PUBLIC` or `PRIVATE`) from the user tools. [2c9359c](https://github.com/Grinv/anilist-mcp-server/commit/2c9359c)
 - Let `update_user` set whether adult-only media shows in search, in quick search and in others' activity. [2c9359c](https://github.com/Grinv/anilist-mcp-server/commit/2c9359c)
 
 ### Changed
 
+- **BREAKING:** Reword tool error texts: one wording per error type, with AniList's own reason quoted. [a29f426](https://github.com/Grinv/anilist-mcp-server/commit/a29f426)
 - **BREAKING:** Rename `averageScore` to `weightedScore` in tool results and `search_media`'s score filters, as AniList deprecated it. [db870d7](https://github.com/Grinv/anilist-mcp-server/commit/db870d7)
+
+### Fixed
+
+- Stop a tool call's AniList requests and retries when the client cancels it. [d442e1d](https://github.com/Grinv/anilist-mcp-server/commit/d442e1d) [f52bb09](https://github.com/Grinv/anilist-mcp-server/commit/f52bb09)
+- Say to log in again when AniList rejects the token, instead of calling the request invalid. [8191dea](https://github.com/Grinv/anilist-mcp-server/commit/8191dea)
+- Tell AniList's outage, its firewall block and a real permission denial apart, each with its own advice. [64d702c](https://github.com/Grinv/anilist-mcp-server/commit/64d702c)
+- Stop retrying a rate-limited request before AniList's `Retry-After`; say when to retry instead. [64d702c](https://github.com/Grinv/anilist-mcp-server/commit/64d702c)
+- Point a failed login at `ANILIST_CLIENT_ID`/`ANILIST_CLIENT_SECRET` when AniList rejects them. [f52bb09](https://github.com/Grinv/anilist-mcp-server/commit/f52bb09)
+- Report a malformed tool result as an internal error, saying when a write already applied, instead of a schema dump. [d442e1d](https://github.com/Grinv/anilist-mcp-server/commit/d442e1d) [f52bb09](https://github.com/Grinv/anilist-mcp-server/commit/f52bb09)
+- Log unexpected errors with their stack, and mask bare tokens in the log. [be76493](https://github.com/Grinv/anilist-mcp-server/commit/be76493)
 
 ## [0.11.1] - 2026-11-27
 

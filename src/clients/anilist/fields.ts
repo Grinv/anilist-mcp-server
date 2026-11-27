@@ -257,6 +257,7 @@ export const USER_FIELDS = `
   donatorBadge
   isFollowing
   isFollower
+  privacy
 `;
 
 /** A user's bio text — always appended for get_user_profile/get_full_user_info/
@@ -283,6 +284,7 @@ export const USER_DETAIL_FIELDS = `
   options {
     titleLanguage displayAdultContent airingNotifications profileColor timezone
     activityMergeTime staffNameLanguage restrictMessagesToFollowing
+    includeAdultContentInSearch includeAdultContentInQuickSearch displayAdultActivities
     notificationOptions { type enabled }
     disabledListActivity { type disabled }
   }

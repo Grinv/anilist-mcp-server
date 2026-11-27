@@ -119,6 +119,9 @@ export interface UpdateUserFields {
   about?: string;
   titleLanguage?: TitleLanguage;
   displayAdultContent?: boolean;
+  includeAdultContentInSearch?: boolean;
+  includeAdultContentInQuickSearch?: boolean;
+  displayAdultActivities?: boolean;
   airingNotifications?: boolean;
   scoreFormat?: ScoreFormat;
   rowOrder?: string;
@@ -146,6 +149,7 @@ export async function updateUser(ctx: AniListContext, fields: UpdateUserFields):
     $notificationOptions:[NotificationOptionInput],$timezone:String,$activityMergeTime:Int,
     $staffNameLanguage:UserStaffNameLanguage,$restrictMessagesToFollowing:Boolean,
     $disabledListActivity:[ListActivityOptionInput],
+    $includeAdultContentInSearch:Boolean,$includeAdultContentInQuickSearch:Boolean,$displayAdultActivities:Boolean,
     $animeListOptions:MediaListOptionsInput,$mangaListOptions:MediaListOptionsInput
   ){
     UpdateUser(
@@ -154,12 +158,16 @@ export async function updateUser(ctx: AniListContext, fields: UpdateUserFields):
       profileColor:$profileColor,donatorBadge:$donatorBadge,notificationOptions:$notificationOptions,
       timezone:$timezone,activityMergeTime:$activityMergeTime,staffNameLanguage:$staffNameLanguage,
       restrictMessagesToFollowing:$restrictMessagesToFollowing,disabledListActivity:$disabledListActivity,
-      animeListOptions:$animeListOptions,mangaListOptions:$mangaListOptions
+      animeListOptions:$animeListOptions,mangaListOptions:$mangaListOptions,
+      includeAdultContentInSearch:$includeAdultContentInSearch,
+      includeAdultContentInQuickSearch:$includeAdultContentInQuickSearch,
+      displayAdultActivities:$displayAdultActivities
     ){
       id name about(asHtml:false) donatorBadge
       options{
         titleLanguage displayAdultContent airingNotifications profileColor timezone
         activityMergeTime staffNameLanguage restrictMessagesToFollowing
+        includeAdultContentInSearch includeAdultContentInQuickSearch displayAdultActivities
         notificationOptions{type enabled}
         disabledListActivity{type disabled}
       }

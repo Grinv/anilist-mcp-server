@@ -104,6 +104,9 @@ const userOptionsFields = {
       activityMergeTime: z.int().nonnegative().nullish(),
       staffNameLanguage: z.string().nullish(),
       restrictMessagesToFollowing: z.boolean().nullish(),
+      includeAdultContentInSearch: z.boolean().nullish(),
+      includeAdultContentInQuickSearch: z.boolean().nullish(),
+      displayAdultActivities: z.boolean().nullish(),
       notificationOptions: z.array(notificationOptionOut).nullish(),
       disabledListActivity: z.array(listActivityOptionOut).nullish(),
     })
@@ -146,6 +149,10 @@ const userProfileObject = z
     donatorBadge: donatorBadgeOut,
     isFollowing: z.boolean().nullish(),
     isFollower: z.boolean().nullish(),
+    privacy: z
+      .string()
+      .nullish()
+      .describe("The account's privacy setting: PUBLIC, SEMI_PUBLIC or PRIVATE."),
     ...userOptionsFields,
   })
   .loose();
@@ -177,25 +184,12 @@ const userStatsObject = z
   })
   .loose();
 
-const fullUserObject = z
-  .object({
-    id: anilistId,
-    name: z.string().nullish(),
-    about: z.string().nullish(),
-    avatar: z.object({ large: z.httpUrl().nullish() }).nullish(),
-    bannerImage: z.httpUrl().nullish(),
-    siteUrl: z.httpUrl().nullish(),
-    donatorTier: z.int().nonnegative().nullish(),
-    donatorBadge: donatorBadgeOut,
-    isFollowing: z.boolean().nullish(),
-    isFollower: z.boolean().nullish(),
-    ...userOptionsFields,
-    statistics: z
-      .object({ anime: animeStats.nullish(), manga: mangaStats.nullish() })
-      .loose()
-      .nullish(),
-  })
-  .loose();
+const fullUserObject = userProfileObject.extend({
+  statistics: z
+    .object({ anime: animeStats.nullish(), manga: mangaStats.nullish() })
+    .loose()
+    .nullish(),
+});
 
 const followResult = z
   .object({ id: anilistId, name: z.string().nullish(), isFollowing: z.boolean().nullish() })
@@ -380,7 +374,19 @@ export function registerUserTools(server: McpServer, client: AniListClient): voi
           displayAdultContent: z
             .boolean()
             .optional()
-            .describe("Whether to show adult content in search/browse."),
+            .describe("Whether to see media marked adult-only at all."),
+          includeAdultContentInSearch: z
+            .boolean()
+            .optional()
+            .describe("Whether adult-only media appears in search results."),
+          includeAdultContentInQuickSearch: z
+            .boolean()
+            .optional()
+            .describe("Whether adult-only media appears in quick search results."),
+          displayAdultActivities: z
+            .boolean()
+            .optional()
+            .describe("Whether to see other users' activity about adult-only media."),
           airingNotifications: z
             .boolean()
             .optional()

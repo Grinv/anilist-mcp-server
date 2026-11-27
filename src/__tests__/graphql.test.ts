@@ -230,11 +230,13 @@ test("skipCache bypasses the read cache even for a query", async (t) => {
   assert.equal(calls, 2, "skipCache must re-hit the network every time, never the cache");
 });
 
-test("throws when data is null with no errors", async (t) => {
-  const mock = mockFetch(() => jsonResponse({ data: null }));
-  installFetch(t, mock);
-  await assert.rejects(
-    () => client().request("query{ok}"),
-    (err: unknown) => err instanceof ApiError && err.code === "unknown",
-  );
+test("a 200 with data null, or a body that isn't a JSON object, is bad_response", async (t) => {
+  for (const body of [{ data: null }, null, "text"]) {
+    t.mock.method(globalThis, "fetch", mockFetch(() => jsonResponse(body)).fn);
+    await assert.rejects(
+      () => client().request("query{ok}"),
+      (err: unknown) => err instanceof ApiError && err.code === "bad_response",
+      JSON.stringify(body),
+    );
+  }
 });

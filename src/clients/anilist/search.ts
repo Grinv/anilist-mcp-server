@@ -1,7 +1,7 @@
 import type { AniListContext } from "./context.ts";
 import { fetchActivityFeed, type ActivityTypeFilter } from "./activity.ts";
 import { encodeFuzzyDateInt } from "./fuzzyDate.ts";
-import { ApiError, assertFound } from "../../lib/errors.ts";
+import { ToolError, assertFound } from "../../lib/errors.ts";
 import type { CategoryId, MediaId, UserId } from "./ids.ts";
 import type { MediaType } from "./enums.ts";
 import {
@@ -258,12 +258,11 @@ export async function searchActivity(
     // combines the two filters isn't verified (it needs an authenticated
     // probe), and an un-followed user would plausibly yield a silently empty
     // page — get_user_activity already answers the one-user question.
-    throw new ApiError({
-      code: "bad_request",
-      message:
-        "Pass either `user` (one user's activity) or `isFollowing: true` (activity from " +
+    throw new ToolError(
+      "invalid_arguments",
+      "Pass either `user` (one user's activity) or `isFollowing: true` (activity from " +
         "everyone you follow), not both.",
-    });
+    );
   }
   const header = isFollowing ? ctx.requireAuth() : ctx.authHeader();
   return fetchActivityFeed(

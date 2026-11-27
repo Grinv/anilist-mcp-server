@@ -80,8 +80,11 @@ before changing `src/clients/anilist/*.ts` or `src/lib/graphql.ts`.
 - Every response carries `X-RateLimit-Limit`/`X-RateLimit-Remaining`. A `429`
   additionally carries `Retry-After` (seconds) and `X-RateLimit-Reset` (unix
   ts), plus a GraphQL body `{data: null, errors: [{message, status: 429}]}`.
-  `lib/errors.ts`'s `classifyStatus()` (used by `lib/http.ts`) + backoff already handles this generically
-  (429 → retryable, honors `Retry-After`) — no AniList-specific code needed.
+  `lib/http.ts` retries a 429 only when its `Retry-After` fits within
+  `MAX_BACKOFF_MS` (8 s); a longer one (typically up to the 1-minute window
+  reset) is not waited out — the `rate_limited` error surfaces at once with
+  `retryAfterMs`, which the tool result reports as `retry_after_seconds`
+  (see [errors.md](errors.md#rate_limited)).
 - A separate, undocumented **burst limiter** also exists ("designed to stop
   you from hammering the API with too many requests in a very short period").
 - AniList is not currently accepting rate-limit-raise requests for most apps
@@ -95,8 +98,13 @@ before changing `src/clients/anilist/*.ts` or `src/lib/graphql.ts`.
   `{"errors":[{"message":"The AniList API has been temporarily disabled due to
 severe stability issues. Please check the official AniList Discord..." ,
 "status":403}],"data":null}` — distinct from the 429 rate-limit case, and
-  not something a client-side retry can fix. `lib/errors.ts`'s `classifyStatus()` (used by `lib/http.ts`)
-  maps 403 → `forbidden`, non-retryable, which is the right behavior here too.
+  not something a client-side retry can fix. A 403 means one of three
+  things, and `lib/errors.ts`'s `classifyStatus()` tells them apart by body:
+  this outage notice ("temporarily disabled") → `unavailable`; Cloudflare's
+  WAF page (see [Errors and validation](#errors-and-validation)) →
+  `blocked`; anything else → `forbidden` (a real permission denial). All
+  three are non-retryable. `lib/graphql.ts` applies the same check to a 403
+  embedded in a 200's `errors[]`.
 - AniList may also manually IP-block excessive traffic (rare); blocked
   requests never reach their origin servers.
 - Adult content ("Ecchi" is explicitly **not** considered adult by AniList,
@@ -124,7 +132,7 @@ not be greater than 100."]}}`. Both `lib/http.ts`'s `parseErrorMessage()`
 - **A WAF block is an HTML page, not JSON**: an injection-shaped search term
   (e.g. `"OR 1=1 --`) gets a Cloudflare 403 page titled "Attention Required!
   | Cloudflare" (confirmed live 2026-10-21); `lib/http.ts` reduces any HTML
-  error body to its `<title>`.
+  error body to its `<title>` and classifies this one as `blocked`.
 - **Every `Delete*` mutation answers an unknown id with a 400**, not
   `{deleted: false}`: `validation (id: The selected id is invalid.)`, also
   for an id deleted a moment ago (confirmed live 2026-10-21 on all four);

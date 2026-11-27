@@ -94,7 +94,9 @@ export class GraphQLClient {
           code: err.code,
           message: err.message,
           status: err.status,
+          detail: err.detail,
           retryable: err.retryable,
+          retryAfterMs: err.retryAfterMs,
           authenticated: err.authenticated,
           writeMayHaveApplied: true,
           cause: err,
@@ -121,41 +123,48 @@ export class GraphQLClient {
     nonIdempotent = false,
   ): Promise<T> {
     const body = JSON.stringify({ query, variables: stripUndefined(variables) });
-    // AniList's rate-limit (429) and outage (403) responses carry a non-2xx
-    // status, which lib/http.ts already turns into an ApiError via
-    // classifyStatus() before we ever see the body (429 retryable, 403 not —
-    // see docs/api-references.md) — no special-casing needed here for those. This only has to handle 2xx responses that still carry
-    // a GraphQL `errors[]` envelope (e.g. query/argument validation errors).
-    const res = await this.#http.requestJson<GraphQLResponse<T>>("", {
+    // A non-2xx response (429, an outage 403, ...) is already an ApiError from
+    // lib/http.ts. This only has to handle a 2xx that still carries a GraphQL
+    // `errors[]` envelope (e.g. query/argument validation errors). AniList is
+    // all-or-nothing: any root-field error nulls the whole `data`, so any
+    // errors[] entry fails the request.
+    const res = await this.#http.requestJson<GraphQLResponse<T> | null>("", {
       method: "POST",
       body,
       ...(authHeader ? { headers: authHeader } : {}),
       nonIdempotent,
     });
+    if (res === null || typeof res !== "object") {
+      throw new ApiError({
+        code: "bad_response",
+        message: "AniList's response is not a JSON object",
+      });
+    }
     if (res.errors?.length) {
       // Most inline errors[] entries carry no `status` (e.g. query/argument
       // validation) and stay classified as bad_request. Some do carry one
       // (e.g. a 404/401 embedded in a 200 response) — classify those the
-      // same way a real HTTP status would be, so messageFor() (lib/result.ts)
-      // gives its more specific not_found/unauthorized/etc. advice instead of
-      // the generic "rejected as invalid" bad_request message. Only trust a
-      // status when every entry that has one agrees — a response mixing an
-      // unrelated statused error with a genuine unstatused validation error
-      // shouldn't have the whole thing misclassified off the unrelated one.
+      // same way a real HTTP status would be. Only trust a status when every
+      // entry that has one agrees — a response mixing an unrelated statused
+      // error with a genuine unstatused validation error shouldn't have the
+      // whole thing misclassified off the unrelated one.
       const statuses = new Set(
         res.errors.map((e) => e.status).filter((s): s is number => typeof s === "number"),
       );
       const status = statuses.size === 1 ? [...statuses][0] : undefined;
-      const classified = status !== undefined ? classifyStatus(status) : undefined;
+      const detail = res.errors.map(describeGraphQLError).join("; ");
       throw new ApiError({
-        code: classified?.code ?? "bad_request",
+        code: status !== undefined ? classifyStatus(status, detail) : "bad_request",
         status,
-        retryable: classified?.retryable,
-        message: res.errors.map(describeGraphQLError).join("; "),
+        detail,
+        message: detail,
       });
     }
     if (res.data === null || res.data === undefined) {
-      throw new ApiError({ code: "unknown", message: "AniList returned no data for this query" });
+      throw new ApiError({
+        code: "bad_response",
+        message: "AniList returned no data for this query",
+      });
     }
     return res.data;
   }

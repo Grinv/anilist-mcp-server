@@ -1,19 +1,48 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { classifyStatus, redact } from "../lib/errors.ts";
+import { ApiError, classifyStatus, redact } from "../lib/errors.ts";
 
-test("classifyStatus maps HTTP codes to error codes and retryability", () => {
-  assert.equal(classifyStatus(401).code, "unauthorized");
-  assert.equal(classifyStatus(401).retryable, false);
-  assert.equal(classifyStatus(403).code, "forbidden");
-  assert.equal(classifyStatus(404).code, "not_found");
-  assert.equal(classifyStatus(304).code, "not_modified");
-  assert.equal(classifyStatus(405).code, "bad_request");
-  assert.equal(classifyStatus(422).code, "bad_request");
-  assert.equal(classifyStatus(429).code, "rate_limited");
-  assert.equal(classifyStatus(429).retryable, true);
-  assert.equal(classifyStatus(503).code, "server_error");
-  assert.equal(classifyStatus(503).retryable, true);
+test("classifyStatus maps HTTP codes to error codes, and ApiError defaults retryable per code", () => {
+  assert.equal(classifyStatus(401), "unauthorized");
+  assert.equal(classifyStatus(403), "forbidden");
+  assert.equal(classifyStatus(404), "not_found");
+  assert.equal(classifyStatus(304), "unknown");
+  assert.equal(classifyStatus(405), "bad_request");
+  assert.equal(classifyStatus(422), "bad_request");
+  assert.equal(classifyStatus(429), "rate_limited");
+  assert.equal(classifyStatus(503), "server_error");
+  assert.equal(new ApiError({ code: "unauthorized", message: "" }).retryable, false);
+  assert.equal(new ApiError({ code: "rate_limited", message: "" }).retryable, true);
+  assert.equal(new ApiError({ code: "server_error", message: "" }).retryable, true);
+  assert.equal(new ApiError({ code: "unavailable", message: "" }).retryable, false);
+  assert.equal(new ApiError({ code: "cancelled", message: "" }).retryable, false);
+  assert.equal(
+    new ApiError({ code: "server_error", message: "", retryable: false }).retryable,
+    false,
+  );
+});
+
+test("classifyStatus tells AniList's three kinds of 403 apart by body", () => {
+  // AniList's outage notice (docs/api-references.md, verbatim shape).
+  const outage = JSON.stringify({
+    errors: [
+      {
+        message:
+          "The AniList API has been temporarily disabled due to severe stability issues. " +
+          "Please check the official AniList Discord for updates.",
+        status: 403,
+      },
+    ],
+    data: null,
+  });
+  assert.equal(classifyStatus(403, outage), "unavailable");
+  // Cloudflare's WAF page (confirmed live for the search term `"OR 1=1 --`).
+  const waf =
+    '<!DOCTYPE html>\n<!--[if lt IE 7]> <html class="no-js ie6 oldie" lang="en-US"> <![endif]-->\n' +
+    "<head>\n<title>Attention Required! | Cloudflare</title>\n</head><body>…</body></html>";
+  assert.equal(classifyStatus(403, waf), "blocked");
+  const denied = JSON.stringify({ errors: [{ message: "Forbidden.", status: 403 }], data: null });
+  assert.equal(classifyStatus(403, denied), "forbidden");
 });
 
 test("redact removes bearer tokens and credential params", () => {

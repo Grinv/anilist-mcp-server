@@ -1,5 +1,5 @@
 import type { AniListContext } from "./context.ts";
-import { ApiError, assertFound } from "../../lib/errors.ts";
+import { ToolError, assertFound } from "../../lib/errors.ts";
 import type { CharacterId, StaffId } from "./ids.ts";
 import type { BirthdayKind, MediaType } from "./enums.ts";
 import {
@@ -50,12 +50,11 @@ export async function getStaff(
   // characterMedia has no `type` argument, so rather than silently ignoring
   // one, say so before any request.
   if (voice && type !== undefined) {
-    throw new ApiError({
-      code: "bad_request",
-      message:
-        '`type` only filters production credits; omit it with `credits: "voice"` (voice ' +
+    throw new ToolError(
+      "invalid_arguments",
+      '`type` only filters production credits; omit it with `credits: "voice"` (voice ' +
         "roles are AniList's anime/game casting, not split by media type).",
-    });
+    );
   }
   const query = voice
     ? `query($id:Int,${STAFF_VOICE_VARS}){Staff(id:$id){${STAFF_FIELDS}${PERSON_DESCRIPTION_FIELD}${STAFF_VOICE_FIELDS}}}`

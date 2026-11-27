@@ -11,6 +11,6 @@ export interface AniListContext {
    *  favourite is always auth-required, but some reads vary). */
   authHeader(): Record<string, string> | undefined;
   /** Auth header for an operation that requires login; throws an
-   *  `unauthorized` ApiError if no usable token is configured. */
+   *  `login_required` ToolError if no usable token is configured. */
   requireAuth(): Record<string, string>;
 }

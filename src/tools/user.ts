@@ -5,7 +5,8 @@ import * as user from "../clients/anilist/user.ts";
 import type { UpdateUserFields } from "../clients/anilist/user.ts";
 import { TITLE_LANGUAGES, SCORE_FORMATS, STAFF_NAME_LANGUAGES } from "../clients/anilist/enums.ts";
 import * as activity from "../clients/anilist/activity.ts";
-import { jsonResult, errorResult } from "../lib/result.ts";
+import { jsonResult } from "../lib/result.ts";
+import { ToolError } from "../lib/errors.ts";
 import { guard } from "./guard.ts";
 import {
   pageInfoSchema,
@@ -534,7 +535,10 @@ export function registerUserTools(server: McpServer, client: AniListClient): voi
         // Like update_list_entry: an empty call would still be a write (and
         // clear the read cache) that changes nothing.
         if (Object.values(args).every((value) => value === undefined)) {
-          return errorResult("No values to apply — set at least one profile field to change.");
+          throw new ToolError(
+            "invalid_arguments",
+            "No values to apply — set at least one profile field to change.",
+          );
         }
         return jsonResult({ user: await user.updateUser(client.ctx(), args) });
       }),

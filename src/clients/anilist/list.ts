@@ -1,5 +1,5 @@
 import type { AniListContext } from "./context.ts";
-import { ApiError } from "../../lib/errors.ts";
+import { ToolError } from "../../lib/errors.ts";
 import type { MediaId, ListEntryId, UserId } from "./ids.ts";
 import type { MediaType, MediaListStatus, MediaListSort } from "./enums.ts";
 import { encodeFuzzyDateInt } from "./fuzzyDate.ts";
@@ -324,20 +324,19 @@ function orderAdvancedScores(
   // previously-configured category list survives turning the feature off,
   // so a non-empty list is not itself proof advanced scoring is enabled.
   if (!enabled) {
-    throw new ApiError({
-      code: "bad_request",
-      message: `Advanced scoring isn't enabled for ${isManga ? "manga" : "anime"} on this account.`,
-    });
+    throw new ToolError(
+      "invalid_arguments",
+      `Advanced scoring isn't enabled for ${isManga ? "manga" : "anime"} on this account.`,
+    );
   }
   const keys = Object.keys(advancedScores);
   const unknown = keys.filter((k) => !categories.includes(k));
   if (unknown.length) {
-    throw new ApiError({
-      code: "bad_request",
-      message:
-        `advancedScores keys (${unknown.join(", ")}) don't match this account's configured ` +
+    throw new ToolError(
+      "invalid_arguments",
+      `advancedScores keys (${unknown.join(", ")}) don't match this account's configured ` +
         `advanced scoring categories for ${isManga ? "manga" : "anime"}: ${categories.join(", ")}.`,
-    });
+    );
   }
   // AniList's advancedScores is also a raw 0-100-per-category scale.
   return categories.map((cat) => Math.round((advancedScores[cat] ?? 0) * 10));
@@ -352,12 +351,11 @@ export async function saveListEntry(
   if (input.advancedScores) {
     const { categoryLists, mediaType } = await getAdvancedScoringContext(ctx, header, input);
     if (!mediaType) {
-      throw new ApiError({
-        code: "bad_request",
-        message:
-          "Could not determine whether this entry is anime or manga, needed to order " +
+      throw new ToolError(
+        "invalid_arguments",
+        "Could not determine whether this entry is anime or manga, needed to order " +
           "advancedScores against the right category list.",
-      });
+      );
     }
     advancedScores = orderAdvancedScores(input.advancedScores, mediaType, categoryLists);
   }
@@ -464,12 +462,11 @@ export async function updateListEntries(
   // semantics to rely on), so refuse it here rather than touching every
   // named entry for no reason.
   if (Object.values(values).every((value) => value === undefined)) {
-    throw new ApiError({
-      code: "bad_request",
-      message:
-        "No values to apply — set at least one of status, score, progress, progressVolumes, " +
+    throw new ToolError(
+      "invalid_arguments",
+      "No values to apply — set at least one of status, score, progress, progressVolumes, " +
         "repeat, priority, private, notes, hiddenFromStatusLists, startedAt or completedAt.",
-    });
+    );
   }
   // Only `id` is selected: the caller gets a summary, not an echo. AniList
   // returns [MediaList], which at the full per-entry shape would be ~451

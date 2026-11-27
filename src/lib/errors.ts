@@ -1,33 +1,42 @@
-// Typed errors for upstream API failures. Clients throw `ApiError`; tool
-// handlers convert it into an MCP tool result (see lib/result.ts) so the
-// agent gets an actionable, non-protocol error.
+// Typed errors. Clients throw `ApiError` for an upstream failure (facts only:
+// code, status, AniList's own reason) and `ToolError` for a decision this
+// server makes itself (an argument check, a missing login). Tool-facing text
+// is written in one place, lib/result.ts; `message` is for logs only and may
+// hold a raw response body.
 
 export type ApiErrorCode =
-  | "unauthorized" // 401 — token missing/expired/invalid
-  | "forbidden" // 403 — insufficient permissions/scope
-  | "not_found" // 404 — no such resource
-  | "not_modified" // 304 — cached content still fresh (conditional request)
-  | "rate_limited" // 429 — slow down
-  | "server_error" // 5xx — upstream broke
+  | "unauthorized" // 401, token missing/expired/invalid
+  | "forbidden" // 403, a real permission denial
+  | "unavailable" // 403, AniList's "API temporarily disabled" outage notice
+  | "blocked" // 403, Cloudflare's WAF page (e.g. an injection-shaped search term)
+  | "not_found" // 404, or a lookup that resolved to null
+  | "rate_limited" // 429
+  | "server_error" // 5xx
   | "network" // connection failed
   | "timeout" // request aborted by our timeout
-  | "bad_request" // 400/405/422 — malformed or unsupported request
-  | "unknown";
+  | "cancelled" // request aborted by the caller (MCP notifications/cancelled); never sent
+  | "bad_request" // 400/405/422, malformed or unsupported request
+  | "bad_response" // a success status with a body we can't use (invalid JSON, empty, data:null)
+  | "unknown"; // any other upstream status
 
 export interface ApiErrorOptions {
   code: ApiErrorCode;
+  /** For logs only; may hold a raw response body. */
   message: string;
+  /** AniList's own (short) reason, e.g. a GraphQL errors[].message with its
+   *  validation details or an HTML page's <title>, for the tool-facing text. */
+  detail?: string;
   status?: number;
+  /** Override KIND[code].transient for one occurrence. */
   retryable?: boolean;
+  /** Retry-After hint, in ms. */
+  retryAfterMs?: number;
   cause?: unknown;
-  /** Whether the request that produced this error carried an Authorization
-   *  header. Lets messageFor() (lib/result.ts) tell "no credentials were
-   *  sent at all" apart from "credentials were sent but still rejected" for
-   *  401/403 — those two cases need very different actionable advice. */
+  /** Whether the request carried an Authorization header: a 401 with no
+   *  token sent ("log in") needs different advice than one with a token. */
   authenticated?: boolean;
   /** Set on a mutation that failed with a timeout, network error or 5xx:
-   *  AniList may still have applied it, so messageFor() (lib/result.ts) says
-   *  to check before retrying instead of its usual "please retry". */
+   *  AniList may still have applied it. */
   writeMayHaveApplied?: boolean;
 }
 
@@ -35,6 +44,8 @@ export class ApiError extends Error {
   readonly code: ApiErrorCode;
   readonly status: number | undefined;
   readonly retryable: boolean;
+  readonly detail: string | undefined;
+  readonly retryAfterMs: number | undefined;
   readonly authenticated: boolean | undefined;
   readonly writeMayHaveApplied: boolean;
 
@@ -43,23 +54,61 @@ export class ApiError extends Error {
     this.name = "ApiError";
     this.code = opts.code;
     this.status = opts.status;
-    this.retryable = opts.retryable ?? false;
+    this.retryable = opts.retryable ?? KIND[opts.code].transient;
+    this.detail = opts.detail;
+    this.retryAfterMs = opts.retryAfterMs;
     this.authenticated = opts.authenticated;
     this.writeMayHaveApplied = opts.writeMayHaveApplied ?? false;
   }
 }
 
-/** Map an HTTP status code to an ApiErrorCode and whether a retry may help. */
-export function classifyStatus(status: number): { code: ApiErrorCode; retryable: boolean } {
-  if (status === 304) return { code: "not_modified", retryable: false };
-  if (status === 401) return { code: "unauthorized", retryable: false };
-  if (status === 403) return { code: "forbidden", retryable: false };
-  if (status === 404) return { code: "not_found", retryable: false };
-  if (status === 429) return { code: "rate_limited", retryable: true };
-  if (status === 400 || status === 405 || status === 422)
-    return { code: "bad_request", retryable: false };
-  if (status >= 500) return { code: "server_error", retryable: true };
-  return { code: "unknown", retryable: false };
+/** `transient`: retrying soon can help, so HttpClient retries it and the
+ *  tool's problem says so. A Record, so a new code can't lack an entry. */
+const KIND: Record<ApiErrorCode, { transient: boolean }> = {
+  unauthorized: { transient: false },
+  forbidden: { transient: false },
+  // AniList switches its API off for hours during an outage; a retry within
+  // seconds can't help (docs/api-references.md).
+  unavailable: { transient: false },
+  blocked: { transient: false }, // the same request content is blocked again
+  not_found: { transient: false },
+  rate_limited: { transient: true },
+  server_error: { transient: true },
+  network: { transient: true },
+  timeout: { transient: true },
+  cancelled: { transient: false }, // the caller's own decision
+  bad_request: { transient: false },
+  bad_response: { transient: false },
+  unknown: { transient: false },
+};
+
+/** A failure this server decides on itself, with its own tool-facing sentence. */
+export type ToolErrorCode = "invalid_arguments" | "login_required" | "not_configured";
+
+export class ToolError extends Error {
+  readonly code: ToolErrorCode;
+
+  constructor(code: ToolErrorCode, sentence: string, options?: { cause?: unknown }) {
+    super(sentence, options);
+    this.name = "ToolError";
+    this.code = code;
+  }
+}
+
+/** Map an HTTP status (and, for a 403, its body: AniList's outage notice and
+ *  Cloudflare's block page both use 403) to an ApiErrorCode. */
+export function classifyStatus(status: number, body = ""): ApiErrorCode {
+  if (status === 401) return "unauthorized";
+  if (status === 403) {
+    if (/temporarily disabled/i.test(body)) return "unavailable";
+    if (/<title>[^<]*cloudflare/i.test(body)) return "blocked";
+    return "forbidden";
+  }
+  if (status === 404) return "not_found";
+  if (status === 429) return "rate_limited";
+  if (status === 400 || status === 405 || status === 422) return "bad_request";
+  if (status >= 500) return "server_error";
+  return "unknown";
 }
 
 /** Throw a standard not-found ApiError if an upstream single-resource lookup
@@ -67,9 +116,9 @@ export function classifyStatus(status: number): { code: ApiErrorCode; retryable:
  *  this for some singular fields (e.g. a nested `Media(id){ recommendations }`
  *  lookup) even where a sibling top-level query for the same ID reliably
  *  errors with a real HTTP 404 instead. */
-export function assertFound<T>(value: T | null | undefined, message: string): T {
+export function assertFound<T>(value: T | null | undefined, sentence: string): T {
   if (value === null || value === undefined) {
-    throw new ApiError({ code: "not_found", message });
+    throw new ApiError({ code: "not_found", message: sentence, detail: sentence });
   }
   return value;
 }

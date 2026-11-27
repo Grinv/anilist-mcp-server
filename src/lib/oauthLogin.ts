@@ -14,7 +14,7 @@ import { createServer, type Server } from "node:http";
 import { randomBytes } from "node:crypto";
 import { spawn } from "node:child_process";
 import { platform } from "node:os";
-import { ApiError } from "./errors.ts";
+import { ToolError } from "./errors.ts";
 
 /** A random CSRF `state` value for one login attempt. */
 export function generateState(): string {
@@ -38,12 +38,10 @@ export function buildAuthorizeUrl(opts: {
 }
 
 /** Extract the `code` from a redirected URL, a bare `?code=…` query, or a raw
- *  code string. Throws an `ApiError` (code: "bad_request") with the OAuth
+ *  code string. Throws a `ToolError` (invalid_arguments) with the OAuth
  *  `error` when the redirect denied access — these are anticipated user
- *  outcomes (e.g. clicking "Deny"), not unexpected failures, so they get the
- *  same clean "request was rejected as invalid" message as any other
- *  validation error rather than guard()'s generic "Unexpected error" catch-all
- *  (which is what a plain `Error` thrown here would fall into instead). */
+ *  outcomes (e.g. clicking "Deny") in what the user pasted, not bugs, so they
+ *  must not fall into the generic internal-error path a plain `Error` would. */
 export function extractCode(redirect: string): string {
   const text = redirect.trim();
   // Not a full URL — maybe "?code=…&state=…" or just the code.
@@ -51,16 +49,13 @@ export function extractCode(redirect: string): string {
   if (params) {
     const err = params.get("error");
     if (err) {
-      throw new ApiError({ code: "bad_request", message: `authorization denied: ${err}` });
+      throw new ToolError("invalid_arguments", `AniList authorization was denied: ${err}.`);
     }
     const code = params.get("code");
     if (code) return code;
-    throw new ApiError({
-      code: "bad_request",
-      message: "no `code` found in the pasted redirect URL",
-    });
+    throw new ToolError("invalid_arguments", "No `code` found in the pasted redirect URL.");
   }
-  if (!text) throw new ApiError({ code: "bad_request", message: "empty redirect/code" });
+  if (!text) throw new ToolError("invalid_arguments", "The pasted redirect URL is empty.");
   return text; // treat the whole string as the bare code
 }
 

@@ -1,4 +1,4 @@
-import { ApiError } from "../../lib/errors.ts";
+import { ToolError } from "../../lib/errors.ts";
 
 /** AniList's `FuzzyDateInt` scalar is a single Int in `YyyyMmDd` form (e.g.
  *  `20140204`), distinct from `FuzzyDateInput` (the `{year,month,day}` object
@@ -15,10 +15,7 @@ export function encodeFuzzyDateInt(date?: {
   if (!date || date.year === undefined) return undefined;
   // YYYY00DD would silently act as "from January 1st", dropping the day.
   if (date.day !== undefined && date.month === undefined) {
-    throw new ApiError({
-      code: "bad_request",
-      message: "A date with a `day` also needs a `month`.",
-    });
+    throw new ToolError("invalid_arguments", "A date with a `day` also needs a `month`.");
   }
   return date.year * 10000 + (date.month ?? 0) * 100 + (date.day ?? 0);
 }

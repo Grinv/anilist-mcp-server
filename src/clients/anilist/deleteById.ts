@@ -15,17 +15,14 @@ export async function deleteById(
   label: string,
 ): Promise<{ deleted?: boolean }> {
   const header = ctx.requireAuth();
+  const sentence = `AniList reported this ${label} as not deleted — it may not exist (or was already deleted), or you may not own it.`;
   const notDeleted = (cause?: unknown) =>
-    new ApiError({
-      code: "not_found",
-      message: `AniList reported this ${label} as not deleted — it may not exist (or was already deleted), or you may not own it.`,
-      cause,
-    });
+    new ApiError({ code: "not_found", message: sentence, detail: sentence, cause });
   let data: Record<string, { deleted?: boolean } | null>;
   try {
     data = await ctx.gql.request(`mutation($id:Int){${mutation}(id:$id){deleted}}`, { id }, header);
   } catch (err) {
-    if (err instanceof ApiError && /selected id is invalid/i.test(err.message)) {
+    if (err instanceof ApiError && /selected id is invalid/i.test(err.detail ?? "")) {
       throw notDeleted(err);
     }
     throw err;

@@ -2,7 +2,7 @@ import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/server";
 import type { AniListClient } from "../clients/anilist.ts";
 import * as search from "../clients/anilist/search.ts";
-import { ApiError } from "../lib/errors.ts";
+import { ToolError } from "../lib/errors.ts";
 import { jsonResult } from "../lib/result.ts";
 import { guard } from "./guard.ts";
 import { activityItem, activityTypeFilter } from "./activity.ts";
@@ -337,13 +337,12 @@ const mediaSearchInput = z.strictObject({
  *  object for JSON Schema conversion. */
 function adultFilter(sfw: boolean, isAdult: boolean | undefined): boolean | undefined {
   if (sfw && isAdult === true) {
-    throw new ApiError({
-      code: "bad_request",
-      message:
-        "`sfw: true` excludes adult titles but `isAdult: true` asks for only adult titles — " +
+    throw new ToolError(
+      "invalid_arguments",
+      "`sfw: true` excludes adult titles but `isAdult: true` asks for only adult titles — " +
         "pass just one: `isAdult: true` for adult-only, or `sfw: true` (or `isAdult: false`) " +
         "to exclude them.",
-    });
+    );
   }
   return isAdult ?? (sfw ? false : undefined);
 }

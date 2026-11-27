@@ -28,7 +28,6 @@ test("apiErrorToResult produces an actionable message per error code", () => {
     // A real upstream 401 (status set) gets the generic templated text.
     ["forbidden", /denied access/i, false],
     ["not_found", /no matching resource|404/i, true],
-    ["not_modified", /not changed|304/i, true],
     ["rate_limited", /rate limit/i, true],
     ["server_error", /5xx|retry later/i, true],
     ["network", /network/i, true],

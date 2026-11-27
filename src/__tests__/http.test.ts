@@ -108,7 +108,7 @@ test("aborts on timeout and maps to a timeout error", async (t) => {
   );
 });
 
-test("caller-supplied signal aborts the request and maps to a network error", async (t) => {
+test("caller-supplied signal aborts the request and maps to cancelled, not retried", async (t) => {
   // Exercises the AbortSignal.any() merge branch (options.signal combined
   // with the internal timeout signal) — no current call site in this repo
   // actually passes options.signal, so this is otherwise untested code.
@@ -124,14 +124,15 @@ test("caller-supplied signal aborts the request and maps to a network error", as
   );
   installFetch(t, mock);
   const controller = new AbortController();
-  const result = client({ retries: 0, timeoutMs: 30000 }).requestJson("slow", {
+  const result = client({ retries: 2, timeoutMs: 30000 }).requestJson("slow", {
     signal: controller.signal,
   });
   controller.abort();
   await assert.rejects(
     () => result,
-    (err: unknown) => err instanceof ApiError && err.code === "network",
+    (err: unknown) => err instanceof ApiError && err.code === "cancelled" && !err.retryable,
   );
+  assert.equal(mock.calls.length, 1, "a cancelled request is never retried");
 });
 
 test("leaves out an empty statusText instead of a stray space before the detail", async (t) => {
@@ -178,6 +179,81 @@ test("an HTML error page is reduced to its <title>, not 500 characters of markup
   await assert.rejects(
     () => client().requestJson("blocked"),
     (err: unknown) =>
-      err instanceof ApiError && err.message === "HTTP 403: Attention Required! | Cloudflare",
+      err instanceof ApiError &&
+      err.code === "blocked" &&
+      err.detail === "Attention Required! | Cloudflare" &&
+      err.message === "HTTP 403: Attention Required! | Cloudflare",
   );
+});
+
+test("a 403 is classified by its body: outage notice, Cloudflare page, or a real denial", async (t) => {
+  // AniList's outage notice, verbatim shape from docs/api-references.md.
+  const outage =
+    "The AniList API has been temporarily disabled due to severe stability issues. Please " +
+    "check the official AniList Discord for updates.";
+  const cases: [Response, string, string][] = [
+    [
+      jsonResponse({ errors: [{ message: outage, status: 403 }], data: null }, { status: 403 }),
+      "unavailable",
+      outage,
+    ],
+    [
+      jsonResponse(
+        { errors: [{ message: "Forbidden.", status: 403 }], data: null },
+        { status: 403 },
+      ),
+      "forbidden",
+      "Forbidden.",
+    ],
+  ];
+  for (const [res, code, detail] of cases) {
+    t.mock.method(globalThis, "fetch", mockFetch(() => res).fn);
+    await assert.rejects(
+      () => client({ retries: 2 }).requestJson("x"),
+      (err: unknown) =>
+        err instanceof ApiError &&
+        err.code === code &&
+        err.status === 403 &&
+        err.detail === detail &&
+        !err.retryable,
+      code,
+    );
+  }
+});
+
+test("a 429 whose Retry-After exceeds the backoff cap is not waited out but surfaced with it", async (t) => {
+  // AniList's 429 shape (docs/api-references.md): Retry-After in seconds, up
+  // to the reset of its 1-minute window, plus a GraphQL error body.
+  const mock = mockFetch(() =>
+    jsonResponse(
+      { data: null, errors: [{ message: "Too Many Requests.", status: 429 }] },
+      { status: 429, headers: { "Retry-After": "57", "X-RateLimit-Remaining": "0" } },
+    ),
+  );
+  installFetch(t, mock);
+  const started = Date.now();
+  await assert.rejects(
+    () => client({ retries: 2 }).requestJson("x"),
+    (err: unknown) =>
+      err instanceof ApiError &&
+      err.code === "rate_limited" &&
+      err.retryable &&
+      err.retryAfterMs === 57_000 &&
+      err.detail === "Too Many Requests.",
+  );
+  assert.equal(mock.calls.length, 1, "a long Retry-After must not be retried early");
+  assert.ok(Date.now() - started < 1000, "and not waited out either");
+});
+
+test("a success status with an empty or non-JSON body is bad_response", async (t) => {
+  for (const res of [
+    new Response("", { status: 200 }),
+    new Response("<html><title>Captive portal</title></html>", { status: 200 }),
+  ]) {
+    t.mock.method(globalThis, "fetch", mockFetch(() => res).fn);
+    await assert.rejects(
+      () => client({ retries: 2 }).requestJson("x"),
+      (err: unknown) => err instanceof ApiError && err.code === "bad_response" && !err.retryable,
+    );
+  }
 });

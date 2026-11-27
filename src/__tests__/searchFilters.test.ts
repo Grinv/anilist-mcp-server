@@ -215,7 +215,7 @@ test("searchActivity rejects isFollowing + a numeric user too, before any fetch"
       search.searchActivity(client.ctx(), 7640432 as UserId, undefined, 1, 10, {
         isFollowing: true,
       }),
-    { code: "bad_request" },
+    { name: "ToolError", code: "invalid_arguments" },
   );
   assert.equal(mock.calls.length, 0);
 });

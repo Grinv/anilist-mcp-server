@@ -40,13 +40,14 @@ export async function withNumericNameHint<T>(
   } catch (err) {
     if (typeof user !== "string" || !/^\d+$/.test(user)) throw err;
     if (!(err instanceof ApiError) || err.code !== "not_found") throw err;
+    const detail =
+      `${(err.detail ?? "Not found").replace(/[.\s]*$/, ".")} "${user}" was looked up as a ` +
+      `username; to look up user ID ${user}, pass it as a number.`;
     throw new ApiError({
       code: "not_found",
       status: err.status,
-      message:
-        `${err.message.replace(/[.\s]*$/, ".")} "${user}" was looked up as a username; to ` +
-        `look up user ID ${user}, ` +
-        "pass it as a number.",
+      detail,
+      message: detail,
       cause: err,
     });
   }

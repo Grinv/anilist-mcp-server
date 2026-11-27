@@ -5,7 +5,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { jsonResponse, mockFetch, installFetch, connectServer } from "./helpers.ts";
 import { encodeFuzzyDateInt } from "../clients/anilist/fuzzyDate.ts";
-import { ApiError } from "../lib/errors.ts";
+import { ToolError } from "../lib/errors.ts";
 
 type Body = { query: string; variables: Record<string, unknown> };
 const bodyOf = (init: RequestInit | undefined): Body => JSON.parse(init?.body as string) as Body;
@@ -49,7 +49,7 @@ test("encodeFuzzyDateInt packs YYYYMMDD with 0 for a missing month/day", () => {
   assert.equal(encodeFuzzyDateInt(undefined), undefined);
   assert.throws(
     () => encodeFuzzyDateInt({ year: 2020, day: 15 }),
-    (err: unknown) => err instanceof ApiError && err.code === "bad_request",
+    (err: unknown) => err instanceof ToolError && err.code === "invalid_arguments",
     "a day without a month must not silently become YYYY00DD",
   );
 });

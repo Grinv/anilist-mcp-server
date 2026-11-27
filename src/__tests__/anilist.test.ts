@@ -15,7 +15,7 @@ import * as misc from "../clients/anilist/misc.ts";
 import * as notification from "../clients/anilist/notification.ts";
 import * as recommendation from "../clients/anilist/recommendation.ts";
 import * as people from "../clients/anilist/people.ts";
-import { ApiError } from "../lib/errors.ts";
+import { ApiError, ToolError } from "../lib/errors.ts";
 import type { TokenState } from "../lib/tokenStore.ts";
 import type {
   MediaId,
@@ -439,7 +439,10 @@ test("saveListEntry refuses without a configured access token", async () => {
   const client = new AniListClient(testConfig({}), silentLogger());
   await assert.rejects(
     () => list.saveListEntry(client.ctx(), { mediaId: id<MediaId>(1), status: "PLANNING" }),
-    (err: unknown) => err instanceof ApiError && err.code === "unauthorized",
+    (err: unknown) =>
+      err instanceof ToolError &&
+      err.code === "login_required" &&
+      /login_anilist/.test(err.message),
   );
 });
 
@@ -778,8 +781,8 @@ test("saveListEntry rejects advancedScores when advancedScoringEnabled is false,
     () =>
       list.saveListEntry(client.ctx(), { mediaId: id<MediaId>(42), advancedScores: { Story: 8 } }),
     (err: unknown) =>
-      err instanceof ApiError &&
-      err.code === "bad_request" &&
+      err instanceof ToolError &&
+      err.code === "invalid_arguments" &&
       /advanced scoring isn't enabled for anime/i.test(err.message),
   );
 });
@@ -799,14 +802,14 @@ test("saveListEntry rejects advancedScores keys that don't match the entry's act
 
   // "Typo" matches the MANGA list, but this entry resolves to ANIME — must
   // reject rather than silently accepting it against the wrong list. Must be
-  // a classified ApiError (bad_request), not a bare Error, so guard() can
-  // surface the specific message instead of a generic "Unexpected error".
+  // a ToolError (invalid_arguments), not a bare Error, so its sentence
+  // reaches the caller instead of a generic internal error.
   await assert.rejects(
     () =>
       list.saveListEntry(client.ctx(), { mediaId: id<MediaId>(42), advancedScores: { Typo: 5 } }),
     (err: unknown) =>
-      err instanceof ApiError &&
-      err.code === "bad_request" &&
+      err instanceof ToolError &&
+      err.code === "invalid_arguments" &&
       /don't match this account's configured advanced scoring categories for anime/.test(
         err.message,
       ),
@@ -859,7 +862,7 @@ test("saveListEntry throws (rather than silently defaulting to ANIME) when the m
   installFetch(t, mock);
   const client = new AniListClient(testConfig({ ANILIST_ACCESS_TOKEN: "tok" }), silentLogger());
 
-  // Must be a classified ApiError (bad_request), not a bare Error — see the
+  // Must be a ToolError (invalid_arguments), not a bare Error — see the
   // "Typo" test above for why.
   await assert.rejects(
     () =>
@@ -868,8 +871,8 @@ test("saveListEntry throws (rather than silently defaulting to ANIME) when the m
         advancedScores: { Story: 8 },
       }),
     (err: unknown) =>
-      err instanceof ApiError &&
-      err.code === "bad_request" &&
+      err instanceof ToolError &&
+      err.code === "invalid_arguments" &&
       /Could not determine whether this entry is anime or manga/.test(err.message),
   );
 });
@@ -1329,7 +1332,7 @@ test("startLogin refuses when no client id/secret is configured", async () => {
   const client = new AniListClient(testConfig({}), silentLogger());
   await assert.rejects(
     () => client.startLogin(),
-    (err: unknown) => err instanceof ApiError && err.code === "bad_request",
+    (err: unknown) => err instanceof ToolError && err.code === "not_configured",
   );
 });
 
@@ -1395,7 +1398,9 @@ test("submitRedirect rejects a state that doesn't match the login attempt that s
   await assert.rejects(
     () => client.submitRedirect(`http://localhost:41825/callback?code=X&state=wrong-${state}`),
     (err: unknown) =>
-      err instanceof ApiError && err.code === "unauthorized" && /state mismatch/i.test(err.message),
+      err instanceof ToolError &&
+      err.code === "invalid_arguments" &&
+      /state mismatch/i.test(err.message),
   );
 });
 
@@ -1412,8 +1417,8 @@ test("submitRedirect without a login in progress is rejected before any token ex
   await assert.rejects(
     () => client.submitRedirect("http://localhost:8082/callback?code=X&state=anything"),
     (err: unknown) =>
-      err instanceof ApiError &&
-      err.code === "bad_request" &&
+      err instanceof ToolError &&
+      err.code === "invalid_arguments" &&
       /run login_anilist/i.test(err.message),
   );
   assert.equal(mock.calls.length, 0, "no token exchange without a login in progress");
@@ -1434,8 +1439,8 @@ test("submitRedirect with a bare code after login_anilist asks for the full URL"
   await assert.rejects(
     () => client.submitRedirect("BARECODE"),
     (err: unknown) =>
-      err instanceof ApiError &&
-      err.code === "bad_request" &&
+      err instanceof ToolError &&
+      err.code === "invalid_arguments" &&
       /full redirected URL/.test(err.message),
   );
   assert.equal(mock.calls.length, 0, "no token exchange for an unverifiable code");
@@ -1476,7 +1481,7 @@ test("query (not mutation) responses are cached, so a repeated read doesn't re-h
   assert.equal(calls, 1, "the second call must be served from cache, not the network");
 });
 
-test("a failed token exchange surfaces an actionable, classified ApiError (routed through the shared HttpClient)", async (t) => {
+test("a rejected authorization code surfaces as invalid_arguments with AniList's reason (routed through the shared HttpClient)", async (t) => {
   const mock = mockFetch(() => jsonResponse({ error: "invalid_grant" }, { status: 400 }));
   installFetch(t, mock);
   const client = new AniListClient(
@@ -1492,9 +1497,10 @@ test("a failed token exchange surfaces an actionable, classified ApiError (route
   await assert.rejects(
     () => client.submitRedirect(`http://localhost:41829/callback?code=BADCODE&state=${state}`),
     (err: unknown) =>
-      err instanceof ApiError &&
-      err.code === "bad_request" &&
-      /run login_anilist again/.test(err.message),
+      err instanceof ToolError &&
+      err.code === "invalid_arguments" &&
+      /run login_anilist again/.test(err.message) &&
+      /AniList said: "invalid_grant"/.test(err.message),
   );
   // A 400 on the token endpoint must not be retried — the code is single-use,
   // so replaying it would only ever fail again.
@@ -1526,7 +1532,7 @@ test("a failed token exchange leaves the pending state intact, so a later mismat
   // (still-failing) exchange instead of being rejected for the state mismatch.
   await assert.rejects(
     () => client.submitRedirect(`http://localhost:41826/callback?code=X&state=wrong-${state}`),
-    (err: unknown) => err instanceof ApiError && /state mismatch/i.test(err.message),
+    (err: unknown) => err instanceof ToolError && /state mismatch/i.test(err.message),
   );
 });
 
@@ -1539,7 +1545,7 @@ test("getNotifications requires auth — the Notification query has no userId ar
 
   await assert.rejects(
     () => notification.getNotifications(client.ctx(), {}),
-    (err: unknown) => err instanceof ApiError && err.code === "unauthorized",
+    (err: unknown) => err instanceof ToolError && err.code === "login_required",
   );
   assert.equal(mock.calls.length, 0);
 });

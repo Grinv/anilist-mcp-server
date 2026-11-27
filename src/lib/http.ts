@@ -1,6 +1,7 @@
 // Thin fetch wrapper shared by both API clients: timeouts, bounded retries
-// with exponential backoff (honoring Retry-After), a default User-Agent, and
-// uniform mapping of failures to ApiError.
+// with exponential backoff, a default User-Agent, and uniform mapping of
+// failures to ApiError. A Retry-After longer than MAX_BACKOFF_MS is not waited
+// out: the error surfaces with retryAfterMs, so the caller learns when to retry.
 import { ApiError, classifyStatus } from "./errors.ts";
 import type { Logger } from "./logger.ts";
 import { USER_AGENT } from "../version.ts";
@@ -55,7 +56,9 @@ export class HttpClient {
       } catch (err) {
         const apiErr = err instanceof ApiError ? err : toNetworkError(err);
         const retryable =
-          apiErr.retryable && (!options.nonIdempotent || apiErr.code === "rate_limited");
+          apiErr.retryable &&
+          (!options.nonIdempotent || apiErr.code === "rate_limited") &&
+          (apiErr.retryAfterMs ?? 0) <= MAX_BACKOFF_MS;
         if (!retryable || attempt >= retries) throw apiErr;
         const backoff = backoffMs(attempt, apiErr);
         this.#opts.logger.debug(
@@ -80,7 +83,28 @@ export class HttpClient {
       ...options.headers,
     };
 
+    // Which abort won, as an ApiError. fetch settles once the headers arrive,
+    // so a stalled body aborts later, through the res.text() await.
+    const abortError = (err: unknown): ApiError => {
+      if (options.signal?.aborted) {
+        return new ApiError({
+          code: "cancelled",
+          message: "Request cancelled by the caller",
+          cause: err,
+        });
+      }
+      if (timeoutSignal.aborted) {
+        return new ApiError({
+          code: "timeout",
+          message: `Request timed out after ${timeoutMs}ms`,
+          cause: err,
+        });
+      }
+      return toNetworkError(err);
+    };
+
     let res: Response;
+    let text: string;
     try {
       res = await fetch(url, {
         method: options.method ?? "GET",
@@ -88,33 +112,23 @@ export class HttpClient {
         ...(options.body === undefined ? {} : { body: options.body }),
         signal,
       });
+      if (!res.ok) throw await toHttpError(res, "Authorization" in headers);
+      text = await res.text();
     } catch (err) {
-      if (options.signal?.aborted) {
-        // Caller cancelled — propagate as a non-retryable abort.
-        throw new ApiError({ code: "network", message: "Request aborted by caller", cause: err });
-      }
-      if (timeoutSignal.aborted) {
-        throw new ApiError({
-          code: "timeout",
-          message: `Request timed out after ${timeoutMs}ms`,
-          retryable: true,
-          cause: err,
-        });
-      }
-      throw toNetworkError(err);
+      throw err instanceof ApiError ? err : abortError(err);
     }
 
-    if (!res.ok) throw await toHttpError(res, "Authorization" in headers);
-
-    if (res.status === 204) return undefined as T;
-    const text = await res.text();
-    if (text.length === 0) return undefined as T;
+    // A success status must carry JSON: an empty or non-JSON body (a proxy's
+    // page) is unusable, and only the caller knows the expected shape.
+    if (text.length === 0) {
+      throw new ApiError({ code: "bad_response", message: "Upstream returned an empty body" });
+    }
     try {
       return JSON.parse(text) as T;
     } catch (err) {
       throw new ApiError({
-        code: "unknown",
-        message: "Upstream returned invalid JSON",
+        code: "bad_response",
+        message: `Upstream returned invalid JSON: ${text.slice(0, 500)}`,
         cause: err,
       });
     }
@@ -122,17 +136,19 @@ export class HttpClient {
 }
 
 async function toHttpError(res: Response, authenticated: boolean): Promise<ApiError> {
-  const { code, retryable } = classifyStatus(res.status);
   let raw = "";
   try {
     raw = await res.text();
   } catch {
     /* ignore body read errors */
   }
-  // Prefer a structured `message`/`error` field; fall back to the raw body —
-  // or, for an HTML page (e.g. Cloudflare's WAF block on AniList), just its
-  // <title>, not 500 characters of markup.
-  const detail = parseErrorMessage(raw) ?? htmlTitle(raw) ?? raw.slice(0, 500);
+  // Prefer a structured `message`/`error` field; for an HTML page (e.g.
+  // Cloudflare's WAF block on AniList) just its <title>, not the markup; a
+  // short plain-text body as is. Anything else stays in the log message only.
+  const detail =
+    parseErrorMessage(raw) ??
+    htmlTitle(raw) ??
+    (raw && !/^\s*</.test(raw) && raw.length <= 200 ? raw.trim() : undefined);
   const retryAfter = parseRetryAfter(res.headers.get("retry-after"));
   // `statusText` is only appended when it's actually there: it comes back
   // empty over HTTP/2 (and through some proxies), which would otherwise
@@ -142,18 +158,18 @@ async function toHttpError(res: Response, authenticated: boolean): Promise<ApiEr
     ? `HTTP ${res.status} ${res.statusText}`
     : `HTTP ${res.status}`;
   return new ApiError({
-    code,
+    code: classifyStatus(res.status, raw),
     status: res.status,
-    retryable,
     authenticated,
-    message: `${statusLabel}${detail ? `: ${detail}` : ""}`,
-    ...(retryAfter === undefined ? {} : { cause: { retryAfterMs: retryAfter } }),
+    detail,
+    retryAfterMs: retryAfter,
+    message: raw ? `${statusLabel}: ${detail ?? raw.slice(0, 500)}` : statusLabel,
   });
 }
 
 function htmlTitle(raw: string): string | undefined {
   if (!/^\s*</.test(raw)) return undefined;
-  return /<title>([^<]*)<\/title>/i.exec(raw)?.[1]?.trim() || "HTML error page";
+  return /<title>([^<]*)<\/title>/i.exec(raw)?.[1]?.trim() || undefined;
 }
 
 // Many JSON APIs return an error envelope like { message } or { error }; GraphQL
@@ -196,14 +212,13 @@ function toNetworkError(err: unknown): ApiError {
   return new ApiError({
     code: "network",
     message: err instanceof Error ? `Network error: ${err.message}` : "Network error",
-    retryable: true,
     cause: err,
   });
 }
 
 function backoffMs(attempt: number, err: ApiError): number {
-  const hinted = (err.cause as { retryAfterMs?: number } | undefined)?.retryAfterMs;
-  if (typeof hinted === "number" && hinted > 0) return Math.min(hinted, MAX_BACKOFF_MS);
+  // Only a hint within MAX_BACKOFF_MS gets here (requestJson doesn't retry a longer one).
+  if (err.retryAfterMs !== undefined && err.retryAfterMs > 0) return err.retryAfterMs;
   const base = Math.min(MAX_BACKOFF_MS, 500 * 2 ** attempt);
   return base + Math.floor(base * 0.25 * deterministicJitter(attempt));
 }
@@ -216,7 +231,7 @@ function deterministicJitter(attempt: number): number {
 function parseRetryAfter(header: string | null): number | undefined {
   if (!header) return undefined;
   const seconds = Number(header);
-  if (Number.isFinite(seconds)) return seconds * 1000;
+  if (Number.isFinite(seconds)) return Math.max(0, seconds * 1000);
   const date = Date.parse(header);
   if (Number.isFinite(date)) return Math.max(0, date - Date.now());
   return undefined;

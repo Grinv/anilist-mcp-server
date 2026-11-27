@@ -5,7 +5,8 @@ import * as list from "../clients/anilist/list.ts";
 import type { BulkListEntryValues } from "../clients/anilist/list.ts";
 import type { MediaId, ListEntryId } from "../clients/anilist/ids.ts";
 import { MEDIA_LIST_SORTS } from "../clients/anilist/enums.ts";
-import { jsonResult, errorResult } from "../lib/result.ts";
+import { jsonResult } from "../lib/result.ts";
+import { ToolError } from "../lib/errors.ts";
 import { guard } from "./guard.ts";
 import {
   deleteResult,
@@ -557,7 +558,8 @@ export function registerListTools(server: McpServer, client: AniListClient): voi
         // Same rule as update_list_entries: an id-only call would still be a
         // write that changes nothing.
         if (Object.values(rest).every((value) => value === undefined)) {
-          return errorResult(
+          throw new ToolError(
+            "invalid_arguments",
             "No values to apply — set at least one field to change besides listEntryId.",
           );
         }

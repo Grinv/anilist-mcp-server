@@ -6,7 +6,7 @@ import * as favourites from "../clients/anilist/favourites.ts";
 import { FAVOURITE_KINDS, STAFF_LANGUAGES, CHARACTER_ROLES } from "../clients/anilist/enums.ts";
 import { jsonResult } from "../lib/result.ts";
 import { guard } from "./guard.ts";
-import { ApiError } from "../lib/errors.ts";
+import { ToolError } from "../lib/errors.ts";
 import type { MediaId, MalId } from "../clients/anilist/ids.ts";
 import { toUnixSeconds } from "../clients/anilist/fuzzyDate.ts";
 import type { MediaFormat } from "../clients/anilist/media.ts";
@@ -72,7 +72,7 @@ const malIdsSchema = z
 /** `ids` and `malIds` are two ways of naming the same thing, so exactly one
  *  must be given. Zod can't express that here without a refinement (which the
  *  SDK's JSON-Schema bridge would have to represent), so it's enforced in the
- *  handler and stated in both fields' descriptions — an ApiError, which
+ *  handler and stated in both fields' descriptions — a ToolError, which
  *  guard() turns into a normal actionable tool error rather than a throw. */
 async function fetchByEitherId(
   client: AniListClient,
@@ -83,13 +83,12 @@ async function fetchByEitherId(
   format: MediaFormat,
 ): Promise<unknown> {
   if ((ids === undefined) === (malIds === undefined)) {
-    throw new ApiError({
-      code: "bad_request",
-      message:
-        ids === undefined
-          ? "Pass `ids` (AniList IDs) or `malIds` (MyAnimeList IDs) — one of them is required."
-          : "Pass either `ids` or `malIds`, not both — they name the same titles two ways.",
-    });
+    throw new ToolError(
+      "invalid_arguments",
+      ids === undefined
+        ? "Pass `ids` (AniList IDs) or `malIds` (MyAnimeList IDs) — one of them is required."
+        : "Pass either `ids` or `malIds`, not both — they name the same titles two ways.",
+    );
   }
   return ids === undefined
     ? media.getMediaByMalId(client.ctx(), type, malIds!, includeStreamingEpisodes, format)

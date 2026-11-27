@@ -6,7 +6,7 @@ import {
   decodeJwtExpiry,
   listenForCode,
 } from "../lib/oauthLogin.ts";
-import { ApiError } from "../lib/errors.ts";
+import { ToolError } from "../lib/errors.ts";
 
 test("buildAuthorizeUrl has no PKCE params (AniList's Authorization Code grant doesn't use it)", () => {
   const url = new URL(
@@ -37,8 +37,9 @@ test("extractCode throws on an error redirect or a missing code", () => {
   assert.throws(() => extractCode("http://localhost:8082/callback?state=s"), /no `code`/i);
 });
 
-test("extractCode throws ApiError (bad_request), not a plain Error — so guard() gives a clean message instead of falling into its generic 'Unexpected error' catch-all", () => {
-  const isBadRequest = (err: unknown) => err instanceof ApiError && err.code === "bad_request";
+test("extractCode throws ToolError (invalid_arguments), not a plain Error — the pasted redirect is user input, not a bug", () => {
+  const isBadRequest = (err: unknown) =>
+    err instanceof ToolError && err.code === "invalid_arguments";
   assert.throws(
     () => extractCode("http://localhost:8082/callback?error=access_denied"),
     isBadRequest,

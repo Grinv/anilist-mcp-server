@@ -1,7 +1,7 @@
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/server";
 import type { AniListClient } from "../clients/anilist.ts";
-import { jsonResult, errorResult } from "../lib/result.ts";
+import { jsonResult } from "../lib/result.ts";
 import { guard } from "./guard.ts";
 
 export function registerLoginTools(server: McpServer, client: AniListClient): void {
@@ -56,12 +56,6 @@ export function registerLoginTools(server: McpServer, client: AniListClient): vo
     },
     () =>
       guard(async () => {
-        if (!client.canLogin()) {
-          return errorResult(
-            "ANILIST_CLIENT_ID and ANILIST_CLIENT_SECRET must both be set to log in. Register " +
-              "an app at anilist.co/settings/developer first.",
-          );
-        }
         const { authorizeUrl, redirectUri, listening } = await client.startLogin();
         return jsonResult({
           authorize_url: authorizeUrl,

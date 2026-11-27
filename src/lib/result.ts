@@ -37,7 +37,7 @@ function messageFor(err: ApiError): string {
     // Not "please retry": a timed-out or 5xx'd write may still have landed,
     // and repeating it re-flips a Toggle* or posts a duplicate.
     return (
-      `The write's outcome is unknown (${err.code}): ${err.message} AniList may still have ` +
+      `The write's outcome is unknown (${err.code}): ${reason(err)} AniList may still have ` +
       "applied it. Re-read the affected data before retrying — repeating a toggle undoes it, " +
       "and repeating a post duplicates it."
     );
@@ -55,7 +55,7 @@ function messageFor(err: ApiError): string {
       // network round trip, so no status) instead carries its own specific,
       // actionable message (e.g. "run login_anilist") — use that verbatim
       // rather than discarding it for either template.
-      if (err.status === undefined) return err.message;
+      if (err.status === undefined) return reason(err);
       return `${
         err.authenticated
           ? "The upstream service rejected this request (401) even though a token was sent. " +
@@ -95,30 +95,33 @@ function messageFor(err: ApiError): string {
       // (e.g. assertFound()'s "No thread found with ID 42.", or a delete
       // tool's "AniList reported this X as not deleted...") — surface it
       // instead of discarding it behind a generic "(404)" label.
-      return `No matching resource was found (404): ${err.message}`;
-    case "not_modified":
-      return `The content has not changed since the last request (304): ${err.message}`;
+      return `No matching resource was found (404): ${reason(err)}`;
     case "rate_limited":
-      return `Upstream rate limit hit (429): ${err.message} Please retry in a few seconds.`;
+      return `Upstream rate limit hit (429): ${reason(err)} Please retry in a few seconds.`;
     case "server_error":
-      return `The upstream service returned an error (5xx): ${err.message} Please retry later.`;
+      return `The upstream service returned an error (5xx): ${reason(err)} Please retry later.`;
     case "network":
       return (
-        `Could not reach the upstream service (network error): ${err.message} ` +
+        `Could not reach the upstream service (network error): ${reason(err)} ` +
         "Check connectivity and retry."
       );
     case "timeout":
-      return `The upstream request timed out: ${err.message} Please retry.`;
+      return `The upstream request timed out: ${reason(err)} Please retry.`;
     case "bad_request":
-      return `The request was rejected as invalid: ${err.message}`;
+      return `The request was rejected as invalid: ${reason(err)}`;
     default:
-      return `Unexpected error talking to the upstream service: ${err.message}`;
+      return `Unexpected error talking to the upstream service: ${reason(err)}`;
   }
+}
+
+// Transitional until toProblem: AniList's reason, else the log message.
+function reason(err: ApiError): string {
+  return err.detail ?? err.message;
 }
 
 /** AniList's own wording (e.g. "Invalid token", or its "API has been
  *  temporarily disabled" outage notice) — appended to the templated 401/403
  *  advice, which alone can't tell those cases apart. */
 function upstreamSaid(err: ApiError): string {
-  return `AniList said: ${err.message}`;
+  return `AniList said: ${reason(err)}`;
 }

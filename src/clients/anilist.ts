@@ -8,7 +8,7 @@
 import { GraphQLClient } from "../lib/graphql.ts";
 import { RateLimiter } from "../lib/rateLimit.ts";
 import { TtlCache } from "../lib/cache.ts";
-import { ApiError } from "../lib/errors.ts";
+import { ApiError, ToolError } from "../lib/errors.ts";
 import {
   TokenStore,
   TokenStateSchema,
@@ -104,10 +104,11 @@ export class AniListClient {
   #requireAuth(): Record<string, string> {
     const header = this.#authHeader();
     if (!header) {
-      throw new ApiError({
-        code: "unauthorized",
-        message: "Run login_anilist (or set ANILIST_ACCESS_TOKEN) before using this tool.",
-      });
+      throw new ToolError(
+        "login_required",
+        "This tool acts on your AniList account and no token is configured: run login_anilist " +
+          "(or set ANILIST_ACCESS_TOKEN) first.",
+      );
     }
     return header;
   }
@@ -134,10 +135,11 @@ export class AniListClient {
     options: { open?: (url: string) => void } = {},
   ): Promise<{ authorizeUrl: string; redirectUri: string; listening: boolean }> {
     if (!this.#config.auth.clientId || !this.#config.auth.clientSecret) {
-      throw new ApiError({
-        code: "bad_request",
-        message: "ANILIST_CLIENT_ID and ANILIST_CLIENT_SECRET must both be set to log in.",
-      });
+      throw new ToolError(
+        "not_configured",
+        "ANILIST_CLIENT_ID and ANILIST_CLIENT_SECRET must both be set to log in. Register an " +
+          "app at anilist.co/settings/developer first.",
+      );
     }
     const redirectUri = `http://localhost:${this.#config.oauthPort}/callback`;
     const state = generateState();
@@ -197,38 +199,35 @@ export class AniListClient {
     // that account's code. A restart between login_anilist and the paste
     // loses the state too — the user just runs login_anilist again.
     if (!this.#pendingState) {
-      throw new ApiError({
-        code: "bad_request",
-        message:
-          "No AniList login is in progress. Run login_anilist first, then submit the URL " +
+      throw new ToolError(
+        "invalid_arguments",
+        "No AniList login is in progress. Run login_anilist first, then submit the URL " +
           "your browser is redirected to.",
-      });
+      );
     }
     if (state === null) {
-      throw new ApiError({
-        code: "bad_request",
-        message:
-          "Paste the full redirected URL (it includes the `state` this login attempt is " +
+      throw new ToolError(
+        "invalid_arguments",
+        "Paste the full redirected URL (it includes the `state` this login attempt is " +
           "checked against), not just the code.",
-      });
+      );
     }
     if (state !== this.#pendingState) {
-      throw new ApiError({
-        code: "unauthorized",
-        message:
-          "OAuth state mismatch — this redirect doesn't match the login attempt that started " +
+      throw new ToolError(
+        "invalid_arguments",
+        "OAuth state mismatch — this redirect doesn't match the login attempt that started " +
           "it. Run login_anilist again.",
-      });
+      );
     }
     const redirectUri = `http://localhost:${this.#config.oauthPort}/callback`;
-    let json: { access_token?: string };
+    let json: { access_token?: unknown } | null;
     try {
       // Routed through the shared HttpClient (not a hand-rolled fetch()) so
       // the token exchange gets the same timeout/error-classification
       // behavior as every other AniList call — but with retries disabled:
       // an authorization_code grant is single-use, so replaying it after a
       // slow-but-successful exchange would fail as a reused/invalid code.
-      json = await this.#oauthHttp.requestJson<{ access_token?: string }>("token", {
+      json = await this.#oauthHttp.requestJson<{ access_token?: unknown } | null>("token", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -242,16 +241,16 @@ export class AniListClient {
       });
     } catch (err) {
       // A 400 here is almost always an expired/already-used/invalid
-      // authorization code — surface that directly rather than the generic
-      // classifyStatus() "bad_request" wording, which doesn't point at the
-      // actual fix (a fresh code via login_anilist).
+      // authorization code, i.e. a bad pasted argument — say so, with the fix
+      // (a fresh code via login_anilist) and AniList's own reason.
       if (err instanceof ApiError && err.code === "bad_request") {
-        throw new ApiError({
-          code: "bad_request",
-          message:
-            "AniList rejected the authorization code (it may be expired, already used, or " +
-            `invalid) — run login_anilist again for a fresh one. (${err.message})`,
-        });
+        throw new ToolError(
+          "invalid_arguments",
+          "AniList rejected the authorization code (it may be expired, already used, or " +
+            "invalid) — run login_anilist again for a fresh one." +
+            (err.detail ? ` AniList said: "${err.detail}"` : ""),
+          { cause: err },
+        );
       }
       throw err;
     }
@@ -261,22 +260,23 @@ export class AniListClient {
     // localhost listener stays open until this whole call settles) bypass
     // the CSRF check entirely.
     this.#pendingState = undefined;
-    if (!json.access_token) {
+    const accessToken = json?.access_token;
+    if (typeof accessToken !== "string" || !accessToken) {
       throw new ApiError({
-        code: "unknown",
-        message: "AniList's token response had no access_token",
+        code: "bad_response",
+        message: "AniList's token response had no usable access_token",
       });
     }
-    const expiresAt = decodeJwtExpiry(json.access_token) ?? Date.now() + FALLBACK_TOKEN_LIFETIME_MS;
-    // safeParse, not parse: `json` is only type-asserted, not runtime-validated, so a
-    // truthy-but-non-string access_token (a misbehaving/future AniList response) must
-    // surface as the same actionable ApiError this function uses for every other
-    // malformed-response case above, not a raw ZodError.
-    const tokenResult = TokenStateSchema.safeParse({ accessToken: json.access_token, expiresAt });
+    const expiresAt = decodeJwtExpiry(accessToken) ?? Date.now() + FALLBACK_TOKEN_LIFETIME_MS;
+    // safeParse, not parse: an odd `exp` claim (e.g. non-positive) must surface
+    // as the same bad_response as every other malformed token response, not a
+    // raw ZodError.
+    const tokenResult = TokenStateSchema.safeParse({ accessToken, expiresAt });
     if (!tokenResult.success) {
       throw new ApiError({
-        code: "unknown",
+        code: "bad_response",
         message: "AniList's token response had a malformed access_token",
+        cause: tokenResult.error,
       });
     }
     this.#token = tokenResult.data;

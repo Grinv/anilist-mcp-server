@@ -155,7 +155,7 @@ async function toHttpError(res: Response, authenticated: boolean): Promise<ApiEr
     ? `HTTP ${res.status} ${res.statusText}`
     : `HTTP ${res.status}`;
   return new ApiError({
-    code: classifyStatus(res.status, raw),
+    code: classifyStatus(res.status, detail),
     status: res.status,
     authenticated,
     detail,

@@ -9,7 +9,7 @@ import { HttpClient } from "./http.ts";
 import { ApiError, classifyStatus, type ApiErrorCode } from "./errors.ts";
 import type { TtlCache } from "./cache.ts";
 import type { Logger } from "./logger.ts";
-import { callSignal, raceAbort } from "./cancel.ts";
+import { callSignal } from "./cancel.ts";
 
 export interface GraphQLClientOptions {
   endpoint: string;
@@ -86,13 +86,14 @@ export class GraphQLClient {
       // or switching accounts mid-process would serve the previous
       // account's cached private/viewer-relative data.
       const key = JSON.stringify({ query, variables, auth: authHeader?.Authorization ?? null });
-      // TtlCache shares one in-flight fetch among identical reads, so that
-      // fetch runs under no caller's signal (one cancelling must not abort it
-      // for the others); each caller just stops waiting on its own abort.
-      return raceAbort(
-        this.#cache.wrap(key, () => this.#send<T>(query, variables, authHeader)) as Promise<T>,
+      // TtlCache shares one in-flight fetch among identical reads: each caller
+      // stops waiting on its own cancel, and the fetch itself is aborted only
+      // once every caller waiting on it has cancelled.
+      return this.#cache.wrap(
+        key,
+        (shared) => this.#send<T>(query, variables, authHeader, false, shared),
         signal,
-      );
+      ) as Promise<T>;
     }
     // A mutation is only retried on a 429: a timeout or 5xx doesn't mean
     // AniList didn't apply the write, and replaying it re-flips a Toggle*
@@ -176,6 +177,7 @@ export class GraphQLClient {
         status,
         detail,
         message: detail,
+        authenticated: authHeader !== undefined,
       });
     }
     if (res.data === null || res.data === undefined) {

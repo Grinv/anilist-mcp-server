@@ -90,11 +90,6 @@ export class AniListClient {
     return Boolean(this.#token && this.#token.expiresAt > Date.now());
   }
 
-  /** Whether login_anilist can be started (a client id + secret is configured). */
-  canLogin(): boolean {
-    return this.#config.auth.canLogin;
-  }
-
   #authHeader(): Record<string, string> | undefined {
     return this.isConfigured()
       ? { Authorization: `Bearer ${this.#token!.accessToken}` }
@@ -247,9 +242,19 @@ export class AniListClient {
         throw new ToolError(
           "invalid_arguments",
           "AniList rejected the authorization code (it may be expired, already used, or " +
-            "invalid) — run login_anilist again for a fresh one." +
-            (err.detail ? ` AniList said: "${err.detail}"` : ""),
-          { cause: err },
+            "invalid) — run login_anilist again for a fresh one.",
+          { cause: err, detail: err.detail },
+        );
+      }
+      // The token endpoint authenticates the app, not a user: a 401 here
+      // (`invalid_client`, confirmed live) means the client id/secret are wrong,
+      // so "log in" advice would only loop.
+      if (err instanceof ApiError && err.code === "unauthorized") {
+        throw new ToolError(
+          "not_configured",
+          "AniList rejected this app's ANILIST_CLIENT_ID / ANILIST_CLIENT_SECRET — check they " +
+            "match your app at anilist.co/settings/developer.",
+          { cause: err, detail: err.detail },
         );
       }
       throw err;

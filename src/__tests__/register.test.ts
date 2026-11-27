@@ -60,6 +60,23 @@ test("a result off the tool's own outputSchema is internal, logged with its caus
   assert.ok(err.cause instanceof z.ZodError);
 });
 
+test("a write tool whose result fails its outputSchema says the write already applied", async (t) => {
+  const client = await connect((tool) =>
+    tool("w", { ...config, annotations: { readOnlyHint: false } }, async () =>
+      jsonResult({ n: "not a number" }),
+    ),
+  );
+  t.after(() => client.close());
+  const res = await client.callTool({ name: "w", arguments: {} });
+  assert.equal(problemCode(res), "internal");
+  assert.match((res.content as { text: string }[])[0]!.text, /AniList did apply this write/);
+  // A read-only tool says nothing about a write.
+  const read = await connect((tool) => tool("r", config, async () => jsonResult({ n: "x" })));
+  t.after(() => read.close());
+  const r = await read.callTool({ name: "r", arguments: {} });
+  assert.doesNotMatch((r.content as { text: string }[])[0]!.text, /write/);
+});
+
 test("the handler runs with the call's cancellation signal in callSignal", async (t) => {
   let seen: AbortSignal | undefined;
   const client = await connect((tool) =>

@@ -194,3 +194,15 @@ test("docs/errors.md has a section for exactly every problem type but cancelled"
   const sections = [...doc.matchAll(/^## (\S+)$/gm)].map((m) => m[1]);
   assert.deepEqual(sections.sort(), PROBLEM_CODES.filter((c) => c !== "cancelled").sort());
 });
+
+test("a ToolError resting on AniList's answer quotes it like an ApiError does, redacted", () => {
+  const p = toProblem(
+    new ToolError("not_configured", "AniList rejected this app's credentials.", {
+      detail: "Client authentication failed (client_secret=abc123)",
+    }),
+    silentLogger(),
+  );
+  assert.equal(p.type.split("#")[1], "not_configured");
+  assert.match(p.detail, /^AniList rejected this app's credentials\. AniList said: "Client/);
+  assert.doesNotMatch(p.detail, /abc123/);
+});

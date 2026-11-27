@@ -125,7 +125,9 @@ export const PROBLEM_CODES = Object.keys(PROBLEMS) as ProblemCode[];
  * the caller gets a stable "internal error".
  */
 export function toProblem(err: unknown, logger: Logger): Problem {
-  if (err instanceof ToolError) return ownProblem(err.code, err.message);
+  if (err instanceof ToolError) {
+    return ownProblem(err.code, [err.message, anilistSaid(err.detail)].filter(Boolean).join(" "));
+  }
   if (err instanceof ApiError) {
     logApiError(err, logger);
     const { title, advice } = PROBLEMS[err.code];
@@ -144,7 +146,7 @@ export function toProblem(err: unknown, logger: Logger): Problem {
         err.writeMayHaveApplied ? OUTCOME_UNKNOWN : undefined,
         retryable ? (retryAfter ? `Please retry in ${retryAfter} s.` : RETRY) : undefined,
         // One status can mean several things, so AniList's reason is always shown.
-        err.detail ? `AniList said: "${redact(err.detail).slice(0, 500)}"` : undefined,
+        anilistSaid(err.detail),
       ]
         .filter(Boolean)
         .join(" "),
@@ -173,6 +175,11 @@ function logApiError(err: ApiError, logger: Logger): void {
 
 /** A problem this server raises itself: its own sentence as `detail`, or the
  *  type's title and advice. */
+/** AniList's own reason, quoted, redacted and bounded — the one place it's formatted. */
+function anilistSaid(detail: string | undefined): string | undefined {
+  return detail ? `AniList said: "${redact(detail).slice(0, 500)}"` : undefined;
+}
+
 function ownProblem(code: ToolErrorCode | "internal", detail?: string): Problem {
   const { title, advice } = PROBLEMS[code];
   return {

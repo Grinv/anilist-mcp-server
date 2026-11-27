@@ -35,14 +35,15 @@ test("classifyStatus tells AniList's three kinds of 403 apart by body", () => {
     ],
     data: null,
   });
-  assert.equal(classifyStatus(403, outage), "unavailable");
+  // classifyStatus sees the parsed reason (http.ts/graphql.ts extract it).
+  assert.equal(classifyStatus(403, JSON.parse(outage).errors[0].message), "unavailable");
   // Cloudflare's WAF page (confirmed live for the search term `"OR 1=1 --`).
   const waf =
     '<!DOCTYPE html>\n<!--[if lt IE 7]> <html class="no-js ie6 oldie" lang="en-US"> <![endif]-->\n' +
     "<head>\n<title>Attention Required! | Cloudflare</title>\n</head><body>…</body></html>";
-  assert.equal(classifyStatus(403, waf), "blocked");
+  assert.equal(classifyStatus(403, /<title>([^<]*)</.exec(waf)![1]), "blocked");
   const denied = JSON.stringify({ errors: [{ message: "Forbidden.", status: 403 }], data: null });
-  assert.equal(classifyStatus(403, denied), "forbidden");
+  assert.equal(classifyStatus(403, JSON.parse(denied).errors[0].message), "forbidden");
 });
 
 test("redact removes bearer tokens and credential params", () => {
@@ -74,7 +75,8 @@ test("redact masks a bare JWT (AniList's token format) and inspect-style credent
 test("AniList's 400 'Invalid token' is a credentials problem, not a bad request", () => {
   // The body AniList returns for a bad or expired token (captured live 2026-11-27).
   const body = '{"data":null,"errors":[{"message":"Invalid token","status":400}]}';
-  assert.equal(classifyStatus(400, body), "unauthorized");
-  assert.equal(classifyStatus(400, "Invalid token"), "unauthorized"); // a 200's embedded errors[]
-  assert.equal(classifyStatus(400, '{"errors":[{"message":"validation"}]}'), "bad_request");
+  assert.equal(classifyStatus(400, JSON.parse(body).errors[0].message), "unauthorized");
+  assert.equal(classifyStatus(400, "validation (name: Invalid token in name)"), "bad_request");
+  // A value echoed back in the raw body can't reclassify: only the parsed reason counts.
+  assert.equal(classifyStatus(403, "Forbidden. (about: temporarily disabled)"), "forbidden");
 });

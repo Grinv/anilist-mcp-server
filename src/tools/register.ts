@@ -23,6 +23,10 @@ export type RegisterTool = <In extends z.ZodType, Out extends z.ZodType>(
   handler: (args: z.infer<In>) => Promise<ToolResult>,
 ) => void;
 
+const WRITE_APPLIED =
+  "AniList did apply this write; only reading its answer failed. Re-read the affected data " +
+  "instead of repeating the call.";
+
 export function toolRegistrar(server: McpServer, logger: Logger): RegisterTool {
   return <In extends z.ZodType, Out extends z.ZodType>(
     name: string,
@@ -41,9 +45,16 @@ export function toolRegistrar(server: McpServer, logger: Logger): RegisterTool {
           ? undefined
           : config.outputSchema.safeParse(result.structuredContent);
         if (checked && !checked.success) {
-          throw new Error(`${name} built a result its outputSchema rejects`, {
-            cause: checked.error,
-          });
+          const problem = toProblem(
+            new Error(`${name} built a result its outputSchema rejects`, { cause: checked.error }),
+            logger,
+          );
+          // The handler returned, so a write already reached AniList: say so,
+          // or the model may repeat it (re-flipping a toggle, posting twice).
+          if (config.annotations.readOnlyHint !== true) {
+            problem.detail += ` ${WRITE_APPLIED}`;
+          }
+          return problemResult(problem);
         }
         return result;
       } catch (err) {

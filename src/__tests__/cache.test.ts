@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { TtlCache } from "../lib/cache.ts";
+import { ApiError } from "../lib/errors.ts";
 
 const tick = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -138,4 +139,58 @@ test("set() on an already-present key doesn't evict anything, even at max capaci
     2,
     "b must survive — overwriting an existing key isn't a new insert",
   );
+});
+
+test("wrap: one waiter cancelling doesn't abort the compute the others still wait on", async () => {
+  const cache = new TtlCache<string>(60_000);
+  const { promise, resolve } = Promise.withResolvers<string>();
+  let sharedSignal: AbortSignal | undefined;
+  const compute = (signal: AbortSignal) => ((sharedSignal = signal), promise);
+  const a = new AbortController();
+  const first = cache.wrap("k", compute, a.signal);
+  const second = cache.wrap("k", compute, new AbortController().signal);
+  a.abort();
+  await assert.rejects(
+    first,
+    (err: unknown) => err instanceof ApiError && err.code === "cancelled",
+  );
+  assert.equal(sharedSignal?.aborted, false);
+  resolve("v");
+  assert.equal(await second, "v");
+});
+
+test("wrap: the compute is aborted once every waiter has cancelled, and the next call starts afresh", async () => {
+  const cache = new TtlCache<string>(60_000);
+  const signals: AbortSignal[] = [];
+  const compute = (signal: AbortSignal) => {
+    signals.push(signal);
+    return new Promise<string>((_, reject) =>
+      signal.addEventListener("abort", () => reject(new Error("aborted")), { once: true }),
+    );
+  };
+  const a = new AbortController();
+  const b = new AbortController();
+  const first = cache.wrap("k", compute, a.signal);
+  const second = cache.wrap("k", compute, b.signal);
+  a.abort();
+  b.abort();
+  await assert.rejects(first);
+  await assert.rejects(second);
+  assert.equal(signals.length, 1);
+  assert.equal(signals[0]!.aborted, true);
+  // A new caller doesn't join the aborted fetch.
+  const fresh = cache.wrap("k", async () => "new");
+  assert.equal(await fresh, "new");
+});
+
+test("wrap: an already-cancelled caller never starts a compute", async () => {
+  const cache = new TtlCache<string>(60_000);
+  let calls = 0;
+  const c = new AbortController();
+  c.abort();
+  await assert.rejects(
+    cache.wrap("k", async () => (calls++, "v"), c.signal),
+    (err: unknown) => err instanceof ApiError && err.code === "cancelled",
+  );
+  assert.equal(calls, 0);
 });

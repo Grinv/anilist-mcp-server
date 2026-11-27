@@ -1312,18 +1312,10 @@ test("every delete tool reports an unknown or already-deleted id as not_found, n
   assert.equal(mock.calls.length, 4, "a mutation is never retried");
 });
 
-test("isConfigured/canLogin reflect the configured credentials", () => {
+test("isConfigured reflects the configured token", () => {
   assert.equal(new AniListClient(testConfig({}), silentLogger()).isConfigured(), false);
   assert.equal(
     new AniListClient(testConfig({ ANILIST_ACCESS_TOKEN: "tok" }), silentLogger()).isConfigured(),
-    true,
-  );
-  assert.equal(new AniListClient(testConfig({}), silentLogger()).canLogin(), false);
-  assert.equal(
-    new AniListClient(
-      testConfig({ ANILIST_CLIENT_ID: "id", ANILIST_CLIENT_SECRET: "secret" }),
-      silentLogger(),
-    ).canLogin(),
     true,
   );
 });
@@ -1500,7 +1492,7 @@ test("a rejected authorization code surfaces as invalid_arguments with AniList's
       err instanceof ToolError &&
       err.code === "invalid_arguments" &&
       /run login_anilist again/.test(err.message) &&
-      /AniList said: "invalid_grant"/.test(err.message),
+      err.detail === "invalid_grant",
   );
   // A 400 on the token endpoint must not be retried — the code is single-use,
   // so replaying it would only ever fail again.
@@ -1957,4 +1949,42 @@ test("a digit-string user that isn't found says it was looked up as a username",
     () => user.getUserProfile(client.ctx(), "Grinv"),
     (err: unknown) => err instanceof ApiError && err.note === undefined,
   );
+});
+
+test("a token exchange rejected as invalid_client points at the app credentials, not at logging in", async (t) => {
+  const storePath = tempStorePath("login-invalid-client");
+  rmSync(storePath, { force: true });
+  // AniList's answer to a wrong client id/secret (captured live 2026-11-27).
+  installFetch(
+    t,
+    mockFetch(() =>
+      jsonResponse(
+        { error: "invalid_client", message: "Client authentication failed" },
+        { status: 401 },
+      ),
+    ),
+  );
+  try {
+    const client = new AniListClient(
+      testConfig({
+        ANILIST_CLIENT_ID: "id",
+        ANILIST_CLIENT_SECRET: "wrong",
+        ANILIST_TOKEN_STORE: storePath,
+        ANILIST_OAUTH_PORT: "41829",
+      }),
+      silentLogger(),
+    );
+    const { authorizeUrl } = await client.startLogin({ open: () => {} });
+    const state = new URL(authorizeUrl).searchParams.get("state")!;
+    await assert.rejects(
+      () => client.submitRedirect(`http://localhost:41829/callback?code=C&state=${state}`),
+      (err: unknown) =>
+        err instanceof ToolError &&
+        err.code === "not_configured" &&
+        /ANILIST_CLIENT_SECRET/.test(err.message) &&
+        err.detail === "Client authentication failed",
+    );
+  } finally {
+    rmSync(storePath, { force: true });
+  }
 });

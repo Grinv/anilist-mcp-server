@@ -71,7 +71,7 @@ text). The same request is blocked again; simplify it.
 
 No such anime, manga, character, staff member, studio, user, thread,
 activity or list entry, or a delete found nothing to delete. `detail` says
-which lookup failed.
+which lookup failed, separate from AniList's own quoted reason.
 
 ## rate_limited
 
@@ -137,4 +137,6 @@ Run `login_anilist` (or set `ANILIST_ACCESS_TOKEN`).
 ## not_configured
 
 `login_anilist` needs `ANILIST_CLIENT_ID` and `ANILIST_CLIENT_SECRET` in the
-server's environment; see [auth.md](auth.md).
+server's environment, matching an app registered at
+anilist.co/settings/developer; see [auth.md](auth.md). Also returned when AniList
+rejects them during the code exchange (`invalid_client`).

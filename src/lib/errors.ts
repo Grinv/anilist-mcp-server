@@ -92,28 +92,40 @@ export type ToolErrorCode = "invalid_arguments" | "login_required" | "not_config
 
 export class ToolError extends Error {
   readonly code: ToolErrorCode;
+  /** AniList's own reason, when this server's decision rests on an AniList
+   *  answer; quoted like ApiError.detail. */
+  readonly detail: string | undefined;
 
-  constructor(code: ToolErrorCode, sentence: string, options?: { cause?: unknown }) {
-    super(sentence, options);
+  constructor(
+    code: ToolErrorCode,
+    sentence: string,
+    options?: { cause?: unknown; detail?: string },
+  ) {
+    super(sentence, options?.cause === undefined ? undefined : { cause: options.cause });
     this.name = "ToolError";
     this.code = code;
+    this.detail = options?.detail;
   }
 }
 
 /** Map an HTTP status (and, for a 403, its body: AniList's outage notice and
  *  Cloudflare's block page both use 403) to an ApiErrorCode. */
-export function classifyStatus(status: number, body = ""): ApiErrorCode {
+export function classifyStatus(status: number, reason = ""): ApiErrorCode {
+  // `reason` is AniList's parsed reason (errors[].message, or an HTML page's
+  // <title>), never the raw body, so a value echoed back in it can't reclassify.
   if (status === 401) return "unauthorized";
   if (status === 403) {
-    if (/temporarily disabled/i.test(body)) return "unavailable";
-    if (/<title>[^<]*cloudflare/i.test(body)) return "blocked";
+    // Anchored to AniList's exact wording, so a value echoed in validation
+    // details further along the reason can't match.
+    if (/^The AniList API has been temporarily disabled/i.test(reason)) return "unavailable";
+    if (/\| Cloudflare$/i.test(reason)) return "blocked"; // the WAF page's <title>
     return "forbidden";
   }
   if (status === 404) return "not_found";
   if (status === 429) return "rate_limited";
   // AniList answers a bad or expired token with 400 "Invalid token", not 401
   // (confirmed live 2026-11-27): it is a credentials problem, not a bad request.
-  if (status === 400 && /Invalid token/.test(body)) return "unauthorized";
+  if (status === 400 && /^Invalid token\b/.test(reason)) return "unauthorized";
   if (status === 400 || status === 405 || status === 422) return "bad_request";
   if (status >= 500) return "server_error";
   return "unknown";

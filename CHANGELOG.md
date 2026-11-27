@@ -6,6 +6,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- **BREAKING:** Rename `averageScore` to `weightedScore` in tool results and `search_media`'s score filters, as AniList deprecated it. [db870d7](https://github.com/Grinv/anilist-mcp-server/commit/db870d7)
+
 ## [0.11.1] - 2026-11-27
 
 ### Added

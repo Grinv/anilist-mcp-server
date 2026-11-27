@@ -1,7 +1,35 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { ApiError, type ApiErrorCode } from "../lib/errors.ts";
-import { apiErrorToResult, errorResult, jsonResult } from "../lib/result.ts";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { ApiError, ToolError } from "../lib/errors.ts";
+import {
+  jsonResult,
+  problemResult,
+  toProblem,
+  PROBLEM_CODES,
+  PROBLEM_META_KEY,
+  type Problem,
+} from "../lib/result.ts";
+import type { Logger } from "../lib/logger.ts";
+import { silentLogger } from "./helpers.ts";
+
+const TYPE_BASE = "https://github.com/Grinv/anilist-mcp-server/blob/main/docs/errors.md#";
+
+/** A logger that records each call as [level, joined text]. */
+function recordingLogger(): Logger & { lines: [string, string][] } {
+  const lines: [string, string][] = [];
+  const rec =
+    (level: string) =>
+    (msg: string, ...args: unknown[]) =>
+      lines.push([
+        level,
+        [msg, ...args.map((a) => (a instanceof Error ? a.message : String(a)))].join(" "),
+      ]);
+  return { lines, debug: rec("debug"), info: rec("info"), warn: rec("warn"), error: rec("error") };
+}
+
+const problem = (err: unknown) => toProblem(err, silentLogger());
 
 test("jsonResult carries both text and structuredContent", () => {
   const r = jsonResult({ a: 1 });
@@ -10,95 +38,159 @@ test("jsonResult carries both text and structuredContent", () => {
   assert.match(r.content[0]!.text, /"a":1/); // compact, no pretty-print whitespace
 });
 
-test("errorResult sets content and isError flag", () => {
-  const e = errorResult("bad");
-  assert.equal(e.isError, true);
-  assert.equal(e.content[0]!.text, "bad");
-});
-
-test("apiErrorToResult produces an actionable message per error code", () => {
-  // `expectDetail` tracks whether this code's branch must surface the
-  // caller's actual `err.message` verbatim, not just a generic templated
-  // string — regression test for not_modified/rate_limited/server_error/
-  // network/timeout, which used to silently discard it (unlike not_found/
-  // bad_request/unknown, which already did). `forbidden` deliberately stays
-  // generic (see the two dedicated tests below) since its whole point is
-  // explaining that the real cause is ambiguous, not echoing upstream detail.
-  const cases: [ApiErrorCode, RegExp, boolean][] = [
-    // A real upstream 401 (status set) gets the generic templated text.
-    ["forbidden", /denied access/i, false],
-    ["not_found", /no matching resource|404/i, true],
-    ["rate_limited", /rate limit/i, true],
-    ["server_error", /5xx|retry later/i, true],
-    ["network", /network/i, true],
-    ["timeout", /timed out/i, true],
-    ["bad_request", /invalid/i, true],
-    ["unknown", /unexpected/i, true],
-  ];
-  for (const [code, re, expectDetail] of cases) {
-    const r = apiErrorToResult(new ApiError({ code, message: "detail" }));
-    assert.equal(r.isError, true);
-    assert.match(r.content[0]!.text, re);
-    if (expectDetail) {
-      assert.match(
-        r.content[0]!.text,
-        /detail/,
-        `${code} must surface the caller's actual err.message ("detail"), not just a generic string`,
-      );
-    }
-  }
-});
-
-test("apiErrorToResult: a possibly-applied write says to check, not to retry", () => {
-  const r = apiErrorToResult(
-    new ApiError({ code: "timeout", message: "detail", writeMayHaveApplied: true }),
-  );
-  const text = r.content[0]!.text;
-  assert.match(text, /may still have applied it/);
-  assert.match(text, /Re-read/);
-  assert.doesNotMatch(text, /Please retry/);
-});
-
-test("apiErrorToResult: a real upstream 401 with a token sent may be invalid/expired or just not permitted", () => {
-  const r = apiErrorToResult(
-    new ApiError({ code: "unauthorized", message: "detail", status: 401, authenticated: true }),
-  );
+test("problemResult: the text is the detail, the problem rides in _meta, no structuredContent", () => {
+  const p = problem(new ApiError({ code: "not_found", status: 404, message: "x" }));
+  const r = problemResult(p);
   assert.equal(r.isError, true);
-  assert.match(r.content[0]!.text, /invalid or expired/i);
-  assert.match(r.content[0]!.text, /AniList said: detail$/);
+  assert.equal(r.content[0]!.text, p.detail);
+  assert.deepEqual(r._meta, { [PROBLEM_META_KEY]: p });
+  assert.equal("structuredContent" in r, false);
+  assert.equal(PROBLEM_META_KEY, "io.github.Grinv.anilist-mcp-server/problem");
 });
 
-test("apiErrorToResult: a real upstream 401 with no token sent asks the caller to log in", () => {
-  const r = apiErrorToResult(
-    new ApiError({ code: "unauthorized", message: "detail", status: 401, authenticated: false }),
+test("an upstream 404 with AniList's reason: exact text and fields", () => {
+  const err = new ApiError({
+    code: "not_found",
+    status: 404,
+    detail: "Not Found.",
+    message: "HTTP 404: raw",
+  });
+  assert.deepEqual(problem(err), {
+    type: TYPE_BASE + "not_found",
+    title: "No matching resource was found",
+    detail: 'No matching resource was found (404). AniList said: "Not Found."',
+    retryable: false,
+    upstream_status: 404,
+  } satisfies Problem);
+});
+
+test("a 429 with Retry-After: retryable, retry_after_seconds, and the text says when", () => {
+  const p = problem(
+    new ApiError({ code: "rate_limited", status: 429, retryAfterMs: 56_200, message: "x" }),
   );
-  assert.equal(r.isError, true);
-  assert.match(r.content[0]!.text, /login_anilist/i);
-  assert.match(r.content[0]!.text, /AniList said: detail$/);
+  assert.equal(p.retryable, true);
+  assert.equal(p.retry_after_seconds, 57);
+  assert.equal(p.detail, "AniList is rate-limiting requests (429). Please retry in 57 s.");
 });
 
-test("apiErrorToResult: a 403 with a token sent doesn't blame account permission alone", () => {
-  const r = apiErrorToResult(
-    new ApiError({ code: "forbidden", message: "detail", status: 403, authenticated: true }),
+test("a transient failure without a hint says to retry later; the raw message never shows", () => {
+  const p = problem(
+    new ApiError({ code: "server_error", status: 502, message: "<html>secret body</html>" }),
   );
-  assert.equal(r.isError, true);
-  assert.match(r.content[0]!.text, /account may lack permission/i);
-  assert.match(r.content[0]!.text, /security block/i);
-  assert.match(r.content[0]!.text, /AniList said: detail$/);
+  assert.equal(p.detail, "AniList returned a server error (502). Please retry later.");
+  assert.equal(p.retryable, true);
 });
 
-test("apiErrorToResult: a 403 with no token sent doesn't blame credentials", () => {
-  const r = apiErrorToResult(new ApiError({ code: "forbidden", message: "detail", status: 403 }));
-  assert.equal(r.isError, true);
-  assert.match(r.content[0]!.text, /anonymous request/i);
-  // e.g. AniList's outage notice, which the template alone can't name.
-  assert.match(r.content[0]!.text, /AniList said: detail$/);
-});
-
-test("apiErrorToResult: a client-side pre-flight unauthorized (no status) keeps its own specific message", () => {
-  const r = apiErrorToResult(
-    new ApiError({ code: "unauthorized", message: "Run login_anilist first." }),
+test("a validation error keeps AniList's own wording (tool descriptions quote it)", () => {
+  const p = problem(
+    new ApiError({
+      code: "bad_request",
+      status: 400,
+      detail: "validation (rowOrder: The selected row order is invalid.)",
+      message: "x",
+    }),
   );
-  assert.equal(r.isError, true);
-  assert.equal(r.content[0]!.text, "Run login_anilist first.");
+  assert.equal(
+    p.detail,
+    'AniList rejected the request as invalid (400). AniList said: "validation (rowOrder: The ' +
+      'selected row order is invalid.)"',
+  );
+});
+
+test("a possibly-applied write says to re-read, not to retry, and is not retryable", () => {
+  const p = problem(new ApiError({ code: "timeout", message: "x", writeMayHaveApplied: true }));
+  assert.equal(p.retryable, false);
+  assert.match(p.detail, /outcome is unknown/);
+  assert.match(p.detail, /repeating a toggle undoes it/);
+  assert.doesNotMatch(p.detail, /retry later/);
+});
+
+test("a 401 with a token sent may be invalid/expired or just not permitted", () => {
+  const p = problem(
+    new ApiError({
+      code: "unauthorized",
+      status: 401,
+      authenticated: true,
+      detail: "Invalid token",
+      message: "x",
+    }),
+  );
+  assert.match(p.detail, /invalid or expired/);
+  assert.match(p.detail, /not permitted/);
+  assert.match(p.detail, /AniList said: "Invalid token"/);
+});
+
+test("a 401 with no token sent asks the caller to log in", () => {
+  const p = problem(
+    new ApiError({ code: "unauthorized", status: 401, authenticated: false, message: "x" }),
+  );
+  assert.match(p.detail, /run login_anilist/);
+  assert.doesNotMatch(p.detail, /invalid or expired/);
+});
+
+test("the three kinds of 403 get their own type and advice", () => {
+  const outage = problem(new ApiError({ code: "unavailable", status: 403, message: "x" }));
+  assert.equal(outage.type, TYPE_BASE + "unavailable");
+  assert.match(outage.detail, /outage on AniList's side/);
+  const waf = problem(new ApiError({ code: "blocked", status: 403, message: "x" }));
+  assert.equal(waf.type, TYPE_BASE + "blocked");
+  assert.match(waf.detail, /Cloudflare/);
+  assert.match(waf.detail, /Simplify the request/);
+  const denied = problem(new ApiError({ code: "forbidden", status: 403, message: "x" }));
+  assert.equal(denied.type, TYPE_BASE + "forbidden");
+  for (const p of [outage, waf, denied]) assert.equal(p.upstream_status, 403);
+});
+
+test("a ToolError's sentence is the detail", () => {
+  const p = problem(new ToolError("login_required", "No token: run login_anilist first."));
+  assert.deepEqual(p, {
+    type: TYPE_BASE + "login_required",
+    title: "This tool needs an AniList login",
+    detail: "No token: run login_anilist first.",
+    retryable: false,
+  });
+});
+
+test("AniList's reason is redacted before it reaches the text", () => {
+  const p = problem(
+    new ApiError({ code: "bad_request", detail: "bad header Bearer abc.def.ghi", message: "x" }),
+  );
+  assert.doesNotMatch(p.detail, /abc\.def\.ghi/);
+});
+
+test("anything else is internal: stable text, logged at error with the error", () => {
+  const logger = recordingLogger();
+  const p = toProblem(new TypeError("cannot read x of undefined"), logger);
+  assert.equal(p.type, TYPE_BASE + "internal");
+  assert.equal(
+    p.detail,
+    "Internal error in anilist-mcp-server. Details are in the server log (stderr); please report it.",
+  );
+  assert.deepEqual(
+    logger.lines.map(([level]) => level),
+    ["error"],
+  );
+  assert.match(logger.lines[0]![1], /cannot read x of undefined/);
+});
+
+test("unknown and bad_response log their raw message at warn; other upstream codes at debug", () => {
+  const logger = recordingLogger();
+  toProblem(new ApiError({ code: "unknown", status: 418, message: "HTTP 418: teapot" }), logger);
+  toProblem(new ApiError({ code: "bad_response", message: "invalid JSON: <html>" }), logger);
+  toProblem(new ApiError({ code: "not_found", message: "HTTP 404" }), logger);
+  toProblem(new ApiError({ code: "cancelled", message: "cancelled" }), logger);
+  assert.deepEqual(
+    logger.lines.map(([level]) => level),
+    ["warn", "warn", "debug", "debug"],
+  );
+  assert.match(logger.lines[0]![1], /teapot/);
+});
+
+// Each problem's `type` URI points at docs/errors.md#<code>; a code without a
+// section would be a dead link. `cancelled` is never sent (the SDK drops the
+// result of a cancelled request), so it has no section.
+test("docs/errors.md has a section for exactly every problem type but cancelled", () => {
+  const doc = readFileSync(join(import.meta.dirname, "../../docs/errors.md"), "utf8");
+  const sections = [...doc.matchAll(/^## (\S+)$/gm)].map((m) => m[1]);
+  assert.deepEqual(sections.sort(), PROBLEM_CODES.filter((c) => c !== "cancelled").sort());
 });

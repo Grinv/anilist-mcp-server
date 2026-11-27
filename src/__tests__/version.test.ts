@@ -2,7 +2,7 @@ import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { VERSION } from "../version.ts";
+import { META_PREFIX, MCP_NAME, VERSION } from "../version.ts";
 import { renderChangelogRelease, unreleasedHasBullets } from "../../scripts/sync-version.ts";
 
 // This file lives in src/__tests__/; the repo root is two levels up.
@@ -147,4 +147,21 @@ describe("unreleasedHasBullets", () => {
   test("throws if the Unreleased heading is missing entirely", () => {
     assert.throws(() => unreleasedHasBullets("## [0.10.0] - 2026-08-01\n"));
   });
+});
+
+// MCP_NAME is the runtime copy of mcpName; the _meta key prefix derives from it.
+test("version.ts MCP_NAME matches package.json mcpName", () => {
+  assert.equal(MCP_NAME, pkg.mcpName);
+});
+
+// MCP spec (basic, `_meta`): a prefix is dot-separated labels, each starting
+// with a letter and ending with a letter or digit, then "/"; reverse DNS;
+// and no "mcp"/"modelcontextprotocol" second label (reserved).
+test("the _meta key prefix follows the spec's prefix grammar", () => {
+  assert.equal(META_PREFIX, "io.github.Grinv.anilist-mcp-server/");
+  assert.match(
+    META_PREFIX,
+    /^[A-Za-z](?:[A-Za-z0-9-]*[A-Za-z0-9])?(?:\.[A-Za-z](?:[A-Za-z0-9-]*[A-Za-z0-9])?)*\/$/,
+  );
+  assert.doesNotMatch(META_PREFIX.split(".")[1] ?? "", /^(mcp|modelcontextprotocol)$/);
 });

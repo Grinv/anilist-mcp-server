@@ -1,13 +1,12 @@
 import { z } from "zod";
-import type { McpServer } from "@modelcontextprotocol/server";
 import type { AniListClient } from "../clients/anilist.ts";
+import type { RegisterTool } from "./register.ts";
 import * as user from "../clients/anilist/user.ts";
 import type { UpdateUserFields } from "../clients/anilist/user.ts";
 import { TITLE_LANGUAGES, SCORE_FORMATS, STAFF_NAME_LANGUAGES } from "../clients/anilist/enums.ts";
 import * as activity from "../clients/anilist/activity.ts";
 import { jsonResult } from "../lib/result.ts";
 import { ToolError } from "../lib/errors.ts";
-import { guard } from "./guard.ts";
 import {
   pageInfoSchema,
   anilistId,
@@ -206,8 +205,8 @@ const updateUserResult = z
   })
   .loose();
 
-export function registerUserTools(server: McpServer, client: AniListClient): void {
-  server.registerTool(
+export function registerUserTools(tool: RegisterTool, client: AniListClient): void {
+  tool(
     "get_user_profile",
     {
       title: "Get a user's profile",
@@ -223,13 +222,11 @@ export function registerUserTools(server: McpServer, client: AniListClient): voi
       outputSchema: z.object({ profile: userProfileObject }),
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
-    ({ user: userOrName }) =>
-      guard(async () =>
-        jsonResult({ profile: await user.getUserProfile(client.ctx(), userOrName) }),
-      ),
+    async ({ user: userOrName }) =>
+      jsonResult({ profile: await user.getUserProfile(client.ctx(), userOrName) }),
   );
 
-  server.registerTool(
+  tool(
     "get_user_stats",
     {
       title: "Get a user's statistics",
@@ -246,11 +243,11 @@ export function registerUserTools(server: McpServer, client: AniListClient): voi
       outputSchema: z.object({ stats: userStatsObject }),
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
-    ({ user: userOrName }) =>
-      guard(async () => jsonResult({ stats: await user.getUserStats(client.ctx(), userOrName) })),
+    async ({ user: userOrName }) =>
+      jsonResult({ stats: await user.getUserStats(client.ctx(), userOrName) }),
   );
 
-  server.registerTool(
+  tool(
     "get_full_user_info",
     {
       title: "Get a user's complete profile and stats",
@@ -267,11 +264,11 @@ export function registerUserTools(server: McpServer, client: AniListClient): voi
       outputSchema: z.object({ user: fullUserObject }),
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
-    ({ user: userOrName }) =>
-      guard(async () => jsonResult({ user: await user.getFullUserInfo(client.ctx(), userOrName) })),
+    async ({ user: userOrName }) =>
+      jsonResult({ user: await user.getFullUserInfo(client.ctx(), userOrName) }),
   );
 
-  server.registerTool(
+  tool(
     "get_user_recent_activity",
     {
       title: "Get a user's most recent activity",
@@ -299,13 +296,11 @@ export function registerUserTools(server: McpServer, client: AniListClient): voi
       }),
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
-    ({ user: userOrName }) =>
-      guard(async () =>
-        jsonResult({ activity: await activity.getUserActivity(client.ctx(), userOrName, 1, 5) }),
-      ),
+    async ({ user: userOrName }) =>
+      jsonResult({ activity: await activity.getUserActivity(client.ctx(), userOrName, 1, 5) }),
   );
 
-  server.registerTool(
+  tool(
     "get_authorized_user",
     {
       title: "Get the logged-in user's profile",
@@ -325,10 +320,10 @@ export function registerUserTools(server: McpServer, client: AniListClient): voi
       outputSchema: z.object({ user: userProfileObject }),
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
-    () => guard(async () => jsonResult({ user: await user.getAuthorizedUser(client.ctx()) })),
+    async () => jsonResult({ user: await user.getAuthorizedUser(client.ctx()) }),
   );
 
-  server.registerTool(
+  tool(
     "toggle_follow_user",
     {
       title: "Follow/unfollow a user",
@@ -349,10 +344,10 @@ export function registerUserTools(server: McpServer, client: AniListClient): voi
         openWorldHint: true,
       },
     },
-    ({ id }) => guard(async () => jsonResult({ user: await user.followUser(client.ctx(), id) })),
+    async ({ id }) => jsonResult({ user: await user.followUser(client.ctx(), id) }),
   );
 
-  server.registerTool(
+  tool(
     "update_user",
     {
       title: "Update your AniList account settings",
@@ -530,17 +525,16 @@ export function registerUserTools(server: McpServer, client: AniListClient): voi
         openWorldHint: true,
       },
     },
-    (args) =>
-      guard(async () => {
-        // Like update_list_entry: an empty call would still be a write (and
-        // clear the read cache) that changes nothing.
-        if (Object.values(args).every((value) => value === undefined)) {
-          throw new ToolError(
-            "invalid_arguments",
-            "No values to apply — set at least one profile field to change.",
-          );
-        }
-        return jsonResult({ user: await user.updateUser(client.ctx(), args) });
-      }),
+    async (args) => {
+      // Like update_list_entry: an empty call would still be a write (and
+      // clear the read cache) that changes nothing.
+      if (Object.values(args).every((value) => value === undefined)) {
+        throw new ToolError(
+          "invalid_arguments",
+          "No values to apply — set at least one profile field to change.",
+        );
+      }
+      return jsonResult({ user: await user.updateUser(client.ctx(), args) });
+    },
   );
 }

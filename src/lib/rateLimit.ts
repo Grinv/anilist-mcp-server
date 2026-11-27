@@ -6,6 +6,7 @@
 // Acquisitions are ordered through a tail-promise chain, so only one runs at a
 // time. In-flight network time still overlaps because acquire() resolves before
 // the request itself runs.
+import { raceAbort, sleep } from "./cancel.ts";
 
 export class RateLimiter {
   readonly #minIntervalMs: number;
@@ -20,23 +21,23 @@ export class RateLimiter {
     this.#minIntervalMs = Math.max(0, minIntervalMs);
   }
 
-  /** Resolves when the caller is allowed to proceed. */
-  acquire(): Promise<void> {
+  /** Resolves when the caller is allowed to proceed; rejects as cancelled as
+   *  soon as `signal` aborts, giving up its place without taking a slot. */
+  async acquire(signal?: AbortSignal): Promise<void> {
     const prev = this.#tail;
     const { promise, resolve: release } = Promise.withResolvers<void>();
     this.#tail = promise;
-
-    return prev.then(async () => {
+    try {
+      await raceAbort(prev, signal);
       const wait =
         this.#lastStart !== null ? this.#lastStart + this.#minIntervalMs - Date.now() : 0;
-      if (wait > 0) await delay(wait);
+      if (wait > 0) await sleep(wait, signal);
       this.#lastStart = Date.now();
-      // Release the next waiter's gate; the spacing above keeps them in line.
-      release();
-    });
+    } finally {
+      // Release the next waiter's gate only once ours would have opened, so a
+      // cancelled waiter neither stalls the queue nor lets the next one jump
+      // ahead of the waiter before it.
+      void prev.then(release);
+    }
   }
-}
-
-function delay(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
 }

@@ -1,11 +1,10 @@
 import { z } from "zod";
-import type { McpServer } from "@modelcontextprotocol/server";
 import type { AniListClient } from "../clients/anilist.ts";
+import type { RegisterTool } from "./register.ts";
 import { jsonResult } from "../lib/result.ts";
-import { guard } from "./guard.ts";
 
-export function registerLoginTools(server: McpServer, client: AniListClient): void {
-  server.registerTool(
+export function registerLoginTools(tool: RegisterTool, client: AniListClient): void {
+  tool(
     "login_anilist",
     {
       title: "Log in to AniList",
@@ -54,26 +53,25 @@ export function registerLoginTools(server: McpServer, client: AniListClient): vo
         openWorldHint: true,
       },
     },
-    () =>
-      guard(async () => {
-        const { authorizeUrl, redirectUri, listening } = await client.startLogin();
-        return jsonResult({
-          authorize_url: authorizeUrl,
-          redirect_uri: redirectUri,
-          auto_capture: listening,
-          instructions: listening
-            ? "Open authorize_url, log in and click Approve. If your browser is on the same " +
-              "machine as this server, login completes automatically — call get_authorized_user " +
-              "to confirm. If the server is actually remote (SSH/headless) despite this server " +
-              "being able to bind its own local port, copy the URL you're redirected to instead " +
-              "and pass it to submit_anilist_redirect."
-            : "Open authorize_url, log in and click Approve, then copy the URL you're redirected " +
-              "to and pass it to submit_anilist_redirect.",
-        });
-      }),
+    async () => {
+      const { authorizeUrl, redirectUri, listening } = await client.startLogin();
+      return jsonResult({
+        authorize_url: authorizeUrl,
+        redirect_uri: redirectUri,
+        auto_capture: listening,
+        instructions: listening
+          ? "Open authorize_url, log in and click Approve. If your browser is on the same " +
+            "machine as this server, login completes automatically — call get_authorized_user " +
+            "to confirm. If the server is actually remote (SSH/headless) despite this server " +
+            "being able to bind its own local port, copy the URL you're redirected to instead " +
+            "and pass it to submit_anilist_redirect."
+          : "Open authorize_url, log in and click Approve, then copy the URL you're redirected " +
+            "to and pass it to submit_anilist_redirect.",
+      });
+    },
   );
 
-  server.registerTool(
+  tool(
     "submit_anilist_redirect",
     {
       title: "Complete AniList login with a pasted redirect URL",
@@ -99,10 +97,9 @@ export function registerLoginTools(server: McpServer, client: AniListClient): vo
         openWorldHint: true,
       },
     },
-    ({ redirect_url }) =>
-      guard(async () => {
-        await client.submitRedirect(redirect_url);
-        return jsonResult({ success: true });
-      }),
+    async ({ redirect_url }) => {
+      await client.submitRedirect(redirect_url);
+      return jsonResult({ success: true });
+    },
   );
 }

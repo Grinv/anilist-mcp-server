@@ -1,11 +1,10 @@
 import { z } from "zod";
-import type { McpServer } from "@modelcontextprotocol/server";
 import type { AniListClient } from "../clients/anilist.ts";
+import type { RegisterTool } from "./register.ts";
 import * as media from "../clients/anilist/media.ts";
 import * as favourites from "../clients/anilist/favourites.ts";
 import { FAVOURITE_KINDS, STAFF_LANGUAGES, CHARACTER_ROLES } from "../clients/anilist/enums.ts";
 import { jsonResult } from "../lib/result.ts";
-import { guard } from "./guard.ts";
 import { ToolError } from "../lib/errors.ts";
 import type { MediaId, MalId } from "../clients/anilist/ids.ts";
 import { toUnixSeconds } from "../clients/anilist/fuzzyDate.ts";
@@ -73,7 +72,7 @@ const malIdsSchema = z
  *  must be given. Zod can't express that here without a refinement (which the
  *  SDK's JSON-Schema bridge would have to represent), so it's enforced in the
  *  handler and stated in both fields' descriptions — a ToolError, which
- *  guard() turns into a normal actionable tool error rather than a throw. */
+ *  the registration wrapper turns into an invalid_arguments tool error. */
 async function fetchByEitherId(
   client: AniListClient,
   type: (typeof MEDIA_TYPES)[number],
@@ -402,8 +401,8 @@ const scheduleItem = z
   })
   .loose();
 
-export function registerMediaTools(server: McpServer, client: AniListClient): void {
-  server.registerTool(
+export function registerMediaTools(tool: RegisterTool, client: AniListClient): void {
+  tool(
     "get_media",
     {
       title: "Get anime/manga details",
@@ -460,15 +459,13 @@ export function registerMediaTools(server: McpServer, client: AniListClient): vo
       outputSchema: z.object({ media: z.union([mediaObject, z.array(mediaObject.nullable())]) }),
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
-    ({ type, ids, malIds, includeStreamingEpisodes, format }) =>
-      guard(async () =>
-        jsonResult({
-          media: await fetchByEitherId(client, type, ids, malIds, includeStreamingEpisodes, format),
-        }),
-      ),
+    async ({ type, ids, malIds, includeStreamingEpisodes, format }) =>
+      jsonResult({
+        media: await fetchByEitherId(client, type, ids, malIds, includeStreamingEpisodes, format),
+      }),
   );
 
-  server.registerTool(
+  tool(
     "get_media_statistics",
     {
       title: "Get an anime/manga's score/status distribution",
@@ -480,13 +477,11 @@ export function registerMediaTools(server: McpServer, client: AniListClient): vo
       outputSchema: z.object({ statistics: statisticsObject }),
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
-    ({ type, id }) =>
-      guard(async () =>
-        jsonResult({ statistics: await media.getMediaStatistics(client.ctx(), type, id) }),
-      ),
+    async ({ type, id }) =>
+      jsonResult({ statistics: await media.getMediaStatistics(client.ctx(), type, id) }),
   );
 
-  server.registerTool(
+  tool(
     "get_media_characters",
     {
       title: "Get an anime/manga's characters",
@@ -518,18 +513,16 @@ export function registerMediaTools(server: McpServer, client: AniListClient): vo
       outputSchema: z.object({ characters: charactersConnection }),
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
-    ({ type, id, page, perPage, voiceActorLanguage, role }) =>
-      guard(async () =>
-        jsonResult({
-          characters: await media.getMediaCharacters(client.ctx(), type, id, page, perPage, {
-            voiceActorLanguage,
-            role,
-          }),
+    async ({ type, id, page, perPage, voiceActorLanguage, role }) =>
+      jsonResult({
+        characters: await media.getMediaCharacters(client.ctx(), type, id, page, perPage, {
+          voiceActorLanguage,
+          role,
         }),
-      ),
+      }),
   );
 
-  server.registerTool(
+  tool(
     "get_media_staff",
     {
       title: "Get an anime/manga's production staff",
@@ -547,13 +540,11 @@ export function registerMediaTools(server: McpServer, client: AniListClient): vo
       outputSchema: z.object({ staff: staffConnection }),
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
-    ({ type, id, page, perPage }) =>
-      guard(async () =>
-        jsonResult({ staff: await media.getMediaStaff(client.ctx(), type, id, page, perPage) }),
-      ),
+    async ({ type, id, page, perPage }) =>
+      jsonResult({ staff: await media.getMediaStaff(client.ctx(), type, id, page, perPage) }),
   );
 
-  server.registerTool(
+  tool(
     "get_media_reviews",
     {
       title: "Get an anime/manga's reviews",
@@ -575,15 +566,13 @@ export function registerMediaTools(server: McpServer, client: AniListClient): vo
       outputSchema: z.object({ reviews: reviewsConnection }),
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
-    ({ type, id, page, perPage, includeBody }) =>
-      guard(async () =>
-        jsonResult({
-          reviews: await media.getMediaReviews(client.ctx(), type, id, page, perPage, includeBody),
-        }),
-      ),
+    async ({ type, id, page, perPage, includeBody }) =>
+      jsonResult({
+        reviews: await media.getMediaReviews(client.ctx(), type, id, page, perPage, includeBody),
+      }),
   );
 
-  server.registerTool(
+  tool(
     "get_media_relations",
     {
       title: "Get a title's related media",
@@ -600,13 +589,11 @@ export function registerMediaTools(server: McpServer, client: AniListClient): vo
       outputSchema: z.object({ relations: relationsObject }),
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
-    ({ id, type }) =>
-      guard(async () =>
-        jsonResult({ relations: await media.getMediaRelations(client.ctx(), type, id) }),
-      ),
+    async ({ id, type }) =>
+      jsonResult({ relations: await media.getMediaRelations(client.ctx(), type, id) }),
   );
 
-  server.registerTool(
+  tool(
     "get_anime_schedule",
     {
       title: "Get the anime airing schedule",
@@ -653,18 +640,16 @@ export function registerMediaTools(server: McpServer, client: AniListClient): vo
       }),
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
-    ({ mediaId, notYetAired, airingAfter, airingBefore, page, perPage }) =>
-      guard(async () =>
-        jsonResult(
-          await media.getSchedule(client.ctx(), mediaId, notYetAired, page, perPage, {
-            airingAfter: toUnixSeconds(airingAfter, Math.floor),
-            airingBefore: toUnixSeconds(airingBefore, Math.ceil),
-          }),
-        ),
+    async ({ mediaId, notYetAired, airingAfter, airingBefore, page, perPage }) =>
+      jsonResult(
+        await media.getSchedule(client.ctx(), mediaId, notYetAired, page, perPage, {
+          airingAfter: toUnixSeconds(airingAfter, Math.floor),
+          airingBefore: toUnixSeconds(airingBefore, Math.ceil),
+        }),
       ),
   );
 
-  server.registerTool(
+  tool(
     "toggle_favourite",
     {
       title: "Favourite/unfavourite an anime, manga, character, staff member, or studio",
@@ -706,7 +691,6 @@ export function registerMediaTools(server: McpServer, client: AniListClient): vo
         openWorldHint: true,
       },
     },
-    ({ kind, id }) =>
-      guard(async () => jsonResult(await favourites.toggleFavourite(client.ctx(), kind, id))),
+    async ({ kind, id }) => jsonResult(await favourites.toggleFavourite(client.ctx(), kind, id)),
   );
 }

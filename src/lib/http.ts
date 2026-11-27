@@ -3,6 +3,7 @@
 // failures to ApiError. A Retry-After longer than MAX_BACKOFF_MS is not waited
 // out: the error surfaces with retryAfterMs, so the caller learns when to retry.
 import { ApiError, classifyStatus } from "./errors.ts";
+import { cancelledError, sleep } from "./cancel.ts";
 import type { Logger } from "./logger.ts";
 import { USER_AGENT } from "../version.ts";
 
@@ -18,6 +19,8 @@ export interface RequestOptions {
    *  rejected before acting. A timeout, network error or 5xx may have been
    *  applied, so replaying one could apply it twice. */
   nonIdempotent?: boolean;
+  /** The caller's cancellation: aborts the fetch, the backoff and the
+   *  beforeRequest wait, and fails with `cancelled` (never retried). */
   signal?: AbortSignal;
 }
 
@@ -28,7 +31,7 @@ export interface HttpClientOptions {
   timeoutMs?: number;
   retries?: number;
   /** Called before each request; lets callers throttle (rate limiting). */
-  beforeRequest?: () => Promise<void> | void;
+  beforeRequest?: (signal?: AbortSignal) => Promise<void> | void;
 }
 
 const MAX_BACKOFF_MS = 8000;
@@ -50,7 +53,7 @@ export class HttpClient {
 
     let attempt = 0;
     for (;;) {
-      if (this.#opts.beforeRequest) await this.#opts.beforeRequest();
+      if (this.#opts.beforeRequest) await this.#opts.beforeRequest(options.signal);
       try {
         return await this.#once<T>(url, options, timeoutMs);
       } catch (err) {
@@ -64,7 +67,7 @@ export class HttpClient {
         this.#opts.logger.debug(
           `retrying ${url} after ${backoff}ms (attempt ${attempt + 1}/${retries}, ${apiErr.code})`,
         );
-        await delay(backoff);
+        await sleep(backoff, options.signal);
         attempt += 1;
       }
     }
@@ -86,13 +89,7 @@ export class HttpClient {
     // Which abort won, as an ApiError. fetch settles once the headers arrive,
     // so a stalled body aborts later, through the res.text() await.
     const abortError = (err: unknown): ApiError => {
-      if (options.signal?.aborted) {
-        return new ApiError({
-          code: "cancelled",
-          message: "Request cancelled by the caller",
-          cause: err,
-        });
-      }
+      if (options.signal?.aborted) return cancelledError(err);
       if (timeoutSignal.aborted) {
         return new ApiError({
           code: "timeout",
@@ -239,8 +236,4 @@ function parseRetryAfter(header: string | null): number | undefined {
 
 function ensureTrailingSlash(s: string): string {
   return s.endsWith("/") ? s : s + "/";
-}
-
-function delay(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
 }

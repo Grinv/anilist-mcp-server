@@ -61,7 +61,7 @@ export class AniListClient {
       logger,
       timeoutMs: config.httpTimeoutMs,
       retries: config.httpRetries,
-      beforeRequest: () => limiter.acquire(),
+      beforeRequest: (signal) => limiter.acquire(signal),
       cache,
     });
     // Shared HttpClient for the OAuth token exchange, so it gets the same

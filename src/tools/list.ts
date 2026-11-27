@@ -1,13 +1,12 @@
 import { z } from "zod";
-import type { McpServer } from "@modelcontextprotocol/server";
 import type { AniListClient } from "../clients/anilist.ts";
+import type { RegisterTool } from "./register.ts";
 import * as list from "../clients/anilist/list.ts";
 import type { BulkListEntryValues } from "../clients/anilist/list.ts";
 import type { MediaId, ListEntryId } from "../clients/anilist/ids.ts";
 import { MEDIA_LIST_SORTS } from "../clients/anilist/enums.ts";
 import { jsonResult } from "../lib/result.ts";
 import { ToolError } from "../lib/errors.ts";
-import { guard } from "./guard.ts";
 import {
   deleteResult,
   MEDIA_TYPES,
@@ -213,8 +212,8 @@ const bulkValues = z.toZod<BulkListEntryValues>()(
  *  more than a "New " prefix (see the shared-bounds comment above). */
 type ListEntryValues = Omit<list.MediaListEntryInput, "mediaId" | "listEntryId">;
 
-export function registerListTools(server: McpServer, client: AniListClient): void {
-  server.registerTool(
+export function registerListTools(tool: RegisterTool, client: AniListClient): void {
+  tool(
     "get_user_list",
     {
       title: "Get a user's anime or manga list",
@@ -351,7 +350,7 @@ export function registerListTools(server: McpServer, client: AniListClient): voi
       }),
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
-    ({
+    async ({
       type,
       user,
       format,
@@ -364,24 +363,22 @@ export function registerListTools(server: McpServer, client: AniListClient): voi
       chunk,
       perChunk,
     }) =>
-      guard(async () =>
-        jsonResult(
-          await list.getUserList(client.ctx(), type, user, {
-            chunk,
-            perChunk,
-            format,
-            statuses,
-            sort,
-            startedAt_greater,
-            startedAt_lesser,
-            completedAt_greater,
-            completedAt_lesser,
-          }),
-        ),
+      jsonResult(
+        await list.getUserList(client.ctx(), type, user, {
+          chunk,
+          perChunk,
+          format,
+          statuses,
+          sort,
+          startedAt_greater,
+          startedAt_lesser,
+          completedAt_greater,
+          completedAt_lesser,
+        }),
       ),
   );
 
-  server.registerTool(
+  tool(
     "add_list_entry",
     {
       title: "Add an entry to your AniList list",
@@ -472,11 +469,10 @@ export function registerListTools(server: McpServer, client: AniListClient): voi
         openWorldHint: true,
       },
     },
-    (args) =>
-      guard(async () => jsonResult({ entry: await list.saveListEntry(client.ctx(), args) })),
+    async (args) => jsonResult({ entry: await list.saveListEntry(client.ctx(), args) }),
   );
 
-  server.registerTool(
+  tool(
     "update_list_entry",
     {
       title: "Update an entry on your AniList list",
@@ -553,23 +549,22 @@ export function registerListTools(server: McpServer, client: AniListClient): voi
         openWorldHint: true,
       },
     },
-    ({ listEntryId, ...rest }) =>
-      guard(async () => {
-        // Same rule as update_list_entries: an id-only call would still be a
-        // write that changes nothing.
-        if (Object.values(rest).every((value) => value === undefined)) {
-          throw new ToolError(
-            "invalid_arguments",
-            "No values to apply — set at least one field to change besides listEntryId.",
-          );
-        }
-        return jsonResult({
-          entry: await list.saveListEntry(client.ctx(), { listEntryId, ...rest }),
-        });
-      }),
+    async ({ listEntryId, ...rest }) => {
+      // Same rule as update_list_entries: an id-only call would still be a
+      // write that changes nothing.
+      if (Object.values(rest).every((value) => value === undefined)) {
+        throw new ToolError(
+          "invalid_arguments",
+          "No values to apply — set at least one field to change besides listEntryId.",
+        );
+      }
+      return jsonResult({
+        entry: await list.saveListEntry(client.ctx(), { listEntryId, ...rest }),
+      });
+    },
   );
 
-  server.registerTool(
+  tool(
     "update_list_entries",
     {
       title: "Update many entries on your AniList list at once",
@@ -609,13 +604,11 @@ export function registerListTools(server: McpServer, client: AniListClient): voi
         openWorldHint: true,
       },
     },
-    ({ listEntryIds, ...values }) =>
-      guard(async () =>
-        jsonResult(await list.updateListEntries(client.ctx(), listEntryIds, values)),
-      ),
+    async ({ listEntryIds, ...values }) =>
+      jsonResult(await list.updateListEntries(client.ctx(), listEntryIds, values)),
   );
 
-  server.registerTool(
+  tool(
     "remove_list_entry",
     {
       title: "Remove an entry from your AniList list",
@@ -630,9 +623,7 @@ export function registerListTools(server: McpServer, client: AniListClient): voi
       outputSchema: z.object({ result: deleteResult }),
       annotations: deleteToolAnnotations,
     },
-    ({ listEntryId }) =>
-      guard(async () =>
-        jsonResult({ result: await list.deleteListEntry(client.ctx(), listEntryId) }),
-      ),
+    async ({ listEntryId }) =>
+      jsonResult({ result: await list.deleteListEntry(client.ctx(), listEntryId) }),
   );
 }

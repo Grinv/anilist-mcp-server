@@ -38,3 +38,36 @@ test("first acquisition never waits, even when the clock starts at/near the epoc
   const realElapsed = performance.now() - realStart;
   assert.ok(realElapsed < 20, `first acquisition should not really wait, took ${realElapsed}ms`);
 });
+
+test("a cancelled waiter rejects at once and neither stalls the queue nor lets the next jump ahead", async () => {
+  const limiter = new RateLimiter(150);
+  const start = Date.now();
+  await limiter.acquire(); // t=0
+  const second = limiter.acquire(); // sleeps until ~150
+  const call = new AbortController();
+  const cancelled = limiter.acquire(call.signal); // queued behind `second`
+  const third = limiter.acquire(); // queued behind `cancelled`
+  call.abort();
+  await assert.rejects(cancelled, { name: "ApiError", code: "cancelled" });
+  assert.ok(Date.now() - start < 50, "the cancelled waiter must not wait out its turn");
+  await second;
+  await third;
+  const elapsed = Date.now() - start;
+  // `third` takes the slot `cancelled` gave up: ~300ms, not ~150 (jumping
+  // ahead of `second`'s spacing) nor ~450 (a slot wasted on the cancelled one).
+  assert.ok(elapsed >= 280 && elapsed < 420, `third should start at ~300ms, got ${elapsed}ms`);
+});
+
+test("a waiter cancelled while sleeping out the interval gives its slot back", async () => {
+  const limiter = new RateLimiter(150);
+  const start = Date.now();
+  await limiter.acquire();
+  const call = new AbortController();
+  const cancelled = limiter.acquire(call.signal); // sleeping until ~150
+  const next = limiter.acquire();
+  setTimeout(() => call.abort(), 20);
+  await assert.rejects(cancelled, { code: "cancelled" });
+  await next;
+  const elapsed = Date.now() - start;
+  assert.ok(elapsed >= 130 && elapsed < 270, `next should take the ~150ms slot, got ${elapsed}ms`);
+});

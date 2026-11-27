@@ -1,9 +1,8 @@
 import { z } from "zod";
-import type { McpServer } from "@modelcontextprotocol/server";
 import type { AniListClient } from "../clients/anilist.ts";
+import type { RegisterTool } from "./register.ts";
 import * as notification from "../clients/anilist/notification.ts";
 import { jsonResult } from "../lib/result.ts";
-import { guard } from "./guard.ts";
 import { idOnly, paginationFields } from "./outputSchemas.ts";
 // Re-exported so the tools that build notification schemas keep importing it
 // from here, while clients/anilist/enums.ts stays the single definition.
@@ -13,8 +12,8 @@ import { NOTIFICATION_TYPES } from "../clients/anilist/enums.ts";
 // idOnly matches the NOTIFICATION_FIELDS union (20 possible notification
 // types); only `id` is common to every branch — the rest depends on `type`.
 
-export function registerNotificationTools(server: McpServer, client: AniListClient): void {
-  server.registerTool(
+export function registerNotificationTools(tool: RegisterTool, client: AniListClient): void {
+  tool(
     "get_notifications",
     {
       title: "Get your AniList notifications",
@@ -69,16 +68,14 @@ export function registerNotificationTools(server: McpServer, client: AniListClie
         openWorldHint: true,
       },
     },
-    ({ type_in, markAsRead, page, perPage }) =>
-      guard(async () =>
-        jsonResult({
-          results: await notification.getNotifications(client.ctx(), {
-            typeIn: type_in,
-            resetNotificationCount: markAsRead,
-            page,
-            perPage,
-          }),
+    async ({ type_in, markAsRead, page, perPage }) =>
+      jsonResult({
+        results: await notification.getNotifications(client.ctx(), {
+          typeIn: type_in,
+          resetNotificationCount: markAsRead,
+          page,
+          perPage,
         }),
-      ),
+      }),
   );
 }

@@ -1,10 +1,9 @@
 import { z } from "zod";
-import type { McpServer } from "@modelcontextprotocol/server";
 import type { AniListClient } from "../clients/anilist.ts";
+import type { RegisterTool } from "./register.ts";
 import * as activity from "../clients/anilist/activity.ts";
 import { ACTIVITY_TYPES } from "../clients/anilist/enums.ts";
 import { jsonResult } from "../lib/result.ts";
-import { guard } from "./guard.ts";
 import {
   pageInfoSchema,
   deleteResult,
@@ -113,8 +112,8 @@ const savedMessageActivity = z
   .object({ id: anilistId, message: z.string().nullish(), siteUrl: z.httpUrl().nullish() })
   .loose();
 
-export function registerActivityTools(server: McpServer, client: AniListClient): void {
-  server.registerTool(
+export function registerActivityTools(tool: RegisterTool, client: AniListClient): void {
+  tool(
     "get_activity",
     {
       title: "Get an activity post",
@@ -130,11 +129,10 @@ export function registerActivityTools(server: McpServer, client: AniListClient):
       outputSchema: z.object({ activity: activityItem }),
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
-    ({ id }) =>
-      guard(async () => jsonResult({ activity: await activity.getActivity(client.ctx(), id) })),
+    async ({ id }) => jsonResult({ activity: await activity.getActivity(client.ctx(), id) }),
   );
 
-  server.registerTool(
+  tool(
     "get_user_activity",
     {
       title: "Get a user's activity feed",
@@ -182,19 +180,17 @@ export function registerActivityTools(server: McpServer, client: AniListClient):
       }),
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
-    ({ user, type, createdAfter, createdBefore, page, perPage }) =>
-      guard(async () =>
-        jsonResult({
-          results: await activity.getUserActivity(client.ctx(), user, page, perPage, {
-            type,
-            createdAfter,
-            createdBefore,
-          }),
+    async ({ user, type, createdAfter, createdBefore, page, perPage }) =>
+      jsonResult({
+        results: await activity.getUserActivity(client.ctx(), user, page, perPage, {
+          type,
+          createdAfter,
+          createdBefore,
         }),
-      ),
+      }),
   );
 
-  server.registerTool(
+  tool(
     "post_text_activity",
     {
       title: "Post a text activity",
@@ -217,13 +213,11 @@ export function registerActivityTools(server: McpServer, client: AniListClient):
         openWorldHint: true,
       },
     },
-    ({ text, id }) =>
-      guard(async () =>
-        jsonResult({ activity: await activity.postTextActivity(client.ctx(), text, id) }),
-      ),
+    async ({ text, id }) =>
+      jsonResult({ activity: await activity.postTextActivity(client.ctx(), text, id) }),
   );
 
-  server.registerTool(
+  tool(
     "post_message_activity",
     {
       title: "Post a message activity",
@@ -255,15 +249,13 @@ export function registerActivityTools(server: McpServer, client: AniListClient):
         openWorldHint: true,
       },
     },
-    ({ recipientId, message, id }) =>
-      guard(async () =>
-        jsonResult({
-          activity: await activity.postMessageActivity(client.ctx(), recipientId, message, id),
-        }),
-      ),
+    async ({ recipientId, message, id }) =>
+      jsonResult({
+        activity: await activity.postMessageActivity(client.ctx(), recipientId, message, id),
+      }),
   );
 
-  server.registerTool(
+  tool(
     "delete_activity",
     {
       title: "Delete an activity post",
@@ -281,7 +273,6 @@ export function registerActivityTools(server: McpServer, client: AniListClient):
       outputSchema: z.object({ result: deleteResult }),
       annotations: deleteToolAnnotations,
     },
-    ({ id }) =>
-      guard(async () => jsonResult({ result: await activity.deleteActivity(client.ctx(), id) })),
+    async ({ id }) => jsonResult({ result: await activity.deleteActivity(client.ctx(), id) }),
   );
 }

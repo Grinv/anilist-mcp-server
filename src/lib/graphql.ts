@@ -9,6 +9,7 @@ import { HttpClient } from "./http.ts";
 import { ApiError, classifyStatus, type ApiErrorCode } from "./errors.ts";
 import type { TtlCache } from "./cache.ts";
 import type { Logger } from "./logger.ts";
+import { callSignal, raceAbort } from "./cancel.ts";
 
 export interface GraphQLClientOptions {
   endpoint: string;
@@ -16,7 +17,7 @@ export interface GraphQLClientOptions {
   timeoutMs?: number;
   retries?: number;
   /** Called before each request; lets callers throttle (rate limiting). */
-  beforeRequest?: () => Promise<void> | void;
+  beforeRequest?: (signal?: AbortSignal) => Promise<void> | void;
   /** Caches successful `query` (never `mutation`) responses. Keyed by query +
    *  variables + the actual auth header value, since the same query can
    *  legitimately return different viewer-relative fields (isFavourite,
@@ -52,6 +53,7 @@ interface GraphQLResponse<T> {
 export class GraphQLClient {
   readonly #http: HttpClient;
   readonly #cache: TtlCache<unknown> | undefined;
+  readonly #logger: Logger;
 
   constructor(opts: GraphQLClientOptions) {
     this.#http = new HttpClient({
@@ -63,6 +65,7 @@ export class GraphQLClient {
       defaultHeaders: { "Content-Type": "application/json" },
     });
     this.#cache = opts.cache;
+    this.#logger = opts.logger;
   }
 
   /** Run a query or mutation. `authHeader` (e.g. `{Authorization: "Bearer …"}`)
@@ -75,20 +78,32 @@ export class GraphQLClient {
     options?: GraphQLRequestOptions,
   ): Promise<T> {
     const isMutation = /^\s*mutation\b/i.test(query);
+    // The current tool call's cancellation (lib/cancel.ts).
+    const signal = callSignal.getStore();
     if (this.#cache && !options?.skipCache && !isMutation) {
       // Keyed by the actual auth header value (not just its presence) — two
       // different accounts' bearer tokens must never collide on one entry,
       // or switching accounts mid-process would serve the previous
       // account's cached private/viewer-relative data.
       const key = JSON.stringify({ query, variables, auth: authHeader?.Authorization ?? null });
-      return this.#cache.wrap(key, () => this.#send<T>(query, variables, authHeader)) as Promise<T>;
+      // TtlCache shares one in-flight fetch among identical reads, so that
+      // fetch runs under no caller's signal (one cancelling must not abort it
+      // for the others); each caller just stops waiting on its own abort.
+      return raceAbort(
+        this.#cache.wrap(key, () => this.#send<T>(query, variables, authHeader)) as Promise<T>,
+        signal,
+      );
     }
     // A mutation is only retried on a 429: a timeout or 5xx doesn't mean
     // AniList didn't apply the write, and replaying it re-flips a Toggle*
     // (undoing the favourite/follow) or posts a duplicate activity/thread.
     try {
-      return await this.#send<T>(query, variables, authHeader, isMutation);
+      return await this.#send<T>(query, variables, authHeader, isMutation, signal);
     } catch (err) {
+      if (isMutation && err instanceof ApiError && err.code === "cancelled") {
+        // The SDK sends no result for a cancelled call, so only the log knows.
+        this.#logger.info("mutation cancelled, outcome unknown");
+      }
       if (isMutation && err instanceof ApiError && OUTCOME_UNKNOWN.has(err.code)) {
         throw new ApiError({
           code: err.code,
@@ -121,6 +136,7 @@ export class GraphQLClient {
     variables: Record<string, unknown>,
     authHeader?: Record<string, string>,
     nonIdempotent = false,
+    signal?: AbortSignal,
   ): Promise<T> {
     const body = JSON.stringify({ query, variables: stripUndefined(variables) });
     // A non-2xx response (429, an outage 403, ...) is already an ApiError from
@@ -133,6 +149,7 @@ export class GraphQLClient {
       body,
       ...(authHeader ? { headers: authHeader } : {}),
       nonIdempotent,
+      signal,
     });
     if (res === null || typeof res !== "object") {
       throw new ApiError({

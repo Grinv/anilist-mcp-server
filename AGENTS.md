@@ -25,7 +25,8 @@ src/
   config.ts       # env → validated Config (zod)
   version.ts      # VERSION constant, kept in sync with package.json (checked by a test)
   lib/            # http, rateLimit, cache, tokenStore, oauthLogin, errors, logger,
-                  # result, graphql (the GraphQL request/error-mapping layer)
+                  # result, cancel (the call's AbortSignal), graphql (the
+                  # GraphQL request/error-mapping layer)
   clients/        # anilist.ts — thin AniListClient facade (auth/config/login,
                   # exposes ctx(): AniListContext); anilist/*.ts — one file per
                   # domain (activity, context, favourites, fields, list, media,
@@ -51,7 +52,8 @@ src/
                   # clients/ can't import from tools/.
   tools/          # misc.ts, activity.ts, list.ts, media.ts, notification.ts,
                   # people.ts, recommendation.ts, search.ts, thread.ts, user.ts,
-                  # login.ts, guard.ts (never-throw wrapper), outputSchemas.ts
+                  # login.ts, register.ts (the one tool-registration wrapper),
+                  # outputSchemas.ts
                   # (shared output-schema fragments, incl. anilistId and its
                   # per-domain branded variants — mediaId, listEntryId, etc.)
   prompts.ts      # MCP Prompts: multi-step plans that orchestrate the read tools
@@ -108,12 +110,24 @@ npm run check:api      # live upstream health-check (network)
   Tests may run on newer Node but must not raise the runtime floor.
 - Log to **stderr only** — stdout is the MCP protocol channel. Use the logger;
   it redacts credentials.
-- Tool failures return `{ isError: true }` results (via `guard()` / `result.ts`),
-  never thrown — the agent should get an actionable message. Mutation/personal
-  tools are gated by `ctx.requireAuth()` (defined in `clients/anilist/context.ts`,
+- **Tool failures: throw, never build an error result.** Every tool is
+  registered through `tools/register.ts`'s `tool(name, config, handler)`
+  (each `registerXTools()` gets it instead of the McpServer); it runs the
+  handler with the call's cancellation signal, checks a success against the
+  tool's own `outputSchema` (a mismatch is `internal`) and turns any throw
+  into an `isError` result via `lib/result.ts`. Throw `ApiError` for an
+  upstream failure (facts only: code, status, AniList's own `detail`) and
+  `ToolError` for this server's own decisions (`invalid_arguments`,
+  `login_required`, `not_configured`) with the sentence the model should
+  read; anything else is `internal`. `toProblem()` is the only place
+  tool-facing prose is written: the text is the problem's `detail`, and the
+  RFC 9457 problem rides in `_meta["io.github.Grinv.anilist-mcp-server/problem"]`
+  with no `structuredContent`. A new code needs a `PROBLEMS` entry and a
+  `docs/errors.md` section (a test checks both). Mutation/personal tools are
+  gated by `ctx.requireAuth()` (defined in `clients/anilist/context.ts`,
   implemented in `clients/anilist.ts`), called at the top of each domain
-  function that needs it — it throws an actionable `ApiError` before any
-  network call rather than making a doomed authenticated request.
+  function that needs it — it throws `login_required` before any network
+  call rather than making a doomed authenticated request.
 - Write tool `description`s and per-field `.describe()` text for the calling
   model: explain when to use a tool and what each parameter means. Check new
   or edited descriptions against the `tool-description-check` skill (Glama's

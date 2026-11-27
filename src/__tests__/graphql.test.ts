@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { GraphQLClient } from "../lib/graphql.ts";
 import { ApiError } from "../lib/errors.ts";
 import { TtlCache } from "../lib/cache.ts";
+import { callSignal } from "../lib/cancel.ts";
 import { silentLogger, jsonResponse, mockFetch, installFetch } from "./helpers.ts";
 
 function client(): GraphQLClient {
@@ -239,4 +240,49 @@ test("a 200 with data null, or a body that isn't a JSON object, is bad_response"
       JSON.stringify(body),
     );
   }
+});
+
+test("one caller cancelling a shared read doesn't abort it for another caller", async (t) => {
+  const { promise: gate, resolve: open } = Promise.withResolvers<void>();
+  let fetchSignal: AbortSignal | undefined | null = null;
+  const mock = mockFetch(async (_url, init) => {
+    fetchSignal = init?.signal;
+    await gate;
+    return jsonResponse({ data: { ok: true } });
+  });
+  installFetch(t, mock);
+  const c = cachedClient();
+  const one = new AbortController();
+  const a = callSignal.run(one.signal, () => c.request("query{ok}"));
+  const b = callSignal.run(new AbortController().signal, () => c.request("query{ok}"));
+  one.abort();
+  await assert.rejects(a, { name: "ApiError", code: "cancelled" });
+  open();
+  assert.deepEqual(await b, { ok: true });
+  assert.equal(mock.calls.length, 1, "identical reads share one fetch");
+  assert.equal((fetchSignal as AbortSignal | null)?.aborted, false, "the shared fetch ran on");
+});
+
+test("a cancelled mutation aborts its fetch, isn't retried, and logs that its outcome is unknown", async (t) => {
+  const mock = mockFetch(
+    (_url, init) =>
+      new Promise<Response>((_resolve, reject) => {
+        init?.signal?.addEventListener("abort", () =>
+          reject(new DOMException("aborted", "AbortError")),
+        );
+      }),
+  );
+  installFetch(t, mock);
+  const infos: string[] = [];
+  const c = new GraphQLClient({
+    endpoint: "https://graphql.example.test",
+    logger: { ...silentLogger(), info: (m: string) => infos.push(m) },
+    retries: 2,
+  });
+  const call = new AbortController();
+  const pending = callSignal.run(call.signal, () => c.request("mutation{x}"));
+  call.abort();
+  await assert.rejects(pending, { name: "ApiError", code: "cancelled" });
+  assert.equal(mock.calls.length, 1);
+  assert.deepEqual(infos, ["mutation cancelled, outcome unknown"]);
 });

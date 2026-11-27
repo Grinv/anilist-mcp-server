@@ -18,6 +18,7 @@ import { registerUserTools } from "./tools/user.ts";
 import { registerNotificationTools } from "./tools/notification.ts";
 import { registerLoginTools } from "./tools/login.ts";
 import { registerPrompts } from "./prompts.ts";
+import { toolRegistrar } from "./tools/register.ts";
 import { VERSION } from "./version.ts";
 
 const INSTRUCTIONS =
@@ -57,17 +58,18 @@ export function buildServer(config: Config, logger: Logger): McpServer {
     },
   );
 
-  registerMiscTools(server, client);
-  registerActivityTools(server, client);
-  registerListTools(server, client);
-  registerMediaTools(server, client);
-  registerPeopleTools(server, client);
-  registerRecommendationTools(server, client);
-  registerSearchTools(server, client);
-  registerThreadTools(server, client);
-  registerUserTools(server, client);
-  registerNotificationTools(server, client);
-  registerLoginTools(server, client);
+  const tool = toolRegistrar(server, logger);
+  registerMiscTools(tool, client);
+  registerActivityTools(tool, client);
+  registerListTools(tool, client);
+  registerMediaTools(tool, client);
+  registerPeopleTools(tool, client);
+  registerRecommendationTools(tool, client);
+  registerSearchTools(tool, client);
+  registerThreadTools(tool, client);
+  registerUserTools(tool, client);
+  registerNotificationTools(tool, client);
+  registerLoginTools(tool, client);
   registerPrompts(server);
   return server;
 }

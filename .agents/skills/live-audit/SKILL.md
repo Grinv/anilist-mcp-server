@@ -16,7 +16,8 @@ sync the useful parts both ways rather than letting them drift.
 Goal: find real bugs/inaccuracies in the live tool behavior (against the real
 AniList API) and in the source, then fix what's found. Read `AGENTS.md` first
 if it's not already in context — every fix must follow its conventions
-(`guard()`/never-throw, `requireAuth()` placement, `outputSchema` precision,
+(throw `ApiError`/`ToolError`, never build an error result; `requireAuth()`
+placement, `outputSchema` precision,
 commit author/no-Co-Authored-By, etc.).
 
 This assumes the server is already reachable as an MCP connection in your
@@ -58,8 +59,8 @@ nothing already-covered regressed. It says nothing about whether the
 interesting logic (error/exception branches especially) is covered at all.
 Every bug found in past passes of this audit lived in exactly what line
 coverage doesn't scrutinize: `assertFound()`-style null checks with no test
-ever passing a bad ID, `messageFor()`'s per-error-code branches with no test
-checking the specific detail message survives, and edge-case argument
+ever passing a bad ID, the old `messageFor()`'s per-error-code branches with
+no test checking the specific detail message survived, and edge-case argument
 combinations (a prompt arg that's individually optional but breaks when
 given alone). `npm run test:coverage` (~80% gate) measures lines executed,
 not whether the assertions on those lines are meaningful. When reviewing or
@@ -190,9 +191,16 @@ supports concurrent subagents/background tasks.
 - **Unicode / adult / locale / injection-shaped input**: emoji-only queries,
   non-Latin scripts, `sfw`/adult-content toggling, whitespace-only terms,
   SQL/GraphQL-injection-shaped strings (e.g. `"OR 1=1 --"` — this has
-  triggered an upstream WAF 403 on search tools before; check the error
-  message doesn't misattribute it to account permissions just because a
-  token happened to be attached).
+  triggered an upstream WAF 403 on search tools before; check it comes back
+  as problem type `blocked`, not `forbidden`, so it isn't misattributed to
+  account permissions just because a token happened to be attached).
+- **Every `isError` result's shape**: each one a tool produced must carry
+  `_meta["io.github.Grinv.anilist-mcp-server/problem"]` whose `type` is a
+  section that exists in `docs/errors.md`, a `detail` equal to the result
+  text, and no `structuredContent`. The only `isError` results without a
+  problem are the SDK's own input-validation errors ("Input validation
+  error: …"). An "Output validation error" text from the SDK, or a
+  `detail` quoting a raw HTML/JSON body, is a finding.
 - **Live prompt testing**: run the `prompt-check` skill against every prompt
   in `src/prompts.ts` — a static read comparing prompt text against tool
   names/params misses argument-handling bugs that only show up when actually
@@ -336,11 +344,11 @@ Sweep every file under `src/tools/`, `src/clients/anilist/`, and `src/lib/`
   by branching a function-based `error` on `issue.input === undefined`
   (confirmed live: `get_media({type:"ANIME", ids: 1.5})` and omitting `ids`
   entirely produced the identical "ids is required" message).
-- `lib/result.ts`'s `messageFor()` — does every error code's branch actually
-  surface the specific `err.message` a caller threw, or does a generic
-  per-code string silently discard it? Check the templated branches too
-  (401/403 dropped it until 0.9.x) — and trigger one live: a WAF 403 body is
-  a Cloudflare HTML page, not JSON.
+- `lib/result.ts`'s `toProblem()` — does every code that can carry AniList's
+  reason surface it as `AniList said: "…"` (tool descriptions quote AniList
+  texts such as "The selected row order is invalid.")? Is `retryable` true
+  only where a retry can help (never for an outcome-unknown write)? Trigger
+  one live: a WAF 403 body is a Cloudflare HTML page, not JSON.
 - 401/403 messages that confidently blame "the account" or "the token" even
   when the same code path can also fire for an unrelated reason (e.g. an
   upstream WAF/security block) — especially on tools/queries that don't
@@ -350,8 +358,10 @@ Sweep every file under `src/tools/`, `src/clients/anilist/`, and `src/lib/`
   template (confirmed: `HTTP ${status} ${statusText}: ${detail}` printed
   "HTTP 404 : Not Found." wherever `statusText` came back empty, which is
   runtime-dependent, so a direct `dist/index.js` run can hide it).
-- AGENTS.md convention violations: tool failures must go through `guard()`,
-  never throw raw; mutation/personal tools must call `ctx.requireAuth()`
+- AGENTS.md convention violations: a tool registered other than through
+  `tools/register.ts`'s `tool()`, a handler building its own error result
+  instead of throwing, an own argument check thrown as `ApiError` instead of
+  `ToolError`; mutation/personal tools must call `ctx.requireAuth()`
   before any network call; `outputSchema` must model top-level keys
   precisely but stay loose enough not to reject a legitimate real API
   response shape.

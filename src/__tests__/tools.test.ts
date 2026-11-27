@@ -1,6 +1,13 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { jsonResponse, mockFetch, installFetch, connectServer } from "./helpers.ts";
+import {
+  jsonResponse,
+  mockFetch,
+  installFetch,
+  connectServer,
+  problemCode,
+  problemOf,
+} from "./helpers.ts";
 
 test("search_media tool returns structured results end-to-end", async (t) => {
   const mock = mockFetch(() =>
@@ -381,6 +388,7 @@ test("get_media requires exactly one of ids/malIds, and still distinguishes a wr
   // exactly-one-of without a refinement the JSON-Schema bridge must carry.
   const neither = await client.callTool({ name: "get_media", arguments: { type: "ANIME" } });
   assert.equal(neither.isError, true);
+  assert.equal(problemCode(neither), "invalid_arguments");
   assert.match(textOf(neither), /Pass `ids` \(AniList IDs\) or `malIds`/);
 
   const both = await client.callTool({
@@ -491,8 +499,9 @@ test("personal/mutation tools without a token return an actionable error instead
   for (const [name, args] of mutationTools) {
     const res = await client.callTool({ name, arguments: args });
     assert.equal(res.isError, true, `${name} should require a token`);
+    assert.equal(problemCode(res), "login_required", name);
     const text = (res.content as { type: "text"; text: string }[])[0]!.text;
-    assert.match(text, /login_anilist|ANILIST_ACCESS_TOKEN/);
+    assert.match(text, /login_anilist/);
   }
   assert.equal(mock.calls.length, 0, "no gated tool should ever reach fetch without a token");
 });
@@ -593,6 +602,7 @@ test("update_list_entry with only listEntryId is rejected before any write", asy
   t.after(close);
   const res = await client.callTool({ name: "update_list_entry", arguments: { listEntryId: 1 } });
   assert.equal(res.isError, true);
+  assert.equal(problemCode(res), "invalid_arguments");
   assert.equal(mock.calls.length, 0);
 });
 
@@ -611,13 +621,11 @@ test("get_studio: when both id and name are given, id takes precedence", async (
   assert.equal(mock.calls.length, 1);
 });
 
-test("add_list_entry surfaces a clean tool error (not a crash) when AniList returns a null mutation field", async (t) => {
-  // Settles a question an earlier review round could only mark PLAUSIBLE:
+test("add_list_entry reports a null mutation field as internal, not the SDK's raw zod dump", async (t) => {
   // SaveMediaListEntry is nullable per AniList's schema; savedListEntry's
-  // outputSchema requires a non-null object. The MCP SDK validates
-  // structuredContent against outputSchema in the same try/catch as tool
-  // execution, so this must still come back as isError: true with SOME
-  // message — not an uncaught exception or a broken connection.
+  // outputSchema requires a non-null object. The registration wrapper checks
+  // the result against the outputSchema itself, so the mismatch is an
+  // internal problem with stable text, not "Output validation error: …".
   const mock = mockFetch(() => jsonResponse({ data: { SaveMediaListEntry: null } }));
   installFetch(t, mock);
   const { client, close } = await connectServer({
@@ -627,8 +635,9 @@ test("add_list_entry surfaces a clean tool error (not a crash) when AniList retu
   t.after(close);
   const res = await client.callTool({ name: "add_list_entry", arguments: { mediaId: 1 } });
   assert.equal(res.isError, true, "a null mutation field must still degrade to a tool error");
-  const text = (res.content as { type: "text"; text: string }[])[0]?.text;
-  assert.ok(text && text.length > 0, "the agent must receive some actionable text, not nothing");
+  assert.equal(problemCode(res), "internal");
+  const text = (res.content as { type: "text"; text: string }[])[0]!.text;
+  assert.doesNotMatch(text, /Output validation error|invalid_type/);
 });
 
 test("login_anilist reports a clear error when no client id/secret is configured", async (t) => {
@@ -636,6 +645,7 @@ test("login_anilist reports a clear error when no client id/secret is configured
   t.after(close);
   const res = await client.callTool({ name: "login_anilist", arguments: {} });
   assert.equal(res.isError, true);
+  assert.equal(problemCode(res), "not_configured");
   const text = (res.content as { type: "text"; text: string }[])[0]!.text;
   assert.match(text, /ANILIST_CLIENT_ID/);
 });
@@ -778,6 +788,7 @@ test("every tool rejects an unknown argument instead of silently dropping it", a
   });
   assert.equal(res.isError, true);
   assert.match((res.content as { text: string }[])[0]!.text, /Unrecognized key: "genre_in"/);
+  assert.equal(problemOf(res), undefined, "the SDK's own input-validation error has no problem");
   assert.equal(mock.calls.length, 0);
 });
 
@@ -793,6 +804,7 @@ test("update_user with no fields and an unknown activity type are rejected befor
 
   const empty = await client.callTool({ name: "update_user", arguments: {} });
   assert.equal(empty.isError, true);
+  assert.equal(problemCode(empty), "invalid_arguments");
   assert.match(textOf(empty), /No values to apply/);
 
   // A union's default error is a bare "Invalid input"; this one names the choices.

@@ -1,9 +1,8 @@
 import { z } from "zod";
-import type { McpServer } from "@modelcontextprotocol/server";
 import type { AniListClient } from "../clients/anilist.ts";
+import type { RegisterTool } from "./register.ts";
 import * as misc from "../clients/anilist/misc.ts";
 import { jsonResult } from "../lib/result.ts";
-import { guard } from "./guard.ts";
 import {
   pageInfoSchema,
   anilistId,
@@ -103,8 +102,8 @@ const studioObject = z
   })
   .loose();
 
-export function registerMiscTools(server: McpServer, client: AniListClient): void {
-  server.registerTool(
+export function registerMiscTools(tool: RegisterTool, client: AniListClient): void {
+  tool(
     "get_genres",
     {
       title: "Get genres",
@@ -116,7 +115,7 @@ export function registerMiscTools(server: McpServer, client: AniListClient): voi
       outputSchema: z.object({ genres: z.array(z.string()) }),
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
-    () => guard(async () => jsonResult({ genres: await misc.getGenres(client.ctx()) })),
+    async () => jsonResult({ genres: await misc.getGenres(client.ctx()) }),
   );
 
   const mediaTagsPageInfo = pageInfoSchema.extend({
@@ -138,7 +137,7 @@ export function registerMiscTools(server: McpServer, client: AniListClient): voi
       ),
   });
 
-  server.registerTool(
+  tool(
     "get_media_tags",
     {
       title: "Get media tags",
@@ -158,11 +157,10 @@ export function registerMiscTools(server: McpServer, client: AniListClient): voi
       }),
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
-    ({ page, perPage }) =>
-      guard(async () => jsonResult(await misc.getMediaTags(client.ctx(), page, perPage))),
+    async ({ page, perPage }) => jsonResult(await misc.getMediaTags(client.ctx(), page, perPage)),
   );
 
-  server.registerTool(
+  tool(
     "get_site_statistics",
     {
       title: "Get AniList site statistics",
@@ -184,13 +182,11 @@ export function registerMiscTools(server: McpServer, client: AniListClient): voi
       outputSchema: z.object({ statistics: siteStatisticsObject }),
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
-    ({ page, perPage }) =>
-      guard(async () =>
-        jsonResult({ statistics: await misc.getSiteStatistics(client.ctx(), page, perPage) }),
-      ),
+    async ({ page, perPage }) =>
+      jsonResult({ statistics: await misc.getSiteStatistics(client.ctx(), page, perPage) }),
   );
 
-  server.registerTool(
+  tool(
     "get_studio",
     {
       title: "Get studio",
@@ -237,16 +233,14 @@ export function registerMiscTools(server: McpServer, client: AniListClient): voi
       outputSchema: z.object({ studio: studioObject }),
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
-    ({ id, name, page, perPage, isMain, onList }) =>
-      guard(async () =>
-        jsonResult({
-          studio: await misc.getStudio(client.ctx(), id ?? name!, {
-            page,
-            perPage,
-            isMain,
-            onList,
-          }),
+    async ({ id, name, page, perPage, isMain, onList }) =>
+      jsonResult({
+        studio: await misc.getStudio(client.ctx(), id ?? name!, {
+          page,
+          perPage,
+          isMain,
+          onList,
         }),
-      ),
+      }),
   );
 }

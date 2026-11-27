@@ -6,6 +6,7 @@ import { Client, InMemoryTransport } from "@modelcontextprotocol/client";
 import { createLogger, type Logger } from "../lib/logger.ts";
 import { buildServer } from "../server.ts";
 import { loadConfig, type Config } from "../config.ts";
+import { PROBLEM_META_KEY, type Problem } from "../lib/result.ts";
 
 // A path that's guaranteed not to exist on disk, so a test that doesn't care
 // about token persistence never silently reads (or races on) whatever real
@@ -65,6 +66,20 @@ export function mockFetch(
  * undo it themselves. */
 export function installFetch(t: TestContext, mock: FetchMock): void {
   t.mock.method(globalThis, "fetch", mock.fn);
+}
+
+/** The problem on an isError tool result (lib/result.ts), or undefined when it
+ *  carries none (e.g. the SDK's own input-validation error). Asserts the
+ *  shape every problem result shares: no structuredContent. */
+export function problemOf(res: { _meta?: Record<string, unknown> }): Problem | undefined {
+  if ("structuredContent" in res)
+    throw new Error("an error result must not carry structuredContent");
+  return res._meta?.[PROBLEM_META_KEY] as Problem | undefined;
+}
+
+/** The problem type's code: the `#fragment` of its docs/errors.md URI. */
+export function problemCode(res: { _meta?: Record<string, unknown> }): string | undefined {
+  return problemOf(res)?.type.split("#")[1];
 }
 
 /** Build the server and connect an in-memory client for end-to-end tool tests. */

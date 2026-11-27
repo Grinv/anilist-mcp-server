@@ -1,9 +1,8 @@
 import { z } from "zod";
-import type { McpServer } from "@modelcontextprotocol/server";
 import type { AniListClient } from "../clients/anilist.ts";
+import type { RegisterTool } from "./register.ts";
 import * as people from "../clients/anilist/people.ts";
 import { jsonResult } from "../lib/result.ts";
-import { guard } from "./guard.ts";
 import {
   anilistId,
   characterId,
@@ -127,8 +126,8 @@ const birthdayObject = z
   })
   .loose();
 
-export function registerPeopleTools(server: McpServer, client: AniListClient): void {
-  server.registerTool(
+export function registerPeopleTools(tool: RegisterTool, client: AniListClient): void {
+  tool(
     "get_character",
     {
       title: "Get character details",
@@ -147,15 +146,13 @@ export function registerPeopleTools(server: McpServer, client: AniListClient): v
       outputSchema: z.object({ character: characterObject }),
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
-    ({ id, page, perPage, type, onList }) =>
-      guard(async () =>
-        jsonResult({
-          character: await people.getCharacter(client.ctx(), id, { page, perPage, type, onList }),
-        }),
-      ),
+    async ({ id, page, perPage, type, onList }) =>
+      jsonResult({
+        character: await people.getCharacter(client.ctx(), id, { page, perPage, type, onList }),
+      }),
   );
 
-  server.registerTool(
+  tool(
     "get_staff",
     {
       title: "Get staff member details",
@@ -184,15 +181,13 @@ export function registerPeopleTools(server: McpServer, client: AniListClient): v
       outputSchema: z.object({ staff: staffObject }),
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
-    ({ id, page, perPage, type, onList, credits }) =>
-      guard(async () =>
-        jsonResult({
-          staff: await people.getStaff(client.ctx(), id, { page, perPage, type, onList, credits }),
-        }),
-      ),
+    async ({ id, page, perPage, type, onList, credits }) =>
+      jsonResult({
+        staff: await people.getStaff(client.ctx(), id, { page, perPage, type, onList, credits }),
+      }),
   );
 
-  server.registerTool(
+  tool(
     "get_todays_birthdays",
     {
       title: "Get today's birthday characters or staff",
@@ -216,11 +211,9 @@ export function registerPeopleTools(server: McpServer, client: AniListClient): v
       }),
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
-    ({ kind, includeDescription, page, perPage }) =>
-      guard(async () =>
-        jsonResult(
-          await people.getTodaysBirthdays(client.ctx(), kind, includeDescription, page, perPage),
-        ),
+    async ({ kind, includeDescription, page, perPage }) =>
+      jsonResult(
+        await people.getTodaysBirthdays(client.ctx(), kind, includeDescription, page, perPage),
       ),
   );
 }

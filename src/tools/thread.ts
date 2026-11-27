@@ -1,9 +1,8 @@
 import { z } from "zod";
-import type { McpServer } from "@modelcontextprotocol/server";
 import type { AniListClient } from "../clients/anilist.ts";
+import type { RegisterTool } from "./register.ts";
 import * as thread from "../clients/anilist/thread.ts";
 import { jsonResult } from "../lib/result.ts";
-import { guard } from "./guard.ts";
 import {
   pageInfoSchema,
   deleteResult,
@@ -83,8 +82,8 @@ const threadComment = z
   })
   .loose();
 
-export function registerThreadTools(server: McpServer, client: AniListClient): void {
-  server.registerTool(
+export function registerThreadTools(tool: RegisterTool, client: AniListClient): void {
+  tool(
     "get_thread",
     {
       title: "Get a forum thread",
@@ -100,10 +99,10 @@ export function registerThreadTools(server: McpServer, client: AniListClient): v
       outputSchema: z.object({ thread: threadObject }),
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
-    ({ id }) => guard(async () => jsonResult({ thread: await thread.getThread(client.ctx(), id) })),
+    async ({ id }) => jsonResult({ thread: await thread.getThread(client.ctx(), id) }),
   );
 
-  server.registerTool(
+  tool(
     "get_thread_comments",
     {
       title: "Get comments on a forum thread",
@@ -128,15 +127,13 @@ export function registerThreadTools(server: McpServer, client: AniListClient): v
       }),
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
-    ({ threadId, page, perPage }) =>
-      guard(async () =>
-        jsonResult({
-          comments: await thread.getThreadComments(client.ctx(), threadId, page, perPage),
-        }),
-      ),
+    async ({ threadId, page, perPage }) =>
+      jsonResult({
+        comments: await thread.getThreadComments(client.ctx(), threadId, page, perPage),
+      }),
   );
 
-  server.registerTool(
+  tool(
     "post_thread",
     {
       title: "Post a forum thread",
@@ -231,21 +228,19 @@ export function registerThreadTools(server: McpServer, client: AniListClient): v
         openWorldHint: true,
       },
     },
-    ({ title, body, categories, mediaCategories, sticky, locked, id }) =>
-      guard(async () =>
-        jsonResult({
-          thread: await thread.postThread(client.ctx(), title, body, {
-            id,
-            categories,
-            mediaCategories,
-            sticky,
-            locked,
-          }),
+    async ({ title, body, categories, mediaCategories, sticky, locked, id }) =>
+      jsonResult({
+        thread: await thread.postThread(client.ctx(), title, body, {
+          id,
+          categories,
+          mediaCategories,
+          sticky,
+          locked,
         }),
-      ),
+      }),
   );
 
-  server.registerTool(
+  tool(
     "post_thread_comment",
     {
       title: "Post a comment on a forum thread",
@@ -286,18 +281,16 @@ export function registerThreadTools(server: McpServer, client: AniListClient): v
         openWorldHint: true,
       },
     },
-    ({ threadId, comment, parentCommentId, id }) =>
-      guard(async () =>
-        jsonResult({
-          comment: await thread.postThreadComment(client.ctx(), threadId, comment, {
-            id,
-            parentCommentId,
-          }),
+    async ({ threadId, comment, parentCommentId, id }) =>
+      jsonResult({
+        comment: await thread.postThreadComment(client.ctx(), threadId, comment, {
+          id,
+          parentCommentId,
         }),
-      ),
+      }),
   );
 
-  server.registerTool(
+  tool(
     "delete_thread",
     {
       title: "Delete a forum thread",
@@ -309,11 +302,10 @@ export function registerThreadTools(server: McpServer, client: AniListClient): v
       outputSchema: z.object({ result: deleteResult }),
       annotations: deleteToolAnnotations,
     },
-    ({ id }) =>
-      guard(async () => jsonResult({ result: await thread.deleteThread(client.ctx(), id) })),
+    async ({ id }) => jsonResult({ result: await thread.deleteThread(client.ctx(), id) }),
   );
 
-  server.registerTool(
+  tool(
     "delete_thread_comment",
     {
       title: "Delete a comment on a forum thread",
@@ -326,7 +318,6 @@ export function registerThreadTools(server: McpServer, client: AniListClient): v
       outputSchema: z.object({ result: deleteResult }),
       annotations: deleteToolAnnotations,
     },
-    ({ id }) =>
-      guard(async () => jsonResult({ result: await thread.deleteThreadComment(client.ctx(), id) })),
+    async ({ id }) => jsonResult({ result: await thread.deleteThreadComment(client.ctx(), id) }),
   );
 }

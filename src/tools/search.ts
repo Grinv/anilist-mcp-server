@@ -1,10 +1,9 @@
 import { z } from "zod";
-import type { McpServer } from "@modelcontextprotocol/server";
 import type { AniListClient } from "../clients/anilist.ts";
+import type { RegisterTool } from "./register.ts";
 import * as search from "../clients/anilist/search.ts";
 import { ToolError } from "../lib/errors.ts";
 import { jsonResult } from "../lib/result.ts";
-import { guard } from "./guard.ts";
 import { activityItem, activityTypeFilter } from "./activity.ts";
 import {
   pageInfoSchema,
@@ -353,8 +352,8 @@ function adultFilter(sfw: boolean, isAdult: boolean | undefined): boolean | unde
 // Exception: search_activity reuses activity.ts's activityItem, since its
 // query already selects the full ACTIVITY_FRAGMENT, not just `id`.
 
-export function registerSearchTools(server: McpServer, client: AniListClient): void {
-  server.registerTool(
+export function registerSearchTools(tool: RegisterTool, client: AniListClient): void {
+  tool(
     "search_media",
     {
       title: "Search anime/manga",
@@ -373,55 +372,53 @@ export function registerSearchTools(server: McpServer, client: AniListClient): v
       }),
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
-    (args) =>
-      guard(async () =>
-        jsonResult({
-          results: await search.searchMedia(client.ctx(), args.type, {
-            term: args.term,
-            page: args.page,
-            perPage: args.perPage,
-            sort: args.sort,
-            includeDescription: args.includeDescription,
-            filter: {
-              isAdult: adultFilter(args.sfw, args.isAdult),
-              genre_in: args.genres,
-              format_in: args.format_in,
-              status_in: args.status_in,
-              season: args.season,
-              seasonYear: args.seasonYear,
-              tag_in: args.tag_in,
-              onList: args.onList,
-              weightedScore_greater: args.weightedScore_greater,
-              weightedScore_lesser: args.weightedScore_lesser,
-              popularity_greater: args.popularity_greater,
-              popularity_lesser: args.popularity_lesser,
-              episodes_greater: args.episodes_greater,
-              episodes_lesser: args.episodes_lesser,
-              startDate_greater: args.startDate_greater,
-              startDate_lesser: args.startDate_lesser,
-              endDate_greater: args.endDate_greater,
-              endDate_lesser: args.endDate_lesser,
-              source_in: args.source_in,
-              genre_not_in: args.genre_not_in,
-              tag_not_in: args.tag_not_in,
-              minimumTagRank: args.minimumTagRank,
-              format_not_in: args.format_not_in,
-              status_not_in: args.status_not_in,
-              countryOfOrigin: args.countryOfOrigin,
-              duration_greater: args.duration_greater,
-              duration_lesser: args.duration_lesser,
-              chapters_greater: args.chapters_greater,
-              chapters_lesser: args.chapters_lesser,
-              volumes_greater: args.volumes_greater,
-              volumes_lesser: args.volumes_lesser,
-              licensedBy_in: args.licensedBy_in,
-            },
-          }),
+    async (args) =>
+      jsonResult({
+        results: await search.searchMedia(client.ctx(), args.type, {
+          term: args.term,
+          page: args.page,
+          perPage: args.perPage,
+          sort: args.sort,
+          includeDescription: args.includeDescription,
+          filter: {
+            isAdult: adultFilter(args.sfw, args.isAdult),
+            genre_in: args.genres,
+            format_in: args.format_in,
+            status_in: args.status_in,
+            season: args.season,
+            seasonYear: args.seasonYear,
+            tag_in: args.tag_in,
+            onList: args.onList,
+            weightedScore_greater: args.weightedScore_greater,
+            weightedScore_lesser: args.weightedScore_lesser,
+            popularity_greater: args.popularity_greater,
+            popularity_lesser: args.popularity_lesser,
+            episodes_greater: args.episodes_greater,
+            episodes_lesser: args.episodes_lesser,
+            startDate_greater: args.startDate_greater,
+            startDate_lesser: args.startDate_lesser,
+            endDate_greater: args.endDate_greater,
+            endDate_lesser: args.endDate_lesser,
+            source_in: args.source_in,
+            genre_not_in: args.genre_not_in,
+            tag_not_in: args.tag_not_in,
+            minimumTagRank: args.minimumTagRank,
+            format_not_in: args.format_not_in,
+            status_not_in: args.status_not_in,
+            countryOfOrigin: args.countryOfOrigin,
+            duration_greater: args.duration_greater,
+            duration_lesser: args.duration_lesser,
+            chapters_greater: args.chapters_greater,
+            chapters_lesser: args.chapters_lesser,
+            volumes_greater: args.volumes_greater,
+            volumes_lesser: args.volumes_lesser,
+            licensedBy_in: args.licensedBy_in,
+          },
         }),
-      ),
+      }),
   );
 
-  server.registerTool(
+  tool(
     "search_character",
     {
       title: "Search characters",
@@ -440,21 +437,19 @@ export function registerSearchTools(server: McpServer, client: AniListClient): v
       }),
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
-    ({ term, page, perPage, includeDescription }) =>
-      guard(async () =>
-        jsonResult({
-          results: await search.searchCharacter(
-            client.ctx(),
-            term,
-            page,
-            perPage,
-            includeDescription,
-          ),
-        }),
-      ),
+    async ({ term, page, perPage, includeDescription }) =>
+      jsonResult({
+        results: await search.searchCharacter(
+          client.ctx(),
+          term,
+          page,
+          perPage,
+          includeDescription,
+        ),
+      }),
   );
 
-  server.registerTool(
+  tool(
     "search_staff",
     {
       title: "Search staff",
@@ -473,15 +468,13 @@ export function registerSearchTools(server: McpServer, client: AniListClient): v
       }),
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
-    ({ term, page, perPage, includeDescription }) =>
-      guard(async () =>
-        jsonResult({
-          results: await search.searchStaff(client.ctx(), term, page, perPage, includeDescription),
-        }),
-      ),
+    async ({ term, page, perPage, includeDescription }) =>
+      jsonResult({
+        results: await search.searchStaff(client.ctx(), term, page, perPage, includeDescription),
+      }),
   );
 
-  server.registerTool(
+  tool(
     "search_studio",
     {
       title: "Search studios",
@@ -501,13 +494,11 @@ export function registerSearchTools(server: McpServer, client: AniListClient): v
       }),
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
-    ({ term, page, perPage }) =>
-      guard(async () =>
-        jsonResult({ results: await search.searchStudio(client.ctx(), term, page, perPage) }),
-      ),
+    async ({ term, page, perPage }) =>
+      jsonResult({ results: await search.searchStudio(client.ctx(), term, page, perPage) }),
   );
 
-  server.registerTool(
+  tool(
     "search_user",
     {
       title: "Search users",
@@ -527,15 +518,13 @@ export function registerSearchTools(server: McpServer, client: AniListClient): v
       }),
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
-    ({ term, page, perPage, includeDescription }) =>
-      guard(async () =>
-        jsonResult({
-          results: await search.searchUser(client.ctx(), term, page, perPage, includeDescription),
-        }),
-      ),
+    async ({ term, page, perPage, includeDescription }) =>
+      jsonResult({
+        results: await search.searchUser(client.ctx(), term, page, perPage, includeDescription),
+      }),
   );
 
-  server.registerTool(
+  tool(
     "search_thread",
     {
       title: "Search forum threads",
@@ -577,22 +566,20 @@ export function registerSearchTools(server: McpServer, client: AniListClient): v
       }),
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
-    ({ term, categoryId, mediaCategoryId, page, perPage }) =>
-      guard(async () =>
-        jsonResult({
-          results: await search.searchThread(
-            client.ctx(),
-            term,
-            categoryId,
-            mediaCategoryId,
-            page,
-            perPage,
-          ),
-        }),
-      ),
+    async ({ term, categoryId, mediaCategoryId, page, perPage }) =>
+      jsonResult({
+        results: await search.searchThread(
+          client.ctx(),
+          term,
+          categoryId,
+          mediaCategoryId,
+          page,
+          perPage,
+        ),
+      }),
   );
 
-  server.registerTool(
+  tool(
     "search_activity",
     {
       title: "Search activity feed",
@@ -648,15 +635,13 @@ export function registerSearchTools(server: McpServer, client: AniListClient): v
       }),
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
-    ({ user, type, isFollowing, createdAfter, createdBefore, page, perPage }) =>
-      guard(async () =>
-        jsonResult({
-          results: await search.searchActivity(client.ctx(), user, type, page, perPage, {
-            after: createdAfter,
-            before: createdBefore,
-            isFollowing,
-          }),
+    async ({ user, type, isFollowing, createdAfter, createdBefore, page, perPage }) =>
+      jsonResult({
+        results: await search.searchActivity(client.ctx(), user, type, page, perPage, {
+          after: createdAfter,
+          before: createdBefore,
+          isFollowing,
         }),
-      ),
+      }),
   );
 }

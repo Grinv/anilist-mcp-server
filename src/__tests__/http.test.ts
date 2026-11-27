@@ -257,3 +257,33 @@ test("a success status with an empty or non-JSON body is bad_response", async (t
     );
   }
 });
+
+test("the retry backoff is abortable: a cancel during it fails at once as cancelled", async (t) => {
+  const mock = mockFetch(() => jsonResponse({ errors: [{ message: "x" }] }, { status: 503 }));
+  installFetch(t, mock);
+  const call = new AbortController();
+  const started = Date.now();
+  const pending = client({ retries: 2 }).requestJson("x", { signal: call.signal });
+  setTimeout(() => call.abort(), 50); // first backoff is ~500ms
+  await assert.rejects(pending, { name: "ApiError", code: "cancelled" });
+  assert.ok(Date.now() - started < 300, "must not wait out the backoff");
+  assert.equal(mock.calls.length, 1);
+});
+
+test("beforeRequest gets the caller's signal, so a throttled wait is abortable too", async (t) => {
+  installFetch(
+    t,
+    mockFetch(() => jsonResponse({ ok: true })),
+  );
+  let seen: AbortSignal | undefined;
+  const http = new HttpClient({
+    baseUrl: "https://example.test/api",
+    logger: silentLogger(),
+    beforeRequest: (signal) => {
+      seen = signal;
+    },
+  });
+  const call = new AbortController();
+  await http.requestJson("x", { signal: call.signal });
+  assert.equal(seen, call.signal);
+});

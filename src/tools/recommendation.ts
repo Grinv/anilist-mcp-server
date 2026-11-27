@@ -1,9 +1,8 @@
 import { z } from "zod";
-import type { McpServer } from "@modelcontextprotocol/server";
 import type { AniListClient } from "../clients/anilist.ts";
+import type { RegisterTool } from "./register.ts";
 import * as recommendation from "../clients/anilist/recommendation.ts";
 import { jsonResult } from "../lib/result.ts";
-import { guard } from "./guard.ts";
 import {
   anilistId,
   mediaId,
@@ -74,8 +73,8 @@ const recommendationNode = z
   })
   .loose();
 
-export function registerRecommendationTools(server: McpServer, client: AniListClient): void {
-  server.registerTool(
+export function registerRecommendationTools(tool: RegisterTool, client: AniListClient): void {
+  tool(
     "get_recommendation",
     {
       title: "Get a recommendation by ID",
@@ -95,13 +94,11 @@ export function registerRecommendationTools(server: McpServer, client: AniListCl
       outputSchema: z.object({ recommendation: recommendationObject }),
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
-    ({ id }) =>
-      guard(async () =>
-        jsonResult({ recommendation: await recommendation.getRecommendation(client.ctx(), id) }),
-      ),
+    async ({ id }) =>
+      jsonResult({ recommendation: await recommendation.getRecommendation(client.ctx(), id) }),
   );
 
-  server.registerTool(
+  tool(
     "get_recommendations_for_media",
     {
       title: "Get recommendations for a title",
@@ -139,17 +136,15 @@ export function registerRecommendationTools(server: McpServer, client: AniListCl
       }),
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
-    ({ mediaId, page, perPage, excludeInList }) =>
-      guard(async () =>
-        jsonResult({
-          recommendations: await recommendation.getRecommendationsForMedia(
-            client.ctx(),
-            mediaId,
-            page,
-            perPage,
-            excludeInList,
-          ),
-        }),
-      ),
+    async ({ mediaId, page, perPage, excludeInList }) =>
+      jsonResult({
+        recommendations: await recommendation.getRecommendationsForMedia(
+          client.ctx(),
+          mediaId,
+          page,
+          perPage,
+          excludeInList,
+        ),
+      }),
   );
 }

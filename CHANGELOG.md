@@ -27,6 +27,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Report a malformed tool result as an internal error, saying when a write already applied, instead of a schema dump. [d442e1d](https://github.com/Grinv/anilist-mcp-server/commit/d442e1d) [f52bb09](https://github.com/Grinv/anilist-mcp-server/commit/f52bb09)
 - Warn that a write may have applied when AniList answers it with an unreadable response, so it isn't repeated. [d7369f3](https://github.com/Grinv/anilist-mcp-server/commit/d7369f3)
 - Stop blaming the account for a 403 on a request sent without a token. [d7369f3](https://github.com/Grinv/anilist-mcp-server/commit/d7369f3)
+- Keep cached results when `get_notifications` runs, instead of re-fetching them from AniList's reduced rate limit. [e9982e0](https://github.com/Grinv/anilist-mcp-server/commit/e9982e0)
 - Log unexpected errors with their stack, and mask bare tokens in the log. [be76493](https://github.com/Grinv/anilist-mcp-server/commit/be76493)
 
 ## [0.11.1] - 2026-11-27

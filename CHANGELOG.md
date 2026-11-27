@@ -19,6 +19,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- Report an unknown list-entry id on `update_list_entry`/`update_list_entries` as not found, not as an invalid request. [ae82510](https://github.com/Grinv/anilist-mcp-server/commit/ae82510)
 - Stop a tool call's AniList requests and retries when the client cancels it. [d442e1d](https://github.com/Grinv/anilist-mcp-server/commit/d442e1d) [f52bb09](https://github.com/Grinv/anilist-mcp-server/commit/f52bb09)
 - Say to log in again when AniList rejects the token, instead of calling the request invalid. [8191dea](https://github.com/Grinv/anilist-mcp-server/commit/8191dea)
 - Tell AniList's outage, its firewall block and a real permission denial apart, each with its own advice. [64d702c](https://github.com/Grinv/anilist-mcp-server/commit/64d702c)

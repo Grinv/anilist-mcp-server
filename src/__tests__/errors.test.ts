@@ -70,3 +70,11 @@ test("redact masks a bare JWT (AniList's token format) and inspect-style credent
   assert.equal(redact("{ access_token: 'TOK' }"), "{ access_token: '***' }");
   assert.equal(redact("eyJ alone is fine"), "eyJ alone is fine");
 });
+
+test("AniList's 400 'Invalid token' is a credentials problem, not a bad request", () => {
+  // The body AniList returns for a bad or expired token (captured live 2026-11-27).
+  const body = '{"data":null,"errors":[{"message":"Invalid token","status":400}]}';
+  assert.equal(classifyStatus(400, body), "unauthorized");
+  assert.equal(classifyStatus(400, "Invalid token"), "unauthorized"); // a 200's embedded errors[]
+  assert.equal(classifyStatus(400, '{"errors":[{"message":"validation"}]}'), "bad_request");
+});

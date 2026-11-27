@@ -1945,14 +1945,16 @@ test("a digit-string user that isn't found says it was looked up as a username",
   for (const [name, call] of calls) {
     await assert.rejects(call, (err: unknown) => {
       assert.ok(err instanceof ApiError && err.code === "not_found", name);
-      assert.match(err.message, /User not found\. "7640432" was looked up as a username/, name);
-      assert.match(err.message, /pass it as a number/, name);
+      // AniList's words stay its own; the hint is this server's note.
+      assert.equal(err.detail, "User not found", name);
+      assert.match(err.note ?? "", /"7640432" was looked up as a username/, name);
+      assert.match(err.note ?? "", /pass it as a number/, name);
       return true;
     });
   }
   // A real username keeps the plain message.
   await assert.rejects(
     () => user.getUserProfile(client.ctx(), "Grinv"),
-    (err: unknown) => err instanceof ApiError && !/looked up as a username/.test(err.message),
+    (err: unknown) => err instanceof ApiError && err.note === undefined,
   );
 });

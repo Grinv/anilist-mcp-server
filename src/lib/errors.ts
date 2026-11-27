@@ -26,6 +26,9 @@ export interface ApiErrorOptions {
   /** AniList's own (short) reason, e.g. a GraphQL errors[].message with its
    *  validation details or an HTML page's <title>, for the tool-facing text. */
   detail?: string;
+  /** This server's own sentence about the occurrence (e.g. which id wasn't
+   *  found), shown as is — never attributed to AniList like `detail`. */
+  note?: string;
   status?: number;
   /** Override KIND[code].transient for one occurrence. */
   retryable?: boolean;
@@ -45,6 +48,7 @@ export class ApiError extends Error {
   readonly status: number | undefined;
   readonly retryable: boolean;
   readonly detail: string | undefined;
+  readonly note: string | undefined;
   readonly retryAfterMs: number | undefined;
   readonly authenticated: boolean | undefined;
   readonly writeMayHaveApplied: boolean;
@@ -56,6 +60,7 @@ export class ApiError extends Error {
     this.status = opts.status;
     this.retryable = opts.retryable ?? KIND[opts.code].transient;
     this.detail = opts.detail;
+    this.note = opts.note;
     this.retryAfterMs = opts.retryAfterMs;
     this.authenticated = opts.authenticated;
     this.writeMayHaveApplied = opts.writeMayHaveApplied ?? false;
@@ -106,6 +111,9 @@ export function classifyStatus(status: number, body = ""): ApiErrorCode {
   }
   if (status === 404) return "not_found";
   if (status === 429) return "rate_limited";
+  // AniList answers a bad or expired token with 400 "Invalid token", not 401
+  // (confirmed live 2026-11-27): it is a credentials problem, not a bad request.
+  if (status === 400 && /Invalid token/.test(body)) return "unauthorized";
   if (status === 400 || status === 405 || status === 422) return "bad_request";
   if (status >= 500) return "server_error";
   return "unknown";
@@ -118,7 +126,7 @@ export function classifyStatus(status: number, body = ""): ApiErrorCode {
  *  errors with a real HTTP 404 instead. */
 export function assertFound<T>(value: T | null | undefined, sentence: string): T {
   if (value === null || value === undefined) {
-    throw new ApiError({ code: "not_found", message: sentence, detail: sentence });
+    throw new ApiError({ code: "not_found", message: sentence, note: sentence });
   }
   return value;
 }

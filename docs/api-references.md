@@ -90,6 +90,11 @@ before changing `src/clients/anilist/*.ts` or `src/lib/graphql.ts`.
 - AniList is not currently accepting rate-limit-raise requests for most apps
   (email `contact@anilist.co` if this ever becomes a blocker).
 
+- **A bad or expired token is a `400`, not a `401`**: `{"data":null,"errors":[{"message":"Invalid token","status":400}]}`
+  (confirmed live 2026-11-27, also on public queries that need no token).
+  `classifyStatus()` maps it to `unauthorized`, so the tool says to run
+  `login_anilist` instead of "the request was invalid".
+
 ## API stability / outage behavior
 
 <https://docs.anilist.co/guide/considerations>

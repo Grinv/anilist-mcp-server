@@ -140,6 +140,7 @@ export function toProblem(err: unknown, logger: Logger): Problem {
       detail: [
         `${title}${status}.`,
         err.code === "unauthorized" && !err.authenticated ? LOG_IN : advice,
+        err.note,
         err.writeMayHaveApplied ? OUTCOME_UNKNOWN : undefined,
         retryable ? (retryAfter ? `Please retry in ${retryAfter} s.` : RETRY) : undefined,
         // One status can mean several things, so AniList's reason is always shown.

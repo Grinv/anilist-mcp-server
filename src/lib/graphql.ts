@@ -110,6 +110,7 @@ export class GraphQLClient {
           message: err.message,
           status: err.status,
           detail: err.detail,
+          note: err.note,
           retryable: err.retryable,
           retryAfterMs: err.retryAfterMs,
           authenticated: err.authenticated,

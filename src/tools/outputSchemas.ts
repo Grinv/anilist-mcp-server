@@ -140,18 +140,18 @@ export const filmographyOnListField = z
 /** The `isFavourite` viewer field every favouritable domain object exposes
  *  (media, character, staff, studio) — same shape, same confirmed-live
  *  read-after-write lag on AniList's own backend (docs/api-references.md's
- *  "viewer fields have a brief read-after-write lag" entry): a re-check via
- *  the matching get_* tool right after toggle_favourite can briefly still
- *  show the pre-toggle value. This server's own cache is correctly cleared;
+ *  "viewer fields have a read-after-write lag" entry): a re-check via
+ *  the matching get_* tool right after toggle_favourite can still show the
+ *  pre-toggle value for 15+ seconds. This server's own cache is correctly cleared;
  *  the staleness comes from AniList itself. */
 export const favouriteOut = (kind: string) =>
   z
     .boolean()
     .nullish()
     .describe(
-      `[Requires login] Whether this ${kind} is in the caller's favourites. Has a brief ` +
+      `[Requires login] Whether this ${kind} is in the caller's favourites. Has a ` +
         "read-after-write lag on AniList's own backend — confirmed live, a re-check right " +
-        "after toggle_favourite can briefly still show the pre-toggle value.",
+        "after toggle_favourite can still show the pre-toggle value for 15+ seconds.",
     );
 
 // AniList sometimes returns explicit `null` (not just omitting the field) for

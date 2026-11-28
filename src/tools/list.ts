@@ -479,7 +479,8 @@ export function registerListTools(tool: RegisterTool, client: AniListClient): vo
       description:
         "[Requires login] Update an existing entry on the authenticated user's own AniList " +
         "list by its list-entry ID (NOT the media ID — get it from get_user_list, or from " +
-        "add_list_entry's response). Only set the fields you want to change. Updating MANY " +
+        "add_list_entry's response); an unknown entry ID errors as not found. Only " +
+        "set the fields you want to change. Updating MANY " +
         "entries to the SAME values? Use update_list_entries instead — one request rather than " +
         "one per entry. The response echoes what AniList actually stored, so check it rather " +
         "than assuming the write landed verbatim. It includes `customLists`/`advancedScores` " +

@@ -6,6 +6,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-11-28
+
 ### Added
 
 - Attach an RFC 9457 problem (`type`, `title`, `detail`, `retryable`, …) to every tool error in `_meta`, documented in `docs/errors.md`. [a29f426](https://github.com/Grinv/anilist-mcp-server/commit/a29f426)

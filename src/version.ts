@@ -1,5 +1,5 @@
 // Kept in sync with package.json by a unit test (see __tests__/version.test.ts).
-export const VERSION = "0.11.1";
+export const VERSION = "0.12.0";
 
 export const REPO_URL = "https://github.com/Grinv/anilist-mcp-server";
 

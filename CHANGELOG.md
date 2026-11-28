@@ -19,6 +19,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- Correct `search_media`'s genre/tag filter descriptions: matching ignores case, and an unknown name is dropped rather than emptying the results. [0c0a0ff](https://github.com/Grinv/anilist-mcp-server/commit/0c0a0ff)
+- Describe `get_site_statistics`' `count` as the running site total and `change` as the daily difference. [0c0a0ff](https://github.com/Grinv/anilist-mcp-server/commit/0c0a0ff)
 - Report an unknown list-entry id on `update_list_entry`/`update_list_entries` as not found, not as an invalid request. [ae82510](https://github.com/Grinv/anilist-mcp-server/commit/ae82510)
 - Stop a tool call's AniList requests and retries when the client cancels it. [d442e1d](https://github.com/Grinv/anilist-mcp-server/commit/d442e1d) [f52bb09](https://github.com/Grinv/anilist-mcp-server/commit/f52bb09)
 - Say to log in again when AniList rejects the token, instead of calling the request invalid. [8191dea](https://github.com/Grinv/anilist-mcp-server/commit/8191dea)

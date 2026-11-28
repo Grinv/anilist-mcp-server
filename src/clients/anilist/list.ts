@@ -414,6 +414,8 @@ export async function saveListEntry(
       header,
     )
     .catch((err: unknown) => {
+      // Only an update names an entry id; an add (by mediaId) keeps AniList's verdict.
+      if (input.listEntryId === undefined) throw err;
       throw unknownIdAsNotFound(
         err,
         `No list entry ${input.listEntryId} was found on your list — it may have been deleted.`,

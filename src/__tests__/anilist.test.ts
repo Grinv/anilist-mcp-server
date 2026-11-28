@@ -1353,6 +1353,31 @@ test("update_list_entry/update_list_entries report an unknown entry id as not_fo
   }
 });
 
+test("add_list_entry keeps a 400 on its mediaId as bad_request, not not_found", async (t) => {
+  // Even if AniList's wording matched the unknown-id pattern, an add names no entry id.
+  const mock = mockFetch(() =>
+    jsonResponse(
+      {
+        errors: [
+          {
+            message: "validation",
+            status: 400,
+            validation: { id: ["The selected id is invalid."] },
+          },
+        ],
+        data: null,
+      },
+      { status: 400 },
+    ),
+  );
+  installFetch(t, mock);
+  const client = new AniListClient(testConfig({ ANILIST_ACCESS_TOKEN: "tok" }), silentLogger());
+  await assert.rejects(
+    list.saveListEntry(client.ctx(), { mediaId: id<MediaId>(2000000000), status: "PLANNING" }),
+    (err: unknown) => err instanceof ApiError && err.code === "bad_request",
+  );
+});
+
 test("isConfigured reflects the configured token", () => {
   assert.equal(new AniListClient(testConfig({}), silentLogger()).isConfigured(), false);
   assert.equal(

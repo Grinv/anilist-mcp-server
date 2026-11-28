@@ -314,7 +314,7 @@ export const ACTIVITY_FRAGMENT = `
 // ActivityMessageNotification.message isn't the message text itself — despite
 // the name, it's a nested MessageActivity object (AniList's own schema, not
 // this project's choice) — so it has to be selected one level deeper to
-// actually surface the DM text instead of coming back empty.
+// actually surface the message text instead of coming back empty.
 export const NOTIFICATION_FIELDS = `
   ... on AiringNotification { id type createdAt animeId episode contexts media { id title { romaji english } } }
   ... on FollowingNotification { id type createdAt userId context user { id name } }

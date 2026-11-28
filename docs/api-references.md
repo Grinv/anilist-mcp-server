@@ -392,7 +392,10 @@ anime's id>)` succeeded and added that id to the account's favourited
   call `requireAuth()` when it's set rather than return an unfiltered page.
 
 - `SaveTextActivity(id, text, locked)`, `SaveMessageActivity(id, message,
-recipientId, private, locked, asMod)`.
+recipientId, private, locked, asMod)`. A message activity saved without
+  `private` is public: confirmed live, an anonymous (no token) query of
+  `activities(userId:5)` returns other users' `MessageActivity` entries with
+  `isPrivate: false`.
 - **`ActivityType`**: `TEXT, ANIME_LIST, MANGA_LIST, MESSAGE, MEDIA_LIST`.
   Confirmed live: filtering `activities(type:MEDIA_LIST)` returns a mix of
   both `ANIME_LIST` and `MANGA_LIST` entries (a real server-side OR-match,
@@ -577,7 +580,10 @@ The categories field is required when id is not present.)`.
   `minimumTagRank` applies to both `tag_in` and `tag_not_in`;
   `countryOfOrigin` is case-sensitive (`"cn"` matches nothing);
   `licensedBy_in` is case-insensitive; an unknown name in `genre_not_in` is
-  a no-op while one in `genre_in` empties the results.
+  a no-op. Confirmed live 2026-11-28: `genre_in`/`tag_in` are
+  case-insensitive (`["action"]`, `["time loop"]` match), and an unknown
+  name next to a recognized one is ignored (`["Action","zzz"]` returns
+  Action titles); only a list of nothing but unknown names returns empty.
 - **`Page.threads(sort: [SEARCH_MATCH])` without a `search` term degrades to
   oldest-id-first** (threads 1, 2, 3 from 2014) — `search_thread` sorts a
   term-less browse by `REPLIED_AT_DESC` instead. `Page.activities`'
@@ -733,7 +739,7 @@ seasonYear`, plus many more (`weightedScore_greater`, `tag_in`, …) — see the
   `notification.ts`'s `getNotifications()` always calls `ctx.requireAuth()`.
 - **`ActivityMessageNotification.message` is not the message text** — despite
   the name, its type is `MessageActivity` (a full nested object), not
-  `String`. The actual DM text is one level deeper, at
+  `String`. The actual message text is one level deeper, at
   `message.message` (`MessageActivity.message`, itself an `asHtml`-taking
   field) — `NOTIFICATION_FIELDS`' `ActivityMessageNotification` fragment
   selects `message { id message(asHtml: false) siteUrl }` to surface it;

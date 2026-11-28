@@ -120,8 +120,9 @@ const mediaSearchInput = z.strictObject({
     .optional()
     .describe(
       "Restrict to entries matching ALL of these genre names (see get_genres for valid " +
-        "names) — an unrecognized genre name doesn't error, it just filters out all results, " +
-        "same silent-mismatch behavior as `format_in`/`tag_in` below.",
+        "names; case doesn't matter). An unrecognized name doesn't error: it is silently " +
+        "ignored next to recognized ones (a typo widens the match), and a list of only " +
+        "unrecognized names matches nothing (confirmed live).",
     ),
   format_in: z
     .array(z.enum(FORMATS))
@@ -153,10 +154,10 @@ const mediaSearchInput = z.strictObject({
     .array(z.string())
     .optional()
     .describe(
-      "Restrict to entries matching ALL of these exact tag names (see get_media_tags for valid " +
-        "names — unlike `genres`, tag names are case-sensitive and more specific, e.g. " +
-        '"Time Loop" or "Tragedy"). An unrecognized tag name doesn\'t error, it just silently ' +
-        "matches nothing (same behavior as `genres`/`format_in` above, confirmed live).",
+      "Restrict to entries matching ALL of these tag names (see get_media_tags for valid " +
+        'names; more specific than genres, e.g. "Time Loop"; case doesn\'t matter). An ' +
+        "unrecognized name behaves as in `genres`: ignored next to recognized ones, and a " +
+        "list of only unrecognized names matches nothing (confirmed live).",
     ),
   onList: z
     .boolean()

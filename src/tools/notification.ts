@@ -23,7 +23,7 @@ export function registerNotificationTools(tool: RegisterTool, client: AniListCli
         "media/staff/character data-submission updates. Every item has `id`, `type` and a " +
         "human-readable `context`/`contexts` string; the rest of the fields depend on `type` " +
         "(e.g. an AIRING item includes `media`/`episode`, a FOLLOWING item includes `user`, an " +
-        "ACTIVITY_MESSAGE item includes `message.message` — the actual DM text is nested one " +
+        "ACTIVITY_MESSAGE item includes `message.message` — the actual message text is nested one " +
         "level inside `message`).",
       inputSchema: z.strictObject({
         type_in: z
@@ -32,9 +32,8 @@ export function registerNotificationTools(tool: RegisterTool, client: AniListCli
           .optional()
           .describe(
             "Restrict to these notification types. Omit to get every type. This only filters " +
-              "what's returned here — whether a type is generated at all is controlled " +
-              "separately by the account's own notificationOptions (update_user); a type " +
-              "disabled there simply never appears, regardless of this filter.",
+              "what's returned here; it doesn't change the account's own notificationOptions " +
+              "(update_user).",
           ),
         markAsRead: z
           .boolean()

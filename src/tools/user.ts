@@ -422,10 +422,7 @@ export function registerUserTools(tool: RegisterTool, client: AniListClient): vo
             .string()
             .max(24)
             .optional()
-            .describe(
-              "Custom donator badge text, up to 24 characters per AniList's own schema (only " +
-                "takes effect on a donator account).",
-            ),
+            .describe("Custom donator badge text, up to 24 characters per AniList's own schema."),
           notificationOptions: z
             .array(
               z.object({

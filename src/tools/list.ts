@@ -186,8 +186,7 @@ const bulkValues = z.toZod<BulkListEntryValues>()(
       `New rewatch/reread count (per AniList's own schema, capped at ${REPEAT_MAX}).`,
     ),
     priority: priorityBounds.describe(
-      "New list priority (higher = more important; per AniList's own schema, capped at " +
-        `${PRIORITY_MAX}).`,
+      "New list priority (per AniList's own schema, capped at " + `${PRIORITY_MAX}).`,
     ),
     private: z.boolean().optional().describe("Hide/unhide every listed entry."),
     notes: notesBounds.describe(
@@ -418,8 +417,7 @@ export function registerListTools(tool: RegisterTool, client: AniListClient): vo
             `Number of times rewatched/reread (per AniList's own schema, capped at ${REPEAT_MAX}).`,
           ),
           priority: priorityBounds.describe(
-            "List priority (higher = more important; per AniList's own schema, capped at " +
-              `${PRIORITY_MAX}).`,
+            "List priority (per AniList's own schema, capped at " + `${PRIORITY_MAX}).`,
           ),
           private: z.boolean().optional().describe("Hide this entry from your public list."),
           notes: notesBounds.describe(
@@ -431,8 +429,7 @@ export function registerListTools(tool: RegisterTool, client: AniListClient): vo
             .optional()
             .describe(
               "Hide this entry from the public status-grouped list views (e.g. 'Watching') " +
-                "while still counting it in statistics — distinct from `private`, which hides " +
-                "the entry entirely.",
+                "— distinct from `private`, which hides the entry from everyone but you.",
             ),
           startedAt: fuzzyDate.optional().describe("Date you started."),
           completedAt: fuzzyDate.optional().describe("Date you completed."),
@@ -500,8 +497,7 @@ export function registerListTools(tool: RegisterTool, client: AniListClient): vo
             `New rewatch/reread count (per AniList's own schema, capped at ${REPEAT_MAX}).`,
           ),
           priority: priorityBounds.describe(
-            "New list priority (higher = more important; per AniList's own schema, capped at " +
-              `${PRIORITY_MAX}).`,
+            "New list priority (per AniList's own schema, capped at " + `${PRIORITY_MAX}).`,
           ),
           private: z.boolean().optional().describe("Hide/unhide this entry from your public list."),
           notes: notesBounds.describe(
@@ -512,8 +508,7 @@ export function registerListTools(tool: RegisterTool, client: AniListClient): vo
             .optional()
             .describe(
               "Hide/unhide this entry from the public status-grouped list views (e.g. 'Watching') " +
-                "while still counting it in statistics — distinct from `private`, which hides the " +
-                "entry entirely.",
+                "— distinct from `private`, which hides the entry from everyone but you.",
             ),
           startedAt: fuzzyDate.optional().describe("New start date."),
           completedAt: fuzzyDate.optional().describe("New completion date."),
@@ -577,7 +572,7 @@ export function registerListTools(tool: RegisterTool, client: AniListClient): vo
         "entry needs DIFFERENT values (this tool cannot vary them per entry), or when you need " +
         "to set `customLists`/`advancedScores`, which this tool deliberately doesn't accept. " +
         "Takes list-ENTRY ids (not media ids) — get them from get_user_list. The whole call is " +
-        "all-or-nothing: if any id is unknown or isn't yours, AniList rejects the request and " +
+        "all-or-nothing: if any id is unknown, AniList rejects the request and " +
         "applies NOTHING, so there is never a half-applied batch to clean up — but the error " +
         "does not say which id was at fault, so re-check the ids against get_user_list. " +
         "Returns a summary (how many were updated, and their ids), not the full entries.",
@@ -587,8 +582,7 @@ export function registerListTools(tool: RegisterTool, client: AniListClient): vo
           .nonempty()
           .describe(
             "The list ENTRY ids to update (not media ids), from get_user_list. Every id must " +
-              "exist and belong to you — one bad id fails the entire call without changing " +
-              "anything.",
+              "exist — one unknown id fails the entire call without changing anything.",
           ),
         ...bulkValues.shape,
       }),

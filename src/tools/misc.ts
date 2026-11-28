@@ -53,8 +53,8 @@ const statSeries = z
         z
           .object({
             date: z.number().nonnegative().nullish(),
-            count: z.int().nonnegative().nullish(),
-            change: z.int().nullish(),
+            count: z.int().nonnegative().nullish().describe("Running site total on this date."),
+            change: z.int().nullish().describe("Difference from the previous day's `count`."),
           })
           .loose(),
       )
@@ -146,8 +146,8 @@ export function registerMiscTools(tool: RegisterTool, client: AniListClient): vo
         "e.g. 'Time Skip', 'Tragedy', 'Reincarnation'), with category and adult-content flag. " +
         "There are ~425 tags total, so results are paginated — use `page`/`perPage` rather than " +
         "expecting them all in one response. Use this to look up a tag's exact name before " +
-        "passing it to search_media's `tag_in` — tag names are case-sensitive, and an " +
-        "unrecognized name doesn't error, it just silently matches nothing (confirmed live).",
+        "passing it to search_media's `tag_in`: an unrecognized name doesn't error, it is " +
+        "silently ignored (and a list of only unrecognized names matches nothing; confirmed live).",
       inputSchema: z.strictObject({
         ...paginationFields(25),
       }),
@@ -165,8 +165,9 @@ export function registerMiscTools(tool: RegisterTool, client: AniListClient): vo
     {
       title: "Get AniList site statistics",
       description:
-        "Get AniList's own site-wide statistics (new users/anime/manga daily counts), newest " +
-        "first. Useful for questions about AniList's growth/activity, not for anime data. " +
+        "Get AniList's own site-wide statistics, one node per day (newest first): each `count` " +
+        "is the running site total on that date and `change` the day-over-day difference. " +
+        "Useful for questions about AniList's growth/activity, not for anime data. " +
         "Defaults to the last 7 days; use `page`/`perPage` to go further back. Confirmed live " +
         "(bypassing this tool's own 25 cap): AniList's SiteStatistics field silently caps " +
         "`perPage` at 25 itself, so this tool's own limit doesn't lose you anything.",

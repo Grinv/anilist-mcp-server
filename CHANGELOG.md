@@ -19,9 +19,6 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
-- Correct `search_media`'s genre/tag filter descriptions: matching ignores case, and an unknown name is dropped rather than emptying the results. [0c0a0ff](https://github.com/Grinv/anilist-mcp-server/commit/0c0a0ff)
-- Describe `get_site_statistics`' `count` as the running site total and `change` as the daily difference. [0c0a0ff](https://github.com/Grinv/anilist-mcp-server/commit/0c0a0ff)
-- Report an unknown list-entry id on `update_list_entry`/`update_list_entries` as not found, not as an invalid request. [ae82510](https://github.com/Grinv/anilist-mcp-server/commit/ae82510)
 - Stop a tool call's AniList requests and retries when the client cancels it. [d442e1d](https://github.com/Grinv/anilist-mcp-server/commit/d442e1d) [f52bb09](https://github.com/Grinv/anilist-mcp-server/commit/f52bb09)
 - Say to log in again when AniList rejects the token, instead of calling the request invalid. [8191dea](https://github.com/Grinv/anilist-mcp-server/commit/8191dea)
 - Tell AniList's outage, its firewall block and a real permission denial apart, each with its own advice. [64d702c](https://github.com/Grinv/anilist-mcp-server/commit/64d702c)
@@ -32,6 +29,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Stop blaming the account for a 403 on a request sent without a token. [d7369f3](https://github.com/Grinv/anilist-mcp-server/commit/d7369f3)
 - Keep cached results when `get_notifications` runs, instead of re-fetching them from AniList's reduced rate limit. [e9982e0](https://github.com/Grinv/anilist-mcp-server/commit/e9982e0)
 - Log unexpected errors with their stack, and mask bare tokens in the log. [be76493](https://github.com/Grinv/anilist-mcp-server/commit/be76493)
+- Report an unknown list-entry id on `update_list_entry`/`update_list_entries` as not found, not as an invalid request. [ae82510](https://github.com/Grinv/anilist-mcp-server/commit/ae82510)
+- Correct `search_media`'s genre/tag filter descriptions: matching ignores case, and an unknown name is dropped rather than emptying the results. [0c0a0ff](https://github.com/Grinv/anilist-mcp-server/commit/0c0a0ff)
+- Describe `get_site_statistics`' `count` as the running site total and `change` as the daily difference. [0c0a0ff](https://github.com/Grinv/anilist-mcp-server/commit/0c0a0ff)
 
 ## [0.11.1] - 2026-11-27
 
